@@ -23,7 +23,7 @@ struct PatchProjectsView: View {
     // Free Fire On/Off States
     @AppStorage("ff_th_enabled") private var freeFireEnabled = false
     @AppStorage("ff_max_enabled") private var freeFireMaxEnabled = false
-    @AppStorage("admin_api_server_url") private var adminServerUrl = "http://127.0.0.1:5000"
+    @AppStorage("admin_api_server_url") private var adminServerUrl = "http://103.238.234.204:5000"
 
     private var filteredItems: [PatchLibraryItem] {
         let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -210,35 +210,38 @@ struct PatchProjectsView: View {
         onSync: @escaping () -> Void
     ) -> some View {
         VStack(alignment: .leading, spacing: 8) {
-            HStack(spacing: 10) {
-                ZStack {
-                    RoundedRectangle(cornerRadius: 3, style: .continuous)
-                        .fill(color.opacity(0.15))
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 3, style: .continuous)
-                                .stroke(color.opacity(0.35), lineWidth: 1)
-                        )
-                    Image(systemName: icon)
-                        .font(.system(size: 16, weight: .bold))
-                        .foregroundStyle(color)
-                }
-                .frame(width: 34, height: 34)
+            NavigationLink(destination: FreeFireDetailView(gameTitle: title, bundleID: bundleID)) {
+                HStack(spacing: 10) {
+                    ZStack {
+                        RoundedRectangle(cornerRadius: 3, style: .continuous)
+                            .fill(color.opacity(0.15))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 3, style: .continuous)
+                                    .stroke(color.opacity(0.35), lineWidth: 1)
+                            )
+                        Image(systemName: icon)
+                            .font(.system(size: 16, weight: .bold))
+                            .foregroundStyle(color)
+                    }
+                    .frame(width: 34, height: 34)
 
-                VStack(alignment: .leading, spacing: 1) {
-                    Text(title)
-                        .font(.system(size: 14, weight: .bold))
-                        .foregroundStyle(.primary)
-                    Text(bundleID)
-                        .font(.system(size: 10, weight: .medium, design: .monospaced))
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text(title)
+                            .font(.system(size: 14, weight: .bold))
+                            .foregroundStyle(.primary)
+                        Text(bundleID)
+                            .font(.system(size: 10, weight: .medium, design: .monospaced))
+                            .foregroundStyle(.secondary)
+                    }
+
+                    Spacer()
+
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 12, weight: .bold))
                         .foregroundStyle(.secondary)
                 }
-
-                Spacer()
-
-                Toggle("", isOn: isOn)
-                    .labelsHidden()
-                    .tint(AppTheme.accent)
             }
+            .buttonStyle(.plain)
 
             Divider()
 
@@ -254,11 +257,11 @@ struct PatchProjectsView: View {
 
                 Spacer()
 
-                Button(action: onSync) {
+                NavigationLink(destination: FreeFireDetailView(gameTitle: title, bundleID: bundleID)) {
                     HStack(spacing: 4) {
-                        Image(systemName: "arrow.triangle.2.circlepath")
+                        Image(systemName: "bolt.fill")
                             .font(.system(size: 10, weight: .bold))
-                        Text("SYNC ADMIN API")
+                        Text("MỞ MENU PATCH")
                             .font(.system(size: 10, weight: .bold, design: .monospaced))
                     }
                     .padding(.horizontal, 8)

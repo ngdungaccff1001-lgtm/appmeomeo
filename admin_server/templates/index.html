@@ -7,36 +7,29 @@
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;800&family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
     <style>
         :root {
-            --bg: #0d0f12;
-            --card-bg: #15181e;
-            --card-border: #232732;
+            --bg: #0b0d13;
+            --card-bg: #131620;
+            --card-border: #212638;
             --accent: #ff2a42;
             --accent-glow: rgba(255, 42, 66, 0.25);
             --ff-orange: #ff5e1e;
             --text: #f0f2f5;
             --text-dim: #8b949e;
             --green: #2ecc71;
-            --red: #e74c3c;
+            --cyan: #00d2d3;
+            --purple: #9b59b6;
         }
 
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-        }
-
+        * { box-sizing: border-box; margin: 0; padding: 0; }
         body {
             background-color: var(--bg);
             color: var(--text);
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            font-family: 'Inter', sans-serif;
             min-height: 100vh;
             padding: 24px;
         }
 
-        .container {
-            max-width: 1000px;
-            margin: 0 auto;
-        }
+        .container { max-width: 1050px; margin: 0 auto; }
 
         header {
             display: flex;
@@ -47,255 +40,115 @@
             margin-bottom: 24px;
         }
 
-        .brand {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-        }
+        .brand { display: flex; align-items: center; gap: 12px; }
 
         .logo-box {
-            width: 40px;
-            height: 40px;
+            width: 42px; height: 42px;
             background: linear-gradient(135deg, #ff2a42, #b30018);
-            border-radius: 4px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-weight: 800;
-            font-family: 'JetBrains Mono', monospace;
+            border-radius: 6px;
+            display: flex; align-items: center; justify-content: center;
+            font-weight: 800; font-family: 'JetBrains Mono', monospace;
             box-shadow: 0 0 15px var(--accent-glow);
         }
 
-        h1 {
-            font-size: 20px;
-            font-family: 'JetBrains Mono', monospace;
-            font-weight: 800;
-            letter-spacing: -0.5px;
-        }
-
+        h1 { font-size: 20px; font-family: 'JetBrains Mono', monospace; font-weight: 800; }
         .tag {
-            font-size: 11px;
-            font-family: 'JetBrains Mono', monospace;
-            background: rgba(255, 42, 66, 0.15);
-            color: var(--accent);
-            padding: 3px 8px;
-            border-radius: 2px;
-            border: 1px solid rgba(255, 42, 66, 0.3);
+            font-size: 11px; font-family: 'JetBrains Mono', monospace;
+            background: rgba(255, 42, 66, 0.15); color: var(--accent);
+            padding: 3px 8px; border-radius: 2px; border: 1px solid rgba(255, 42, 66, 0.3);
             margin-left: 8px;
         }
 
-        .grid {
-            display: grid;
-            grid-template-columns: 1fr 1.6fr;
-            gap: 20px;
-        }
-
-        @media (max-width: 768px) {
-            .grid {
-                grid-template-columns: 1fr;
-            }
-        }
+        .grid { display: grid; grid-template-columns: 1.1fr 1.5fr; gap: 20px; }
+        @media (max-width: 768px) { .grid { grid-template-columns: 1fr; } }
 
         .card {
             background: var(--card-bg);
             border: 1px solid var(--card-border);
-            border-radius: 4px;
+            border-radius: 6px;
             padding: 20px;
         }
 
         .card-header {
-            font-size: 13px;
-            font-weight: 700;
-            font-family: 'JetBrains Mono', monospace;
-            color: var(--text-dim);
-            text-transform: uppercase;
-            margin-bottom: 16px;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
+            font-size: 13px; font-weight: 700; font-family: 'JetBrains Mono', monospace;
+            color: var(--text-dim); text-transform: uppercase; margin-bottom: 16px;
+            display: flex; align-items: center; justify-content: space-between;
         }
 
-        .form-group {
-            margin-bottom: 14px;
-        }
+        .form-group { margin-bottom: 14px; }
+        label { display: block; font-size: 12px; font-weight: 600; margin-bottom: 6px; color: var(--text-dim); }
 
-        label {
-            display: block;
-            font-size: 12px;
-            font-weight: 600;
-            margin-bottom: 6px;
-            color: var(--text-dim);
-        }
-
-        input[type="text"], select, textarea {
-            width: 100%;
-            padding: 10px 12px;
-            background: #0d0f12;
-            border: 1px solid var(--card-border);
-            border-radius: 3px;
-            color: var(--text);
-            font-size: 13px;
-            font-family: inherit;
-            outline: none;
+        input[type="text"], select {
+            width: 100%; padding: 10px 12px;
+            background: #080a0f; border: 1px solid var(--card-border);
+            border-radius: 4px; color: var(--text); font-size: 13px; outline: none;
             transition: border 0.15s;
         }
 
-        input[type="text"]:focus, select:focus, textarea:focus {
+        input[type="text"]:focus, select:focus {
             border-color: var(--accent);
             box-shadow: 0 0 8px var(--accent-glow);
         }
 
         .upload-dropzone {
             border: 2px dashed var(--card-border);
-            border-radius: 4px;
-            padding: 24px;
-            text-align: center;
-            cursor: pointer;
-            transition: all 0.2s;
-            background: #090a0d;
+            border-radius: 6px; padding: 20px; text-align: center;
+            cursor: pointer; transition: all 0.2s; background: #07090d;
             margin-bottom: 14px;
         }
 
         .upload-dropzone:hover {
-            border-color: var(--accent);
-            background: rgba(255, 42, 66, 0.04);
+            border-color: var(--accent); background: rgba(255, 42, 66, 0.05);
         }
 
         .btn {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            gap: 6px;
-            background: var(--accent);
-            color: white;
-            border: none;
-            border-radius: 3px;
-            padding: 10px 16px;
-            font-size: 13px;
-            font-weight: 700;
-            font-family: 'JetBrains Mono', monospace;
-            cursor: pointer;
-            width: 100%;
-            transition: opacity 0.15s;
+            display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+            background: var(--accent); color: white; border: none; border-radius: 4px;
+            padding: 11px 16px; font-size: 13px; font-weight: 700;
+            font-family: 'JetBrains Mono', monospace; cursor: pointer; width: 100%;
         }
 
-        .btn:hover {
-            opacity: 0.9;
-        }
+        .btn:hover { opacity: 0.9; }
 
-        /* Patch Item Row */
-        .patch-list {
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-        }
-
+        /* Patch Item */
+        .patch-list { display: flex; flex-direction: column; gap: 10px; }
         .patch-item {
-            background: #0d0f12;
-            border: 1px solid var(--card-border);
-            border-radius: 3px;
-            padding: 12px 14px;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 10px;
+            background: #080a0f; border: 1px solid var(--card-border);
+            border-radius: 4px; padding: 12px 14px;
+            display: flex; align-items: center; justify-content: space-between; gap: 10px;
         }
 
-        .patch-info {
-            flex: 1;
-        }
-
-        .patch-name {
-            font-size: 14px;
-            font-weight: 700;
-            margin-bottom: 2px;
-        }
-
+        .patch-name { font-size: 14px; font-weight: 700; margin-bottom: 3px; }
         .patch-meta {
-            font-size: 11px;
-            font-family: 'JetBrains Mono', monospace;
-            color: var(--text-dim);
-            display: flex;
-            gap: 10px;
+            font-size: 11px; font-family: 'JetBrains Mono', monospace;
+            color: var(--text-dim); display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
         }
 
-        .game-badge {
-            background: rgba(255, 94, 30, 0.15);
-            color: var(--ff-orange);
-            padding: 1px 6px;
-            border-radius: 2px;
-            font-size: 10px;
-            font-weight: 700;
+        .badge-cat {
+            padding: 2px 6px; border-radius: 2px; font-size: 10px; font-weight: 700;
         }
+        .badge-aim { background: rgba(255, 94, 30, 0.18); color: var(--ff-orange); }
+        .badge-esp { background: rgba(0, 210, 211, 0.18); color: var(--cyan); }
+        .badge-skin { background: rgba(155, 89, 182, 0.18); color: var(--purple); }
 
-        .game-badge.max {
-            background: rgba(255, 42, 66, 0.15);
-            color: var(--accent);
-        }
-
-        /* Toggle Switch */
-        .switch {
-            position: relative;
-            display: inline-block;
-            width: 44px;
-            height: 22px;
-        }
-
-        .switch input {
-            opacity: 0;
-            width: 0;
-            height: 0;
-        }
-
+        /* Switch */
+        .switch { position: relative; display: inline-block; width: 44px; height: 22px; }
+        .switch input { opacity: 0; width: 0; height: 0; }
         .slider {
-            position: absolute;
-            cursor: pointer;
-            top: 0; left: 0; right: 0; bottom: 0;
-            background-color: #232732;
-            transition: .2s;
-            border-radius: 2px;
+            position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0;
+            background-color: #212638; transition: .2s; border-radius: 3px;
         }
-
         .slider:before {
-            position: absolute;
-            content: "";
-            height: 16px;
-            width: 18px;
-            left: 3px;
-            bottom: 3px;
-            background-color: white;
-            transition: .2s;
-            border-radius: 1px;
+            position: absolute; content: ""; height: 16px; width: 18px; left: 3px; bottom: 3px;
+            background-color: white; transition: .2s; border-radius: 2px;
         }
-
-        input:checked + .slider {
-            background-color: var(--green);
-        }
-
-        input:checked + .slider:before {
-            transform: translateX(20px);
-        }
+        input:checked + .slider { background-color: var(--green); }
+        input:checked + .slider:before { transform: translateX(20px); }
 
         .btn-delete {
-            background: none;
-            border: 1px solid #331518;
-            color: #e74c3c;
-            padding: 4px 8px;
-            border-radius: 2px;
-            font-size: 11px;
-            cursor: pointer;
+            background: none; border: 1px solid #3d1519; color: #e74c3c;
+            padding: 4px 8px; border-radius: 3px; font-size: 11px; cursor: pointer;
             font-family: 'JetBrains Mono', monospace;
-        }
-
-        .btn-delete:hover {
-            background: rgba(231, 76, 60, 0.15);
-        }
-
-        .empty-state {
-            text-align: center;
-            padding: 40px 10px;
-            color: var(--text-dim);
-            font-size: 13px;
         }
     </style>
 </head>
@@ -307,66 +160,83 @@
             <div class="logo-box">⚡</div>
             <div>
                 <h1>MeoMeoPath <span class="tag">ADMIN API</span></h1>
-                <p style="font-size: 12px; color: var(--text-dim); margin-top: 2px;">Bảng điều khiển Patch & Mod Game Free Fire / Free Fire MAX</p>
+                <p style="font-size: 12px; color: var(--text-dim); margin-top: 2px;">Hệ thống Server Quản lý Patch Free Fire / Free Fire MAX</p>
             </div>
         </div>
         <div style="font-size: 12px; font-family: 'JetBrains Mono', monospace; color: var(--green);">
-            ● SERVER ONLINE (Port 5000)
+            ● http://103.238.234.204:5000 (ONLINE)
         </div>
     </header>
 
     <div class="grid">
-        <!-- Upload Form -->
+        <!-- Form Upload -->
         <div class="card">
             <div class="card-header">
-                <span>TẢI LÊN FILE PATCH MỚI</span>
-                <span>.3105 / .PAYLOAD</span>
+                <span>THÊM CHỨC NĂNG / PATCH MỚI</span>
+                <span>ADMIN UPLOAD</span>
             </div>
 
             <form id="uploadForm">
                 <div class="form-group">
                     <label>Áp dụng cho Game</label>
                     <select id="targetGame">
-                        <option value="com.dts.freefireth">🔥 Free Fire Standard (com.dts.freefireth)</option>
                         <option value="com.dts.freefiremax">⚡ Free Fire MAX (com.dts.freefiremax)</option>
+                        <option value="com.dts.freefireth">🔥 Free Fire Standard (com.dts.freefireth)</option>
                         <option value="all">🌐 Cả hai Game (All)</option>
                     </select>
                 </div>
 
                 <div class="form-group">
-                    <label>Tên Patch / Mô tả</label>
-                    <input type="text" id="patchName" placeholder="VD: Mod Skin MeoMeo v1.0">
+                    <label>Danh mục hiển thị trong App</label>
+                    <select id="category">
+                        <option value="Aim File">⚡ Aim File (Aim Alex, Unlock FPS, Aim Bụng, Aim Body...)</option>
+                        <option value="Định Vị">👁️ Định Vị (ESP Box, Tên, Máu, Vạch kẻ...)</option>
+                        <option value="ModSkin File">⚙️ ModSkin File (Skin Súng, Trang phục, Vũ khí...)</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>Đường dẫn dán Data (Target Container Path)</label>
+                    <select id="targetPathType">
+                        <option value="shaders">📁 Shaders (Documents/contentcache/Optional/ios/gameassetbundles/shaders.HPt9DZviTSXL9hpGW9QNOMigNLA~3D)</option>
+                        <option value="cache_res">📁 Cache Res (Documents/contentcache/Compulsory/ios/gameassetbundles/cache_res.CfnFf59sr1SbsqQ6JqTKsEusjKs~3D)</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>Tên hiển thị trong Menu Patch</label>
+                    <input type="text" id="patchName" placeholder="VD: Aim Alex Free Fire Max">
                 </div>
 
                 <div class="upload-dropzone" onclick="document.getElementById('fileInput').click()">
                     <input type="file" id="fileInput" style="display: none;" onchange="updateFileName(this)">
-                    <div style="font-size: 24px; margin-bottom: 6px;">📦</div>
-                    <div id="dropzoneText" style="font-size: 13px; font-weight: 600;">Chạm để chọn file patch (.3105, .payload, .zip)</div>
-                    <div style="font-size: 11px; color: var(--text-dim); margin-top: 4px;">File sẽ được tự động đồng bộ vào iOS App</div>
+                    <div style="font-size: 26px; margin-bottom: 6px;">📦</div>
+                    <div id="dropzoneText" style="font-size: 13px; font-weight: 600;">Chọn file data patch để upload</div>
+                    <div style="font-size: 11px; color: var(--text-dim); margin-top: 4px;">File sẽ tự động hiển thị trong menu app khi Admin thêm</div>
                 </div>
 
-                <button type="button" class="btn" onclick="uploadPatch()">TẢI LÊN VÀ KÍCH HOẠT</button>
+                <button type="button" class="btn" onclick="uploadPatch()">THÊM VÀO MENU PATCH NGAY</button>
             </form>
         </div>
 
-        <!-- Patch Library List -->
+        <!-- Danh sách Patch -->
         <div class="card">
             <div class="card-header">
-                <span>DANH SÁCH FILE PATCH REAL-TIME</span>
-                <span id="patchCount">{{ patches|length }} FILE</span>
+                <span>DANH SÁCH PATCH TRONG MENU</span>
+                <span id="patchCount">{{ patches|length }} CHỨC NĂNG</span>
             </div>
 
             <div class="patch-list" id="patchList">
                 {% for p in patches %}
                 <div class="patch-item" id="item-{{ p.id }}">
-                    <div class="patch-info">
+                    <div style="flex: 1;">
                         <div class="patch-name">{{ p.name }}</div>
                         <div class="patch-meta">
-                            <span class="game-badge {% if p.target_game == 'com.dts.freefiremax' %}max{% endif %}">
-                                {{ 'FREE FIRE MAX' if p.target_game == 'com.dts.freefiremax' else 'FREE FIRE' }}
+                            <span class="badge-cat {% if p.category == 'Aim File' %}badge-aim{% elif p.category == 'Định Vị' %}badge-esp{% else %}badge-skin{% endif %}">
+                                {{ p.category }}
                             </span>
+                            <span>{{ 'FF MAX' if p.target_game == 'com.dts.freefiremax' else 'FF TH' }}</span>
                             <span>{{ p.size }}</span>
-                            <span>{{ p.created_at }}</span>
                         </div>
                     </div>
 
@@ -379,9 +249,8 @@
                     </div>
                 </div>
                 {% else %}
-                <div class="empty-state" id="emptyState">
-                    Chưa có file patch nào được tải lên.<br>
-                    Hãy tải lên file .3105 hoặc .payload ở bảng bên trái.
+                <div style="text-align: center; padding: 40px 10px; color: var(--text-dim); font-size: 13px;">
+                    Chưa có chức năng patch nào.<br>Hãy upload file ở bảng bên trái để xuất hiện trong app!
                 </div>
                 {% endfor %}
             </div>
@@ -393,19 +262,24 @@
     function updateFileName(input) {
         if (input.files && input.files[0]) {
             document.getElementById('dropzoneText').innerText = "Đã chọn: " + input.files[0].name;
+            if (!document.getElementById('patchName').value) {
+                document.getElementById('patchName').value = input.files[0].name.replace(/\.[^/.]+$/, "");
+            }
         }
     }
 
     async function uploadPatch() {
         const fileInput = document.getElementById('fileInput');
         if (!fileInput.files || !fileInput.files[0]) {
-            alert('Vui lòng chọn một file trước khi tải lên!');
+            alert('Vui lòng chọn một file data trước khi tải lên!');
             return;
         }
 
         const formData = new FormData();
         formData.append('file', fileInput.files[0]);
         formData.append('target_game', document.getElementById('targetGame').value);
+        formData.append('category', document.getElementById('category').value);
+        formData.append('target_path_type', document.getElementById('targetPathType').value);
         formData.append('name', document.getElementById('patchName').value);
 
         try {
@@ -420,7 +294,7 @@
                 alert('Lỗi: ' + data.error);
             }
         } catch (e) {
-            alert('Lỗi kết nối máy chủ: ' + e.message);
+            alert('Lỗi kết nối: ' + e.message);
         }
     }
 
@@ -428,12 +302,12 @@
         try {
             await fetch(`/api/patches/${id}/toggle`, { method: 'POST' });
         } catch (e) {
-            alert('Lỗi bật/tắt: ' + e.message);
+            alert('Lỗi: ' + e.message);
         }
     }
 
     async function deletePatch(id) {
-        if (!confirm('Bạn có chắc muốn xóa file patch này khỏi hệ thống?')) return;
+        if (!confirm('Bạn có chắc muốn xóa chức năng này khỏi Menu Patch?')) return;
         try {
             const res = await fetch(`/api/patches/${id}`, { method: 'DELETE' });
             const data = await res.json();
@@ -442,7 +316,7 @@
                 if (el) el.remove();
             }
         } catch (e) {
-            alert('Lỗi xóa file: ' + e.message);
+            alert('Lỗi: ' + e.message);
         }
     }
 </script>
