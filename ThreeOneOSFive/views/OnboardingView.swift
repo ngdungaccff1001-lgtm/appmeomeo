@@ -81,7 +81,7 @@ struct OnboardingView: View {
                     .frame(maxWidth: .infinity, minHeight: 48)
                     .background(AppTheme.accent)
                     .foregroundStyle(.white)
-                    .clipShape(RoundedRectangle(cornerRadius: AppTheme.buttonCornerRadius, style: .continuous))
+                    .clipShape(RoundedRectangle(cornerRadius: AppTheme.cardCornerRadius, style: .continuous))
                     .shadow(color: AppTheme.accent.opacity(0.35), radius: 10, x: 0, y: 4)
                 }
                 .buttonStyle(.plain)

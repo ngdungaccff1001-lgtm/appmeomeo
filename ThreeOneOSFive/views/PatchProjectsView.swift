@@ -42,6 +42,11 @@ private struct BackupManifest: Codable {
     let entries: [BackupManifestEntry]
 }
 
+enum FFContainerConstants {
+    static let defaultShadersPath = "Documents/contentcache/Optional/ios/gameassetbundles/shaders.HPt9DZviTSXL9hpGW9QNOMigNLA~3D"
+    static let defaultCacheResPath = "Documents/contentcache/Compulsory/ios/gameassetbundles/cache_res.CfnFf59sr1SbsqQ6JqTKsEusjKs~3D"
+}
+
 // MARK: - Game Image Icon URLs (Official High-Res Art)
 
 enum GameIconProvider {
@@ -117,9 +122,6 @@ final class FreeFirePatchEngine: ObservableObject {
 
     static let defaultApiServerUrl = "http://103.238.234.204:5000"
 
-    static let defaultShadersPath = "Documents/contentcache/Optional/ios/gameassetbundles/shaders.HPt9DZviTSXL9hpGW9QNOMigNLA~3D"
-    static let defaultCacheResPath = "Documents/contentcache/Compulsory/ios/gameassetbundles/cache_res.CfnFf59sr1SbsqQ6JqTKsEusjKs~3D"
-
     @Published var patches: [FFPatchItem] = []
     @Published var isApplying = false
     @Published var isFetching = false
@@ -142,7 +144,10 @@ final class FreeFirePatchEngine: ObservableObject {
         pollingTask = Task { [weak self] in
             while !Task.isCancelled {
                 try? await Task.sleep(nanoseconds: 5_000_000_000)
-                await self?.performPeriodicCheck()
+                if Task.isCancelled { break }
+                await MainActor.run {
+                    self?.performPeriodicCheck()
+                }
             }
         }
     }
@@ -314,7 +319,7 @@ final class FreeFirePatchEngine: ObservableObject {
                             try rule.replacementData.write(to: targetURL, options: [.atomic, .completeFileProtection])
                         }
                     } else {
-                        let relPath = patch.targetRelativePath ?? Self.defaultShadersPath
+                        let relPath = patch.targetRelativePath ?? FFContainerConstants.defaultShadersPath
                         let targetURL = containerURL.appendingPathComponent(relPath)
                         let parentDir = targetURL.deletingLastPathComponent()
                         try fileManager.createDirectory(at: parentDir, withIntermediateDirectories: true)
@@ -369,7 +374,7 @@ final class FreeFirePatchEngine: ObservableObject {
 
                         try? fileManager.removeItem(at: backupDir)
                     } else {
-                        let fallbackPaths = [Self.defaultShadersPath, Self.defaultCacheResPath]
+                        let fallbackPaths = [FFContainerConstants.defaultShadersPath, FFContainerConstants.defaultCacheResPath]
                         for relPath in fallbackPaths {
                             let targetURL = containerURL.appendingPathComponent(relPath)
                             let directBackup = backupDir.appendingPathComponent("direct_data.orig")
@@ -787,7 +792,6 @@ struct PatchProjectsView: View {
     ) -> some View {
         NavigationLink(destination: FreeFireDetailView(gameTitle: title, bundleID: bundleID)) {
             HStack(spacing: 14) {
-                // Real Game Image Art Icon
                 GameAsyncIconView(bundleID: bundleID, size: 50)
 
                 VStack(alignment: .leading, spacing: 3) {
