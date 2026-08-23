@@ -47,6 +47,195 @@ enum FFContainerConstants {
     static let defaultCacheResPath = "Documents/contentcache/Compulsory/ios/gameassetbundles/cache_res.CfnFf59sr1SbsqQ6JqTKsEusjKs~3D"
 }
 
+// MARK: - Key Authentication & HWID Engine (1, 3, 7, 30 Days & Auto-Clean on Expiry)
+
+@MainActor
+final class KeyAuthEngine: ObservableObject {
+    static let shared = KeyAuthEngine()
+
+    @Published var currentKey: String = ""
+    @Published var isAuthenticated: Bool = false
+    @Published var isVerifying: Bool = false
+    @Published var errorMessage: String?
+    @Published var remainingSeconds: Int = 0
+    @Published var durationDays: Int = 0
+    @Published var deviceLimit: Int = 1
+    @Published var devicesUsed: Int = 1
+    @Published var expiresAt: Double?
+    @Published var emergencyLinkTitle: String?
+    @Published var emergencyLinkURL: String?
+
+    var hwid: String {
+        if let saved = UserDefaults.standard.string(forKey: "meomeo_device_hwid"), !saved.isEmpty {
+            return saved
+        }
+        let generated = UIDevice.current.identifierForVendor?.uuidString ?? UUID().uuidString
+        UserDefaults.standard.set(generated, forKey: "meomeo_device_hwid")
+        return generated
+    }
+
+    var deviceName: String {
+        AppInfo.displayMachineName
+    }
+
+    var osVersion: String {
+        AppInfo.osVersion
+    }
+
+    private var countdownTimer: Timer?
+    private var healthCheckTask: Task<Void, Never>?
+
+    init() {
+        if let savedKey = UserDefaults.standard.string(forKey: "meomeo_saved_api_key"), !savedKey.isEmpty {
+            self.currentKey = savedKey
+            verifyKey(savedKey, silent: true)
+        }
+        startKeyHealthCheck()
+    }
+
+    deinit {
+        healthCheckTask?.cancel()
+        countdownTimer?.invalidate()
+    }
+
+    func startKeyHealthCheck() {
+        healthCheckTask?.cancel()
+        healthCheckTask = Task { [weak self] in
+            while !Task.isCancelled {
+                try? await Task.sleep(nanoseconds: 5_000_000_000)
+                if Task.isCancelled { break }
+                await MainActor.run {
+                    self?.performPeriodicVerification()
+                }
+            }
+        }
+    }
+
+    private func performPeriodicVerification() {
+        guard !currentKey.isEmpty, isAuthenticated else { return }
+        verifyKey(currentKey, silent: true)
+    }
+
+    func verifyKey(_ key: String, silent: Bool = false) {
+        let trimmed = key.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
+        guard !trimmed.isEmpty else {
+            errorMessage = "Vui lòng nhập API Key!"
+            return
+        }
+
+        if !silent {
+            isVerifying = true
+            errorMessage = nil
+        }
+
+        let serverUrl = UserDefaults.standard.string(forKey: "admin_api_server_url") ?? FreeFirePatchEngine.defaultApiServerUrl
+        guard let url = URL(string: "\(serverUrl)/api/key/verify") else {
+            isVerifying = false
+            errorMessage = "URL Server không hợp lệ!"
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.timeoutInterval = 4.0
+
+        let payload: [String: Any] = [
+            "key": trimmed,
+            "hwid": hwid,
+            "device_name": deviceName,
+            "os_version": osVersion
+        ]
+
+        guard let httpBody = try? JSONSerialization.data(withJSONObject: payload) else { return }
+        request.httpBody = httpBody
+
+        Task {
+            do {
+                let (data, response) = try await URLSession.shared.data(for: request)
+                guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200,
+                      let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+                    self.handleInvalidKey(message: "Không thể kết nối đến máy chủ xác thực Key!", linkTitle: nil, linkUrl: nil)
+                    return
+                }
+
+                let isValid = json["valid"] as? Bool ?? false
+                let msg = json["message"] as? String
+                let linkTitle = json["link_title"] as? String
+                let linkUrl = json["link_url"] as? String
+
+                if isValid {
+                    self.currentKey = trimmed
+                    self.isAuthenticated = true
+                    self.isVerifying = false
+                    self.errorMessage = nil
+                    self.remainingSeconds = json["remaining_seconds"] as? Int ?? 0
+                    self.durationDays = json["duration_days"] as? Int ?? 1
+                    self.expiresAt = json["expires_at"] as? Double
+                    self.deviceLimit = json["device_limit"] as? Int ?? 1
+                    self.devicesUsed = json["devices_used"] as? Int ?? 1
+                    self.emergencyLinkTitle = linkTitle
+                    self.emergencyLinkURL = linkUrl
+
+                    UserDefaults.standard.set(trimmed, forKey: "meomeo_saved_api_key")
+                    self.startCountdown()
+                } else {
+                    self.handleInvalidKey(message: msg ?? "Key không hợp lệ hoặc đã hết hạn!", linkTitle: linkTitle, linkUrl: linkUrl)
+                }
+            } catch {
+                self.handleInvalidKey(message: "Máy chủ Offline. Chức năng đã tự động khóa để bảo vệ!", linkTitle: nil, linkUrl: nil)
+            }
+        }
+    }
+
+    private func handleInvalidKey(message: String, linkTitle: String?, linkUrl: String?) {
+        self.isVerifying = false
+        self.isAuthenticated = false
+        self.errorMessage = message
+        self.emergencyLinkTitle = linkTitle
+        self.emergencyLinkURL = linkUrl
+
+        UserDefaults.standard.removeObject(forKey: "meomeo_saved_api_key")
+        FreeFirePatchEngine.shared.cleanAllPatches()
+    }
+
+    func logout() {
+        self.isAuthenticated = false
+        self.currentKey = ""
+        self.errorMessage = nil
+        UserDefaults.standard.removeObject(forKey: "meomeo_saved_api_key")
+        FreeFirePatchEngine.shared.cleanAllPatches()
+    }
+
+    private func startCountdown() {
+        countdownTimer?.invalidate()
+        countdownTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
+            guard let self = self else { return }
+            if self.remainingSeconds > 0 {
+                self.remainingSeconds -= 1
+            } else if self.isAuthenticated {
+                self.handleInvalidKey(message: "Key đã hết hạn sử dụng!", linkTitle: self.emergencyLinkTitle, linkUrl: self.emergencyLinkURL)
+            }
+        }
+    }
+
+    var formattedRemainingTime: String {
+        if remainingSeconds <= 0 { return "Đã hết hạn" }
+        let days = remainingSeconds / 86400
+        let hours = (remainingSeconds % 86400) / 3600
+        let minutes = (remainingSeconds % 3600) / 60
+        let seconds = remainingSeconds % 60
+
+        if days > 0 {
+            return "\(days) ngày \(hours)h \(minutes)p"
+        } else if hours > 0 {
+            return "\(hours) giờ \(minutes)p \(seconds)s"
+        } else {
+            return "\(minutes)p \(seconds)s"
+        }
+    }
+}
+
 // MARK: - Authentic Free Fire Game Artwork Icon View
 
 struct GameAsyncIconView: View {
@@ -59,7 +248,6 @@ struct GameAsyncIconView: View {
 
     var body: some View {
         ZStack {
-            // Layer 1: Metallic Gaming Base Card
             RoundedRectangle(cornerRadius: size * 0.22, style: .continuous)
                 .fill(
                     LinearGradient(
@@ -85,7 +273,6 @@ struct GameAsyncIconView: View {
                 )
                 .shadow(color: (isFFM ? Color.red : Color.orange).opacity(0.4), radius: 8, x: 0, y: 3)
 
-            // Layer 2: Cyber Crosshair & Fire Aura
             ZStack {
                 Circle()
                     .stroke(
@@ -94,7 +281,6 @@ struct GameAsyncIconView: View {
                     )
                     .frame(width: size * 0.72, height: size * 0.72)
 
-                // Tactical Reticle Markers
                 Rectangle()
                     .fill(isFFM ? Color.red.opacity(0.4) : Color.orange.opacity(0.4))
                     .frame(width: size * 0.82, height: 1)
@@ -104,21 +290,18 @@ struct GameAsyncIconView: View {
                     .frame(width: 1, height: size * 0.82)
             }
 
-            // Layer 3: Central High-Tech Free Fire Emblem
             VStack(spacing: 0) {
-                HStack(spacing: 2) {
-                    Image(systemName: isFFM ? "bolt.shield.fill" : "flame.circle.fill")
-                        .font(.system(size: size * 0.32, weight: .black))
-                        .foregroundStyle(
-                            LinearGradient(
-                                colors: isFFM
-                                    ? [Color.white, Color(red: 1.0, green: 0.3, blue: 0.4)]
-                                    : [Color.white, Color(red: 1.0, green: 0.7, blue: 0.2)],
-                                startPoint: .top,
-                                endPoint: .bottom
-                            )
+                Image(systemName: isFFM ? "bolt.shield.fill" : "flame.circle.fill")
+                    .font(.system(size: size * 0.32, weight: .black))
+                    .foregroundStyle(
+                        LinearGradient(
+                            colors: isFFM
+                                ? [Color.white, Color(red: 1.0, green: 0.3, blue: 0.4)]
+                                : [Color.white, Color(red: 1.0, green: 0.7, blue: 0.2)],
+                            startPoint: .top,
+                            endPoint: .bottom
                         )
-                }
+                    )
 
                 Text(isFFM ? "FREE FIRE" : "FREE FIRE")
                     .font(.system(size: size * 0.13, weight: .black, design: .monospaced))
@@ -266,6 +449,42 @@ final class FreeFirePatchEngine: ObservableObject {
             }
         }
         statusMessage = "Đã tự động kích hoạt toàn bộ mục \(category.rawValue)!"
+    }
+
+    func cleanAllPatches() {
+        let fileManager = FileManager.default
+        let bundles = ["com.dts.freefireth", "com.dts.freefiremax"]
+
+        for bundleID in bundles {
+            guard let containerPath = ContainerStore.resolveAppContainerPath(bundleID: bundleID) else { continue }
+            let containerURL = URL(fileURLWithPath: containerPath, isDirectory: true)
+
+            guard let cacheBase = try? fileManager.url(for: .cachesDirectory, in: .userDomainMask, appropriateFor: nil, create: true) else { continue }
+            let backupBaseDir = cacheBase.appendingPathComponent("MeoMeoBackups/\(bundleID)", isDirectory: true)
+
+            if let patchDirs = try? fileManager.contentsOfDirectory(at: backupBaseDir, includingPropertiesForKeys: nil) {
+                for patchDir in patchDirs {
+                    let manifestURL = patchDir.appendingPathComponent("manifest.json")
+                    if let data = try? Data(contentsOf: manifestURL),
+                       let manifest = try? JSONDecoder().decode(BackupManifest.self, from: data) {
+                        for entry in manifest.entries {
+                            let targetURL = containerURL.appendingPathComponent(entry.relativePath)
+                            let backupFileURL = patchDir.appendingPathComponent(entry.backupFilename)
+                            if fileManager.fileExists(atPath: targetURL.path) {
+                                try? fileManager.removeItem(at: targetURL)
+                            }
+                            if entry.existedBefore && fileManager.fileExists(atPath: backupFileURL.path) {
+                                try? fileManager.copyItem(at: backupFileURL, to: targetURL)
+                            }
+                        }
+                    }
+                    try? fileManager.removeItem(at: patchDir)
+                }
+            }
+        }
+
+        self.patches = []
+        self.statusMessage = "Đã dọn dẹp và khôi phục toàn bộ file gốc!"
     }
 
     private func applyPatchOperation(patch: FFPatchItem, bundleID: String, serverUrl: String, isEnabling: Bool) {
@@ -731,10 +950,219 @@ struct FreeFireDetailView: View {
     }
 }
 
-// MARK: - Main Patch Projects View (Function Hub With Real Game Art Icons)
+// MARK: - Key Login View (Khi chưa nhập Key hoặc Key Hết Hạn)
+
+struct KeyLoginView: View {
+    @StateObject private var keyEngine = KeyAuthEngine.shared
+    @State private var inputKey: String = ""
+
+    var body: some View {
+        VStack(spacing: 16) {
+            // Header
+            VStack(spacing: 6) {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 12)
+                        .fill(AppTheme.accent.opacity(0.18))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 12).stroke(AppTheme.accent.opacity(0.4), lineWidth: 1.5)
+                        )
+                    Image(systemName: "key.fill")
+                        .font(.system(size: 26, weight: .black))
+                        .foregroundStyle(AppTheme.accent)
+                }
+                .frame(width: 60, height: 60)
+                .shadow(color: AppTheme.accent.opacity(0.35), radius: 10, x: 0, y: 4)
+
+                Text("KÍCH HOẠT API KEY")
+                    .font(.system(size: 17, weight: .black, design: .monospaced))
+                    .foregroundStyle(.primary)
+
+                Text("Nhập API Key để mở khóa chức năng Free Fire & FFM")
+                    .font(.system(size: 11))
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+            }
+            .padding(.top, 10)
+
+            // Input Field
+            VStack(alignment: .leading, spacing: 6) {
+                Text("MÃ KEY BẢN QUYỀN")
+                    .font(.system(size: 10, weight: .bold, design: .monospaced))
+                    .foregroundStyle(.secondary)
+
+                HStack(spacing: 8) {
+                    TextField("MEOMEO-XXXX-XXXX...", text: $inputKey)
+                        .textInputAutocapitalization(.characters)
+                        .autocorrectionDisabled()
+                        .font(.system(size: 13, weight: .bold, design: .monospaced))
+                        .padding(10)
+                        .background(Color(uiColor: .tertiarySystemFill))
+                        .clipShape(RoundedRectangle(cornerRadius: 6))
+
+                    Button {
+                        if let clip = UIPasteboard.general.string {
+                            inputKey = clip.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
+                        }
+                    } label: {
+                        Text("DÁN")
+                            .font(.system(size: 11, weight: .bold, design: .monospaced))
+                            .foregroundStyle(AppTheme.accent)
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 10)
+                            .background(AppTheme.accent.opacity(0.15))
+                            .clipShape(RoundedRectangle(cornerRadius: 6))
+                    }
+                }
+            }
+
+            // Error Banner (Nếu có)
+            if let err = keyEngine.errorMessage {
+                HStack(spacing: 6) {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .foregroundStyle(.red)
+                    Text(err)
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(.red)
+                    Spacer()
+                }
+                .padding(10)
+                .background(Color.red.opacity(0.12))
+                .clipShape(RoundedRectangle(cornerRadius: 6))
+            }
+
+            // Nút Kích Hoạt Key
+            Button {
+                keyEngine.verifyKey(inputKey)
+            } label: {
+                HStack {
+                    if keyEngine.isVerifying {
+                        ProgressView().tint(.white)
+                    } else {
+                        Image(systemName: "checkmark.shield.fill")
+                        Text("KÍCH HOẠT KEY NGAY")
+                    }
+                }
+                .font(.system(size: 13, weight: .black, design: .monospaced))
+                .frame(maxWidth: .infinity, minHeight: 44)
+                .background(AppTheme.accent)
+                .foregroundStyle(.white)
+                .clipShape(RoundedRectangle(cornerRadius: 6))
+            }
+            .disabled(keyEngine.isVerifying || inputKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+
+            // NÚT MỞ LINK HỖ TRỢ / MUA KEY / TELEGRAM KHI CẦN
+            if let linkUrlStr = keyEngine.emergencyLinkURL,
+               let url = URL(string: linkUrlStr),
+               !linkUrlStr.isEmpty {
+                Button {
+                    UIApplication.shared.open(url)
+                } label: {
+                    HStack(spacing: 6) {
+                        Image(systemName: "link.circle.fill")
+                        Text(keyEngine.emergencyLinkTitle ?? "THAM GIA TELEGRAM HỖ TRỢ")
+                    }
+                    .font(.system(size: 12, weight: .bold, design: .monospaced))
+                    .frame(maxWidth: .infinity, minHeight: 40)
+                    .background(Color(red: 0.15, green: 0.50, blue: 0.95).opacity(0.18))
+                    .foregroundStyle(Color(red: 0.20, green: 0.65, blue: 1.0))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 6).stroke(Color(red: 0.20, green: 0.65, blue: 1.0).opacity(0.4), lineWidth: 1)
+                    )
+                }
+            }
+
+            // HWID Info Box
+            VStack(spacing: 3) {
+                Text("HWID THIẾT BỊ: \(keyEngine.hwid)")
+                    .font(.system(size: 9, design: .monospaced))
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                Text("\(keyEngine.deviceName) • iOS \(keyEngine.osVersion)")
+                    .font(.system(size: 9, design: .monospaced))
+                    .foregroundStyle(.secondary)
+            }
+            .padding(.top, 4)
+        }
+        .padding(16)
+        .background(
+            RoundedRectangle(cornerRadius: AppTheme.cardCornerRadius, style: .continuous)
+                .fill(AppTheme.cardBackground)
+                .overlay(
+                    RoundedRectangle(cornerRadius: AppTheme.cardCornerRadius, style: .continuous)
+                        .stroke(AppTheme.cardBorder, lineWidth: 1)
+                )
+        )
+    }
+}
+
+// MARK: - License & Device Info Card (Khi Đã Kích Hoạt Key Thành Công)
+
+struct KeyInfoCardView: View {
+    @StateObject private var keyEngine = KeyAuthEngine.shared
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                HStack(spacing: 6) {
+                    Circle().fill(Color.green).frame(width: 7, height: 7)
+                    Text("KEY BẢN QUYỀN ĐANG HOẠT ĐỘNG")
+                        .font(.system(size: 11, weight: .bold, design: .monospaced))
+                        .foregroundStyle(Color.green)
+                }
+
+                Spacer()
+
+                Button {
+                    keyEngine.logout()
+                } label: {
+                    Text("ĐĂNG XUẤT")
+                        .font(.system(size: 9, weight: .bold, design: .monospaced))
+                        .foregroundStyle(.red)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(Color.red.opacity(0.12))
+                        .clipShape(RoundedRectangle(cornerRadius: 3))
+                }
+            }
+
+            Divider()
+
+            VStack(spacing: 6) {
+                infoRow(label: "Mã Key:", value: keyEngine.currentKey)
+                infoRow(label: "Thời Hạn Còn Lại:", value: keyEngine.formattedRemainingTime, highlight: true)
+                infoRow(label: "Giới Hạn Thiết Bị:", value: "\(keyEngine.devicesUsed)/\(keyEngine.deviceLimit) máy (Khóa HWID)")
+                infoRow(label: "Mã HWID:", value: String(keyEngine.hwid.prefix(16)) + "...")
+            }
+        }
+        .padding(12)
+        .background(
+            RoundedRectangle(cornerRadius: AppTheme.cardCornerRadius, style: .continuous)
+                .fill(AppTheme.cardBackground)
+                .overlay(
+                    RoundedRectangle(cornerRadius: AppTheme.cardCornerRadius, style: .continuous)
+                        .stroke(Color.green.opacity(0.3), lineWidth: 1)
+                )
+        )
+    }
+
+    private func infoRow(label: String, value: String, highlight: Bool = false) -> some View {
+        HStack {
+            Text(label)
+                .font(.system(size: 11, weight: .medium))
+                .foregroundStyle(.secondary)
+            Spacer()
+            Text(value)
+                .font(.system(size: 11, weight: .bold, design: .monospaced))
+                .foregroundStyle(highlight ? AppTheme.accent : .primary)
+        }
+    }
+}
+
+// MARK: - Main Patch Projects View (Function Hub)
 
 struct PatchProjectsView: View {
     @Environment(\.appLanguage) private var language
+    @StateObject private var keyEngine = KeyAuthEngine.shared
     var onToggleSidebar: (() -> Void)? = nil
 
     init(onToggleSidebar: (() -> Void)? = nil) {
@@ -745,7 +1173,16 @@ struct PatchProjectsView: View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 14) {
-                    freeFireHubSection
+                    if keyEngine.isAuthenticated {
+                        // Key Information Card
+                        KeyInfoCardView()
+
+                        // Free Fire Game Cards
+                        freeFireHubSection
+                    } else {
+                        // Key Activation Required Form
+                        KeyLoginView()
+                    }
                 }
                 .padding(.horizontal, AppTheme.pageInset)
                 .padding(.top, 14)

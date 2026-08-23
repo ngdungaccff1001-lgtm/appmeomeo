@@ -1,0 +1,610 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MeoMeoPath Admin Panel • /nxt2007</title>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;800&family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #090b10;
+            --card-bg: #121520;
+            --card-border: #1e2436;
+            --accent: #ff2a42;
+            --accent-glow: rgba(255, 42, 66, 0.25);
+            --ff-orange: #ff5e1e;
+            --text: #f0f2f5;
+            --text-dim: #8b949e;
+            --green: #2ecc71;
+            --cyan: #00d2d3;
+            --purple: #9b59b6;
+            --yellow: #f1c40f;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            background-color: var(--bg);
+            color: var(--text);
+            font-family: 'Inter', sans-serif;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container { max-width: 1150px; margin: 0 auto; }
+
+        header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding-bottom: 16px;
+            border-bottom: 1px solid var(--card-border);
+            margin-bottom: 20px;
+        }
+
+        .brand { display: flex; align-items: center; gap: 12px; }
+        .logo-box {
+            width: 42px; height: 42px;
+            background: linear-gradient(135deg, #ff2a42, #b30018);
+            border-radius: 6px;
+            display: flex; align-items: center; justify-content: center;
+            font-weight: 800; font-family: 'JetBrains Mono', monospace;
+            box-shadow: 0 0 15px var(--accent-glow);
+        }
+
+        h1 { font-size: 19px; font-family: 'JetBrains Mono', monospace; font-weight: 800; }
+        .tag {
+            font-size: 10px; font-family: 'JetBrains Mono', monospace;
+            background: rgba(255, 42, 66, 0.15); color: var(--accent);
+            padding: 3px 8px; border-radius: 3px; border: 1px solid rgba(255, 42, 66, 0.3);
+            margin-left: 6px;
+        }
+
+        /* Nav Tabs */
+        .nav-tabs {
+            display: flex; gap: 8px; margin-bottom: 20px;
+            border-bottom: 1px solid var(--card-border); padding-bottom: 10px;
+        }
+        .nav-tab {
+            background: #10131d; border: 1px solid var(--card-border);
+            color: var(--text-dim); padding: 8px 16px; border-radius: 4px;
+            font-size: 13px; font-weight: 700; cursor: pointer;
+            font-family: 'JetBrains Mono', monospace; transition: all 0.2s;
+        }
+        .nav-tab.active {
+            background: var(--accent); color: white; border-color: var(--accent);
+            box-shadow: 0 0 12px var(--accent-glow);
+        }
+
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+
+        .grid-2 { display: grid; grid-template-columns: 1fr 1.6fr; gap: 20px; }
+        @media (max-width: 860px) { .grid-2 { grid-template-columns: 1fr; } }
+
+        .card {
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 6px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+
+        .card-header {
+            font-size: 13px; font-weight: 700; font-family: 'JetBrains Mono', monospace;
+            color: var(--text-dim); text-transform: uppercase; margin-bottom: 16px;
+            display: flex; align-items: center; justify-content: space-between;
+        }
+
+        .form-group { margin-bottom: 14px; }
+        label { display: block; font-size: 12px; font-weight: 600; margin-bottom: 6px; color: var(--text-dim); }
+
+        input[type="text"], input[type="password"], input[type="number"], select {
+            width: 100%; padding: 10px 12px;
+            background: #080a0f; border: 1px solid var(--card-border);
+            border-radius: 4px; color: var(--text); font-size: 13px; outline: none;
+            transition: border 0.15s;
+        }
+
+        input:focus, select:focus {
+            border-color: var(--accent);
+            box-shadow: 0 0 8px var(--accent-glow);
+        }
+
+        .btn-group-duration { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-bottom: 12px; }
+        .btn-duration {
+            padding: 8px 4px; background: #080a0f; border: 1px solid var(--card-border);
+            color: var(--text); font-size: 12px; font-weight: 700; text-align: center;
+            border-radius: 4px; cursor: pointer; transition: all 0.15s;
+        }
+        .btn-duration.active {
+            background: rgba(255, 42, 66, 0.2); border-color: var(--accent); color: var(--accent);
+        }
+
+        .btn {
+            display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+            background: var(--accent); color: white; border: none; border-radius: 4px;
+            padding: 11px 16px; font-size: 13px; font-weight: 700;
+            font-family: 'JetBrains Mono', monospace; cursor: pointer; width: 100%;
+        }
+        .btn:hover { opacity: 0.9; }
+
+        .btn-sm {
+            padding: 4px 8px; font-size: 11px; border-radius: 3px; cursor: pointer;
+            font-family: 'JetBrains Mono', monospace; border: none; font-weight: 700;
+        }
+        .btn-ban { background: #3a1c22; color: #ff5566; border: 1px solid #5a2630; }
+        .btn-reset { background: #1c2e3a; color: #38bdf8; border: 1px solid #254b60; }
+        .btn-del { background: #281216; color: #ff3344; border: 1px solid #4a1c24; }
+
+        /* Table */
+        .table-responsive { overflow-x: auto; }
+        table { width: 100%; border-collapse: collapse; font-size: 12px; }
+        th {
+            text-align: left; padding: 10px; background: #0b0e15;
+            color: var(--text-dim); font-family: 'JetBrains Mono', monospace;
+            border-bottom: 1px solid var(--card-border);
+        }
+        td {
+            padding: 10px; border-bottom: 1px solid var(--card-border);
+            vertical-align: middle;
+        }
+        tr:hover { background: rgba(255, 255, 255, 0.02); }
+
+        .key-text {
+            font-family: 'JetBrains Mono', monospace; font-weight: 800; color: #ff385c;
+            background: rgba(255, 42, 66, 0.1); padding: 3px 6px; border-radius: 3px;
+            display: inline-block; cursor: pointer;
+        }
+
+        .badge {
+            padding: 2px 6px; border-radius: 3px; font-size: 10px; font-weight: 700;
+            font-family: 'JetBrains Mono', monospace; display: inline-block;
+        }
+        .badge-active { background: rgba(46, 204, 113, 0.18); color: var(--green); }
+        .badge-expired { background: rgba(241, 196, 15, 0.18); color: var(--yellow); }
+        .badge-banned { background: rgba(231, 76, 60, 0.18); color: #ff4757; }
+
+        .upload-dropzone {
+            border: 2px dashed var(--card-border);
+            border-radius: 6px; padding: 18px; text-align: center;
+            cursor: pointer; transition: all 0.2s; background: #07090d; margin-bottom: 14px;
+        }
+        .upload-dropzone:hover { border-color: var(--accent); background: rgba(255, 42, 66, 0.05); }
+
+        /* Switch */
+        .switch { position: relative; display: inline-block; width: 44px; height: 22px; }
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .slider {
+            position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0;
+            background-color: #212638; transition: .2s; border-radius: 3px;
+        }
+        .slider:before {
+            position: absolute; content: ""; height: 16px; width: 18px; left: 3px; bottom: 3px;
+            background-color: white; transition: .2s; border-radius: 2px;
+        }
+        input:checked + .slider { background-color: var(--green); }
+        input:checked + .slider:before { transform: translateX(20px); }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <header>
+        <div class="brand">
+            <div class="logo-box">⚡</div>
+            <div>
+                <h1>MeoMeoPath <span class="tag">ADMIN /nxt2007</span></h1>
+                <p style="font-size: 11px; color: var(--text-dim); margin-top: 2px;">Hệ thống Quản lý API Key (1/3/7/30 Ngày), Khóa HWID & Gói Patch .3105</p>
+            </div>
+        </div>
+        <div style="font-size: 12px; font-family: 'JetBrains Mono', monospace; display: flex; align-items: center; gap: 10px;">
+            <span id="serverLiveStatus" style="color: var(--green);">● SERVER ONLINE</span>
+        </div>
+    </header>
+
+    <!-- Navigation Tabs -->
+    <div class="nav-tabs">
+        <button class="nav-tab active" onclick="switchTab('keysTab', this)">🔑 QUẢN LÝ KEY</button>
+        <button class="nav-tab" onclick="switchTab('patchesTab', this)">⚡ GÓI PATCH .3105</button>
+        <button class="nav-tab" onclick="switchTab('settingsTab', this)">🛡️ CÀI ĐẶT SERVER & LINK CRACK</button>
+    </div>
+
+    <!-- TAB 1: QUẢN LÝ KEY -->
+    <div id="keysTab" class="tab-content active">
+        <div class="grid-2">
+            <!-- Form Tạo Key -->
+            <div class="card">
+                <div class="card-header">
+                    <span>TẠO API KEY MỚI</span>
+                    <span>TỰ ĐỘNG KHÓA HWID</span>
+                </div>
+
+                <div class="form-group">
+                    <label>Thời Hạn Key</label>
+                    <div class="btn-group-duration">
+                        <div class="btn-duration active" onclick="setDuration(1, this)">1 NGÀY</div>
+                        <div class="btn-duration" onclick="setDuration(3, this)">3 NGÀY</div>
+                        <div class="btn-duration" onclick="setDuration(7, this)">7 NGÀY</div>
+                        <div class="btn-duration" onclick="setDuration(30, this)">30 NGÀY</div>
+                    </div>
+                    <input type="hidden" id="keyDuration" value="1">
+                </div>
+
+                <div class="form-group">
+                    <label>Số Thiết Bị Được Phép Dùng (Chống Share/Crack)</label>
+                    <select id="keyDeviceLimit">
+                        <option value="1">🔒 1 Thiết bị duy nhất (Khóa HWID)</option>
+                        <option value="2">2 Thiết bị</option>
+                        <option value="3">3 Thiết bị</option>
+                        <option value="5">5 Thiết bị</option>
+                        <option value="999">🌐 Không giới hạn (Nhiều thiết bị)</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>Số Lượng Key Cần Tạo</label>
+                    <select id="keyQuantity">
+                        <option value="1">Tạo 1 Key</option>
+                        <option value="5">Tạo 5 Key cùng lúc</option>
+                        <option value="10">Tạo 10 Key cùng lúc</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>Ghi Chú Admin (Tùy chọn)</label>
+                    <input type="text" id="keyNote" placeholder="VD: Bán cho khách VIP...">
+                </div>
+
+                <button class="btn" onclick="createKeys()">⚡ TẠO KEY NGAY</button>
+            </div>
+
+            <!-- Danh Sách Key -->
+            <div class="card">
+                <div class="card-header">
+                    <span>DANH SÁCH API KEY TRÊN HỆ THỐNG</span>
+                    <span>{{ keys|length }} KEY</span>
+                </div>
+
+                <div class="table-responsive">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>MÃ KEY</th>
+                                <th>HẠN</th>
+                                <th>TRẠNG THÁI</th>
+                                <th>THIẾT BỊ (HWID)</th>
+                                <th>THAO TÁC</th>
+                            </tr>
+                        </thead>
+                        <tbody id="keyTableBody">
+                            {% for k in keys %}
+                            <tr id="key-row-{{ k.key }}">
+                                <td>
+                                    <span class="key-text" onclick="copyKey('{{ k.key }}')" title="Nhấn để sao chép">{{ k.key }}</span>
+                                    {% if k.note %}
+                                    <div style="font-size: 10px; color: var(--text-dim); margin-top: 2px;">{{ k.note }}</div>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <b>{{ k.duration_days }} ngày</b>
+                                    <div style="font-size: 10px; color: var(--text-dim);">
+                                        {% if k.expires_at %}
+                                        HSD: {{ k.expires_at_str }}
+                                        {% else %}
+                                        Chưa kích hoạt
+                                        {% endif %}
+                                    </div>
+                                </td>
+                                <td>
+                                    {% if k.status == 'active' %}
+                                    <span class="badge badge-active">HOẠT ĐỘNG</span>
+                                    {% elif k.status == 'expired' %}
+                                    <span class="badge badge-expired">HẾT HẠN</span>
+                                    {% else %}
+                                    <span class="badge badge-banned">BỊ KHÓA</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <div style="font-size: 11px; font-family: 'JetBrains Mono', monospace;">
+                                        {{ k.bound_hwids|length }}/{{ k.device_limit }} máy
+                                    </div>
+                                    {% if k.bound_hwids %}
+                                    <div style="font-size: 9px; color: var(--text-dim); max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                                        {{ k.bound_hwids[0].device_name }}
+                                    </div>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <div style="display: flex; gap: 4px;">
+                                        <button class="btn-sm btn-reset" onclick="resetHwid('{{ k.key }}')" title="Reset HWID">RESET</button>
+                                        <button class="btn-sm btn-ban" onclick="toggleBanKey('{{ k.key }}')">{% if k.status == 'banned' %}MỞ{% else %}KHÓA{% endif %}</button>
+                                        <button class="btn-sm btn-del" onclick="deleteKey('{{ k.key }}')">XÓA</button>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% else %}
+                            <tr>
+                                <td colspan="5" style="text-align: center; color: var(--text-dim); padding: 30px;">
+                                    Chưa có API Key nào. Hãy tạo key ở bảng bên trái!
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- TAB 2: GÓI PATCH .3105 -->
+    <div id="patchesTab" class="tab-content">
+        <div class="grid-2">
+            <div class="card">
+                <div class="card-header">
+                    <span>UPLOAD FILE .3105</span>
+                    <span>NATIVE ROUTING</span>
+                </div>
+
+                <form id="uploadForm">
+                    <div class="form-group">
+                        <label>Áp Dụng Cho Game</label>
+                        <select id="targetGame">
+                            <option value="com.dts.freefiremax">⚡ Free Fire MAX (FFM)</option>
+                            <option value="com.dts.freefireth">🔥 Free Fire Standard (FFT)</option>
+                            <option value="all">🌐 Cả hai Game (All)</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Danh Mục</label>
+                        <select id="category">
+                            <option value="Aim File">⚡ Aim File</option>
+                            <option value="Định Vị">👁️ Định Vị (ESP)</option>
+                            <option value="ModSkin File">⚙️ ModSkin File</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Tên Hiển Thị Trong Menu</label>
+                        <input type="text" id="patchName" placeholder="VD: Aim Alex Head V2">
+                    </div>
+
+                    <div class="form-group">
+                        <label>Mật Khẩu Giải Mã .3105 (Nếu gói có mật khẩu)</label>
+                        <input type="password" id="patchPassword" placeholder="Nhập mật khẩu (tùy chọn)...">
+                    </div>
+
+                    <div class="upload-dropzone" onclick="document.getElementById('fileInput').click()">
+                        <input type="file" id="fileInput" style="display: none;" onchange="updateFileName(this)">
+                        <div style="font-size: 26px; margin-bottom: 6px;">📦</div>
+                        <div id="dropzoneText" style="font-size: 13px; font-weight: 600;">Chọn file .3105 để upload</div>
+                    </div>
+
+                    <button type="button" class="btn" onclick="uploadPatch()">THÊM VÀO MENU PATCH</button>
+                </form>
+            </div>
+
+            <!-- Danh Sách Patch -->
+            <div class="card">
+                <div class="card-header">
+                    <span>DANH SÁCH GÓI .3105</span>
+                    <span>{{ patches|length }} GÓI</span>
+                </div>
+
+                <div id="patchList" style="display: flex; flex-direction: column; gap: 10px;">
+                    {% for p in patches %}
+                    <div style="background: #080a0f; border: 1px solid var(--card-border); padding: 12px; border-radius: 4px; display: flex; align-items: center; justify-content: space-between;">
+                        <div>
+                            <div style="font-size: 14px; font-weight: 700;">{{ p.name }}</div>
+                            <div style="font-size: 11px; color: var(--text-dim); margin-top: 3px;">
+                                <span>{{ 'FFM' if p.target_game == 'com.dts.freefiremax' else 'FFT' }}</span> • <span>{{ p.category }}</span> • <span>{{ p.size }}</span>
+                            </div>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <label class="switch">
+                                <input type="checkbox" {% if p.enabled %}checked{% endif %} onchange="togglePatch('{{ p.id }}')">
+                                <span class="slider"></span>
+                            </label>
+                            <button class="btn-sm btn-del" onclick="deletePatch('{{ p.id }}')">XÓA</button>
+                        </div>
+                    </div>
+                    {% else %}
+                    <div style="text-align: center; color: var(--text-dim); padding: 30px;">
+                        Chưa có gói .3105 nào.
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- TAB 3: CÀI ĐẶT SERVER & LINK CRACK/KHẨN CẤP -->
+    <div id="settingsTab" class="tab-content">
+        <div class="card" style="max-width: 650px;">
+            <div class="card-header">
+                <span>🛡️ CẤU HÌNH SERVER & NÚT LINK CHỐNG CRACK / HẾT HẠN</span>
+                <span>EMERGENCY KILL SWITCH</span>
+            </div>
+
+            <div class="form-group" style="display: flex; align-items: center; justify-content: space-between; background: #080a0f; padding: 12px; border-radius: 4px; border: 1px solid var(--card-border); margin-bottom: 16px;">
+                <div>
+                    <div style="font-size: 14px; font-weight: 700;">Trạng Thái Máy Chủ (Server Status)</div>
+                    <div style="font-size: 11px; color: var(--text-dim);">Tắt server sẽ làm tất cả máy khách tự động out và xóa sạch file can thiệp!</div>
+                </div>
+                <label class="switch">
+                    <input type="checkbox" id="serverOnlineToggle" {% if settings.server_online %}checked{% endif %} onchange="updateServerSettings()">
+                    <span class="slider"></span>
+                </label>
+            </div>
+
+            <div class="form-group">
+                <label>Tiêu Đề Nút Bấm Link (Hiện khi Server Off / Hết Hạn / Bị Crack)</label>
+                <input type="text" id="emergencyLinkTitle" value="{{ settings.emergency_link_title }}" placeholder="VD: THAM GIA NHÓM TELEGRAM">
+            </div>
+
+            <div class="form-group">
+                <label>Đường Dẫn URL Khi Bấm Vào Nút</label>
+                <input type="text" id="emergencyLinkUrl" value="{{ settings.emergency_link_url }}" placeholder="VD: https://t.me/your_channel">
+            </div>
+
+            <div class="form-group">
+                <label>Thông Báo Khẩn Cấp Hiển Thị Trong App</label>
+                <input type="text" id="emergencyMessage" value="{{ settings.emergency_message }}" placeholder="VD: Server đang bảo trì nâng cấp, vui lòng tham gia Telegram để nhận thông báo mới!">
+            </div>
+
+            <button class="btn" onclick="updateServerSettings()">LƯU CẤU HÌNH SERVER</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    function switchTab(tabId, btn) {
+        document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+        document.querySelectorAll('.nav-tab').forEach(el => el.classList.remove('active'));
+        document.getElementById(tabId).classList.add('active');
+        btn.classList.add('active');
+    }
+
+    function setDuration(days, el) {
+        document.querySelectorAll('.btn-duration').forEach(e => e.classList.remove('active'));
+        el.classList.add('active');
+        document.getElementById('keyDuration').value = days;
+    }
+
+    function copyKey(key) {
+        navigator.clipboard.writeText(key);
+        alert('Đã sao chép Key: ' + key);
+    }
+
+    async function createKeys() {
+        const days = parseInt(document.getElementById('keyDuration').value);
+        const deviceLimit = parseInt(document.getElementById('keyDeviceLimit').value);
+        const quantity = parseInt(document.getElementById('keyQuantity').value);
+        const note = document.getElementById('keyNote').value;
+
+        try {
+            const res = await fetch('/api/key/create', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    duration_days: days,
+                    device_limit: deviceLimit,
+                    quantity: quantity,
+                    note: note
+                })
+            });
+            const data = await res.json();
+            if (data.success) {
+                alert(`Đã tạo thành công ${data.keys.length} Key!`);
+                location.reload();
+            } else {
+                alert('Lỗi: ' + data.error);
+            }
+        } catch (e) {
+            alert('Lỗi kết nối: ' + e.message);
+        }
+    }
+
+    async function deleteKey(key) {
+        if (!confirm(`Bạn có chắc muốn xóa Key ${key}? Máy khách dùng key này sẽ bị out ngay lập tức!`)) return;
+        try {
+            const res = await fetch(`/api/key/${key}`, { method: 'DELETE' });
+            const data = await res.json();
+            if (data.success) location.reload();
+        } catch (e) { alert('Lỗi: ' + e.message); }
+    }
+
+    async function toggleBanKey(key) {
+        try {
+            const res = await fetch(`/api/key/${key}/ban`, { method: 'POST' });
+            const data = await res.json();
+            if (data.success) location.reload();
+        } catch (e) { alert('Lỗi: ' + e.message); }
+    }
+
+    async function resetHwid(key) {
+        if (!confirm(`Reset HWID cho key ${key}? Key này sẽ có thể kích hoạt trên thiết bị mới.`)) return;
+        try {
+            const res = await fetch(`/api/key/${key}/reset_hwid`, { method: 'POST' });
+            const data = await res.json();
+            if (data.success) {
+                alert('Đã reset HWID thành công!');
+                location.reload();
+            }
+        } catch (e) { alert('Lỗi: ' + e.message); }
+    }
+
+    function updateFileName(input) {
+        if (input.files && input.files[0]) {
+            document.getElementById('dropzoneText').innerText = "Đã chọn: " + input.files[0].name;
+            if (!document.getElementById('patchName').value) {
+                document.getElementById('patchName').value = input.files[0].name.replace(/\.[^/.]+$/, "");
+            }
+        }
+    }
+
+    async function uploadPatch() {
+        const fileInput = document.getElementById('fileInput');
+        if (!fileInput.files || !fileInput.files[0]) {
+            alert('Vui lòng chọn file .3105!');
+            return;
+        }
+
+        const formData = new FormData();
+        formData.append('file', fileInput.files[0]);
+        formData.append('target_game', document.getElementById('targetGame').value);
+        formData.append('category', document.getElementById('category').value);
+        formData.append('name', document.getElementById('patchName').value);
+        formData.append('password', document.getElementById('patchPassword').value);
+
+        try {
+            const res = await fetch('/api/upload', { method: 'POST', body: formData });
+            const data = await res.json();
+            if (data.success) location.reload();
+            else alert('Lỗi: ' + data.error);
+        } catch (e) { alert('Lỗi: ' + e.message); }
+    }
+
+    async function togglePatch(id) {
+        try { await fetch(`/api/patches/${id}/toggle`, { method: 'POST' }); }
+        catch (e) { alert('Lỗi: ' + e.message); }
+    }
+
+    async function deletePatch(id) {
+        if (!confirm('Xóa file patch này?')) return;
+        try {
+            const res = await fetch(`/api/patches/${id}`, { method: 'DELETE' });
+            const data = await res.json();
+            if (data.success) location.reload();
+        } catch (e) { alert('Lỗi: ' + e.message); }
+    }
+
+    async function updateServerSettings() {
+        const online = document.getElementById('serverOnlineToggle').checked;
+        const linkTitle = document.getElementById('emergencyLinkTitle').value;
+        const linkUrl = document.getElementById('emergencyLinkUrl').value;
+        const msg = document.getElementById('emergencyMessage').value;
+
+        try {
+            const res = await fetch('/api/settings/update', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    server_online: online,
+                    emergency_link_title: linkTitle,
+                    emergency_link_url: linkUrl,
+                    emergency_message: msg
+                })
+            });
+            const data = await res.json();
+            if (data.success) {
+                alert('Đã cập nhật cài đặt Server thành công!');
+                document.getElementById('serverLiveStatus').innerText = online ? "● SERVER ONLINE" : "● SERVER OFFLINE (KILL SWITCH ON)";
+                document.getElementById('serverLiveStatus').style.color = online ? "var(--green)" : "#ff4757";
+            }
+        } catch (e) { alert('Lỗi: ' + e.message); }
+    }
+</script>
+
+</body>
+</html>
