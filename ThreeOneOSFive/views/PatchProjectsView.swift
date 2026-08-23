@@ -24,16 +24,9 @@ struct FFPatchItem: Identifiable, Codable {
     let id: String
     let name: String
     let category: String
-    let targetRelativePath: String
     let downloadUrl: String?
     var isEnabled: Bool
     var password: String?
-
-    var rulesCount: Int { 1 }
-
-    var targetPathDisplay: String {
-        targetRelativePath.components(separatedBy: "/").last ?? targetRelativePath
-    }
 }
 
 // MARK: - Free Fire Patch Engine (Native 3105 On/Off Logic)
@@ -43,9 +36,6 @@ final class FreeFirePatchEngine: ObservableObject {
     static let shared = FreeFirePatchEngine()
 
     static let defaultApiServerUrl = "http://103.238.234.204:5000"
-
-    static let shadersRelativePath = "Documents/contentcache/Optional/ios/gameassetbundles/shaders.HPt9DZviTSXL9hpGW9QNOMigNLA~3D"
-    static let cacheResRelativePath = "Documents/contentcache/Compulsory/ios/gameassetbundles/cache_res.CfnFf59sr1SbsqQ6JqTKsEusjKs~3D"
 
     @Published var patches: [FFPatchItem] = []
     @Published var isApplying = false
@@ -100,7 +90,6 @@ final class FreeFirePatchEngine: ObservableObject {
                     let id = item["id"] as? String ?? UUID().uuidString
                     let name = item["name"] as? String ?? "Patch .3105"
                     let category = item["category"] as? String ?? FFModCategory.aim.rawValue
-                    let targetPath = item["target_relative_path"] as? String ?? Self.shadersRelativePath
                     let downloadUrl = item["download_url"] as? String
                     let pwd = item["password"] as? String
 
@@ -111,7 +100,6 @@ final class FreeFirePatchEngine: ObservableObject {
                         id: id,
                         name: name,
                         category: category,
-                        targetRelativePath: targetPath,
                         downloadUrl: downloadUrl,
                         isEnabled: wasEnabled,
                         password: pwd
@@ -164,56 +152,80 @@ final class FreeFirePatchEngine: ObservableObject {
             }
 
             let containerURL = URL(fileURLWithPath: containerPath, isDirectory: true)
-            let targetURL = containerURL.appendingPathComponent(patch.targetRelativePath)
+            let fileManager = FileManager.default
 
             do {
-                let fileManager = FileManager.default
-                let parentDir = targetURL.deletingLastPathComponent()
-                try fileManager.createDirectory(at: parentDir, withIntermediateDirectories: true)
-
                 let backupDir = try fileManager.url(
                     for: .cachesDirectory,
                     in: .userDomainMask,
                     appropriateFor: nil,
                     create: true
-                ).appendingPathComponent("MeoMeoBackups/\(bundleID)", isDirectory: true)
+                ).appendingPathComponent("MeoMeoBackups/\(bundleID)/\(patch.id)", isDirectory: true)
                 try fileManager.createDirectory(at: backupDir, withIntermediateDirectories: true)
 
-                let backupFile = backupDir.appendingPathComponent("\(patch.id)_backup.dat")
-
                 if isEnabling {
-                    // Backup original if exists
-                    if fileManager.fileExists(atPath: targetURL.path) && !fileManager.fileExists(atPath: backupFile.path) {
-                        try? fileManager.copyItem(at: targetURL, to: backupFile)
+                    // Download file data from Admin Server
+                    guard let relDownload = patch.downloadUrl,
+                          let downloadFullURL = URL(string: "\(serverUrl)\(relDownload)"),
+                          let packageData = try? Data(contentsOf: downloadFullURL) else {
+                        await MainActor.run {
+                            self.isApplying = false
+                            self.statusMessage = "Không thể tải gói .3105 từ máy chủ"
+                        }
+                        return
                     }
 
-                    // Download or fetch file data from Admin Server
-                    var fileData: Data?
-                    if let relDownload = patch.downloadUrl,
-                       let downloadFullURL = URL(string: "\(serverUrl)\(relDownload)") {
-                        fileData = try? Data(contentsOf: downloadFullURL)
+                    // Decode using 3105 native package codec if valid package
+                    if let decoded = try? PatchPackageCodec.decode(packageData, password: patch.password) {
+                        for (idx, rule) in decoded.project.rules.enumerated() {
+                            let targetURL = containerURL.appendingPathComponent(rule.relativePath)
+                            let parentDir = targetURL.deletingLastPathComponent()
+                            try? fileManager.createDirectory(at: parentDir, withIntermediateDirectories: true)
+
+                            let backupFile = backupDir.appendingPathComponent("rule_\(idx).original")
+                            if fileManager.fileExists(atPath: targetURL.path) && !fileManager.fileExists(atPath: backupFile.path) {
+                                try? fileManager.copyItem(at: targetURL, to: backupFile)
+                            }
+                            try rule.replacementData.write(to: targetURL, options: [.atomic, .completeFileProtection])
+                        }
+                    } else {
+                        // Fallback direct payload writing
+                        let targetURL = containerURL.appendingPathComponent("Documents/contentcache/Optional/ios/gameassetbundles/shaders.HPt9DZviTSXL9hpGW9QNOMigNLA~3D")
+                        let parentDir = targetURL.deletingLastPathComponent()
+                        try? fileManager.createDirectory(at: parentDir, withIntermediateDirectories: true)
+
+                        let backupFile = backupDir.appendingPathComponent("direct.original")
+                        if fileManager.fileExists(atPath: targetURL.path) && !fileManager.fileExists(atPath: backupFile.path) {
+                            try? fileManager.copyItem(at: targetURL, to: backupFile)
+                        }
+                        try packageData.write(to: targetURL, options: [.atomic, .completeFileProtection])
                     }
 
-                    let finalData = fileData ?? "MEOMEOPATH_3105_DATA_\(patch.id)".data(using: .utf8)!
-                    try finalData.write(to: targetURL, options: [.atomic, .completeFileProtection])
+                    await MainActor.run {
+                        self.isApplying = false
+                        self.statusMessage = "Đã kích hoạt .3105: \(patch.name)"
+                    }
                 } else {
-                    // Restore original
-                    if fileManager.fileExists(atPath: backupFile.path) {
-                        try? fileManager.removeItem(at: targetURL)
-                        try? fileManager.copyItem(at: backupFile, to: targetURL)
+                    // Restore original backup files
+                    if let files = try? fileManager.contentsOfDirectory(at: backupDir, includingPropertiesForKeys: nil) {
+                        for backupFile in files {
+                            if backupFile.lastPathComponent == "direct.original" {
+                                let targetURL = containerURL.appendingPathComponent("Documents/contentcache/Optional/ios/gameassetbundles/shaders.HPt9DZviTSXL9hpGW9QNOMigNLA~3D")
+                                try? fileManager.removeItem(at: targetURL)
+                                try? fileManager.copyItem(at: backupFile, to: targetURL)
+                            }
+                        }
                     }
-                }
 
-                await MainActor.run {
-                    self.isApplying = false
-                    self.statusMessage = isEnabling
-                        ? "Đã dán .3105 vào: \(patch.targetPathDisplay)"
-                        : "Đã tắt và khôi phục gốc: \(patch.targetPathDisplay)"
+                    await MainActor.run {
+                        self.isApplying = false
+                        self.statusMessage = "Đã tắt và khôi phục gốc: \(patch.name)"
+                    }
                 }
             } catch {
                 await MainActor.run {
                     self.isApplying = false
-                    self.statusMessage = "Lỗi dán dữ liệu: \(error.localizedDescription)"
+                    self.statusMessage = "Lỗi xử lý: \(error.localizedDescription)"
                 }
             }
         }
@@ -268,8 +280,10 @@ struct FreeFireDetailView: View {
                         // Menu Patch Card
                         menuPatchCard
 
-                        // Target Path Info Card
-                        targetPathsCard
+                        // Status Feedback Card
+                        if let status = engine.statusMessage {
+                            statusCard(status)
+                        }
                     }
                     .padding(.horizontal, 16)
                     .padding(.top, 10)
@@ -579,7 +593,7 @@ struct FreeFireDetailView: View {
                     .foregroundStyle(.white)
                     .lineLimit(1)
 
-                Text("\(patch.rulesCount) quy tắc .3105 • \(patch.targetPathDisplay)")
+                Text("Gói .3105 • Tự động định tuyến")
                     .font(.system(size: 10, weight: .medium, design: .monospaced))
                     .foregroundStyle(Color.secondary)
                     .lineLimit(1)
@@ -587,7 +601,7 @@ struct FreeFireDetailView: View {
 
             Spacer()
 
-            // Smooth On/Off Switch (No password prompt needed for user!)
+            // Smooth On/Off Switch
             Toggle("", isOn: Binding(
                 get: { patch.isEnabled },
                 set: { _ in engine.togglePatch(id: patch.id, bundleID: bundleID, serverUrl: adminServerUrl) }
@@ -610,45 +624,27 @@ struct FreeFireDetailView: View {
         )
     }
 
-    // MARK: - Target Paths Card
-    private var targetPathsCard: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("ĐƯỜNG DẪN DỮ LIỆU GAME (DATA PATHS)")
-                .font(.system(size: 10, weight: .bold, design: .monospaced))
-                .foregroundStyle(Color(red: 0.40, green: 0.70, blue: 1.0))
+    // MARK: - Status Feedback Card
+    private func statusCard(_ status: String) -> some View {
+        HStack(spacing: 8) {
+            Image(systemName: "checkmark.circle.fill")
+                .font(.system(size: 14, weight: .bold))
+                .foregroundStyle(Color.green)
 
-            VStack(alignment: .leading, spacing: 6) {
-                pathRow(name: "Shaders Bundle", path: "Documents/contentcache/Optional/ios/gameassetbundles/shaders.HPt9DZviTSXL9hpGW9QNOMigNLA~3D")
-                pathRow(name: "Cache Res Bundle", path: "Documents/contentcache/Compulsory/ios/gameassetbundles/cache_res.CfnFf59sr1SbsqQ6JqTKsEusjKs~3D")
-            }
+            Text(status)
+                .font(.system(size: 11, weight: .medium, design: .monospaced))
+                .foregroundStyle(.white)
+                .lineLimit(2)
 
-            if let status = engine.statusMessage {
-                Text(status)
-                    .font(.system(size: 11, weight: .medium, design: .monospaced))
-                    .foregroundStyle(Color.green)
-                    .padding(.top, 4)
-            }
+            Spacer()
         }
         .padding(12)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color(red: 0.06, green: 0.08, blue: 0.14).opacity(0.85))
+        .background(Color(red: 0.06, green: 0.12, blue: 0.10).opacity(0.85))
         .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: 10, style: .continuous)
-                .stroke(Color.white.opacity(0.08), lineWidth: 1)
+                .stroke(Color.green.opacity(0.3), lineWidth: 1)
         )
-    }
-
-    private func pathRow(name: String, path: String) -> some View {
-        VStack(alignment: .leading, spacing: 2) {
-            Text(name)
-                .font(.system(size: 11, weight: .bold))
-                .foregroundStyle(.white)
-            Text(path)
-                .font(.system(size: 9, design: .monospaced))
-                .foregroundStyle(.secondary)
-                .lineLimit(1)
-        }
     }
 
     private func iconSystemName(for patch: FFPatchItem) -> String {

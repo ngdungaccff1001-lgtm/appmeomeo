@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MeoMeoPath Admin Panel • Free Fire Patch Hub</title>
+    <title>MeoMeoPath Admin Panel • 3105 Patch Hub</title>
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;800&family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
     <style>
         :root {
@@ -159,7 +159,7 @@
             <div class="logo-box">⚡</div>
             <div>
                 <h1>MeoMeoPath <span class="tag">.3105 ADMIN API</span></h1>
-                <p style="font-size: 12px; color: var(--text-dim); margin-top: 2px;">Hệ thống Đóng gói .3105 On/Off Chuẩn Native 3105 cho FFM / FFT</p>
+                <p style="font-size: 12px; color: var(--text-dim); margin-top: 2px;">Hệ thống Đóng gói .3105 Tự Động Định Tuyến Container cho FFM / FFT</p>
             </div>
         </div>
         <div style="font-size: 12px; font-family: 'JetBrains Mono', monospace; color: var(--green);">
@@ -171,8 +171,8 @@
         <!-- Form Upload -->
         <div class="card">
             <div class="card-header">
-                <span>UPLOAD & ĐÓNG GÓI .3105</span>
-                <span>ADMIN CONFIG</span>
+                <span>UPLOAD FILE .3105</span>
+                <span>ADMIN UPLOAD</span>
             </div>
 
             <form id="uploadForm">
@@ -195,28 +195,20 @@
                 </div>
 
                 <div class="form-group">
-                    <label>Đường dẫn dán Data (Target Container Path)</label>
-                    <select id="targetPathType">
-                        <option value="shaders">📁 Shaders (Documents/contentcache/Optional/ios/gameassetbundles/shaders.HPt9DZviTSXL9hpGW9QNOMigNLA~3D)</option>
-                        <option value="cache_res">📁 Cache Res (Documents/contentcache/Compulsory/ios/gameassetbundles/cache_res.CfnFf59sr1SbsqQ6JqTKsEusjKs~3D)</option>
-                    </select>
-                </div>
-
-                <div class="form-group">
                     <label>Tên hiển thị trong Menu Patch</label>
                     <input type="text" id="patchName" placeholder="VD: Aim Alex Free Fire Max">
                 </div>
 
                 <div class="form-group">
-                    <label>Mật khẩu Admin giải mã .3105 (Nếu có - Admin cấu hình tại đây, App tự động mở khóa 1-chạm)</label>
-                    <input type="password" id="patchPassword" placeholder="Nhập mật khẩu Admin (tùy chọn)...">
+                    <label>Mật khẩu Admin giải mã .3105 (Nếu gói .3105 có mật khẩu - Nhập tại đây, App IPA sẽ tự động dùng)</label>
+                    <input type="password" id="patchPassword" placeholder="Nhập mật khẩu của file .3105 (tùy chọn)...">
                 </div>
 
                 <div class="upload-dropzone" onclick="document.getElementById('fileInput').click()">
                     <input type="file" id="fileInput" style="display: none;" onchange="updateFileName(this)">
                     <div style="font-size: 26px; margin-bottom: 6px;">📦</div>
-                    <div id="dropzoneText" style="font-size: 13px; font-weight: 600;">Chọn file data patch để upload (.3105, .payload, .dat)</div>
-                    <div style="font-size: 11px; color: var(--text-dim); margin-top: 4px;">Người dùng iOS chỉ cần bật On/Off, không cần nhập mật khẩu</div>
+                    <div id="dropzoneText" style="font-size: 13px; font-weight: 600;">Chọn file .3105 để upload</div>
+                    <div style="font-size: 11px; color: var(--text-dim); margin-top: 4px;">Quy tắc và đường dẫn container được gói .3105 tự động quản lý</div>
                 </div>
 
                 <button type="button" class="btn" onclick="uploadPatch()">THÊM VÀO MENU PATCH NGAY</button>
@@ -226,8 +218,8 @@
         <!-- Danh sách Patch -->
         <div class="card">
             <div class="card-header">
-                <span>DANH SÁCH GÓI .3105 ĐANG HOẠT ĐỘNG</span>
-                <span id="patchCount">{{ patches|length }} CHỨC NĂNG</span>
+                <span>DANH SÁCH GÓI .3105 TRÊN SERVER</span>
+                <span id="patchCount">{{ patches|length }} GÓI</span>
             </div>
 
             <div class="patch-list" id="patchList">
@@ -236,7 +228,7 @@
                     <div style="flex: 1;">
                         <div class="patch-name">
                             {{ p.name }}
-                            <span class="badge-admin">✓ AUTO ON/OFF</span>
+                            <span class="badge-admin">✓ AUTO 3105</span>
                         </div>
                         <div class="patch-meta">
                             <span class="badge-cat {% if p.category == 'Aim File' %}badge-aim{% elif p.category == 'Định Vị' %}badge-esp{% else %}badge-skin{% endif %}">
@@ -245,7 +237,7 @@
                             <span>{{ 'FFM' if p.target_game == 'com.dts.freefiremax' else 'FFT' }}</span>
                             <span>.3105 ({{ p.size }})</span>
                             {% if p.password %}
-                            <span style="color: #8b949e;">[MK Admin: {{ p.password }}]</span>
+                            <span style="color: #8b949e;">[MK: {{ p.password }}]</span>
                             {% endif %}
                         </div>
                     </div>
@@ -281,7 +273,7 @@
     async function uploadPatch() {
         const fileInput = document.getElementById('fileInput');
         if (!fileInput.files || !fileInput.files[0]) {
-            alert('Vui lòng chọn một file data trước khi tải lên!');
+            alert('Vui lòng chọn file .3105 trước khi tải lên!');
             return;
         }
 
@@ -289,7 +281,6 @@
         formData.append('file', fileInput.files[0]);
         formData.append('target_game', document.getElementById('targetGame').value);
         formData.append('category', document.getElementById('category').value);
-        formData.append('target_path_type', document.getElementById('targetPathType').value);
         formData.append('name', document.getElementById('patchName').value);
         formData.append('password', document.getElementById('patchPassword').value);
 

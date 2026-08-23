@@ -9,10 +9,6 @@ app = Flask(__name__)
 app.config['SECRET_KEY'] = 'meomeopath-admin-secret-2026'
 UPLOAD_FOLDER = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'uploads')
 DATA_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'patches.json')
-ALLOWED_EXTENSIONS = {'3105', 'payload', 'zip', 'json', 'txt', 'dat', 'bin'}
-
-PATH_SHADERS = "Documents/contentcache/Optional/ios/gameassetbundles/shaders.HPt9DZviTSXL9hpGW9QNOMigNLA~3D"
-PATH_CACHE_RES = "Documents/contentcache/Compulsory/ios/gameassetbundles/cache_res.CfnFf59sr1SbsqQ6JqTKsEusjKs~3D"
 
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
@@ -29,9 +25,6 @@ def save_patches(patches):
     with open(DATA_FILE, 'w', encoding='utf-8') as f:
         json.dump(patches, f, indent=2, ensure_ascii=False)
 
-def allowed_file(filename):
-    return True
-
 @app.route('/')
 def index():
     patches = load_patches()
@@ -44,7 +37,7 @@ def api_status():
     return jsonify({
         "status": "online",
         "service": "MeoMeoPath Admin API",
-        "version": "1.1.1",
+        "version": "1.2.0",
         "timestamp": int(time.time()),
         "supported_games": ["com.dts.freefireth", "com.dts.freefiremax"]
     })
@@ -83,24 +76,16 @@ def api_upload():
 
     target_game = request.form.get('target_game', 'com.dts.freefiremax')
     category = request.form.get('category', 'Aim File')
-    target_path_type = request.form.get('target_path_type', 'shaders')
-    patch_name = request.form.get('name', '')
+    patch_name = request.form.get('name', '').strip()
     password = request.form.get('password', '').strip()
-    description = request.form.get('description', '')
-
-    if target_path_type == 'shaders':
-        target_relative_path = PATH_SHADERS
-    elif target_path_type == 'cache_res':
-        target_relative_path = PATH_CACHE_RES
-    else:
-        target_relative_path = request.form.get('custom_path', PATH_SHADERS)
+    description = request.form.get('description', '').strip()
 
     if file:
         raw_filename = secure_filename(file.filename)
         if not raw_filename:
             raw_filename = f"patch_{int(time.time())}.3105"
         
-        # Đảm bảo lưu đúng định dạng .3105
+        # Giữ nguyên hoặc lưu đúng định dạng .3105
         base_name = os.path.splitext(raw_filename)[0]
         unique_filename = f"{int(time.time())}_{base_name}.3105"
         filepath = os.path.join(UPLOAD_FOLDER, unique_filename)
@@ -117,12 +102,11 @@ def api_upload():
             "filename": unique_filename,
             "original_filename": raw_filename,
             "target_game": target_game,
-            "target_relative_path": target_relative_path,
             "size": size_str,
             "enabled": True,
             "is_password_protected": bool(password),
             "password": password,
-            "description": description or f"Áp dụng vào {target_relative_path.split('/')[-1]}",
+            "description": description or f"Gói patch .3105 cho {target_game}",
             "download_url": f"/api/download/{unique_filename}",
             "created_at": time.strftime("%Y-%m-%d %H:%M:%S")
         }
@@ -133,7 +117,7 @@ def api_upload():
 
         return jsonify({"success": True, "patch": new_patch})
 
-    return jsonify({"success": False, "error": "Định dạng file không được hỗ trợ"}), 400
+    return jsonify({"success": False, "error": "Lỗi xử lý file tải lên"}), 400
 
 @app.route('/api/patches/<patch_id>/toggle', methods=['POST'])
 def api_toggle_patch(patch_id):
@@ -184,7 +168,7 @@ def api_download(filename):
 
 if __name__ == '__main__':
     print("==================================================")
-    print("🔥 MEOMEOPATH ADMIN WEB SERVER (FREE FIRE HUB) 🔥")
+    print("🔥 MEOMEOPATH ADMIN WEB SERVER (3105 HUB) 🔥")
     print("👉 Web Admin: http://0.0.0.0:5000")
     print("👉 API Patch Hub: http://0.0.0.0:5000/api/patches")
     print("==================================================")
