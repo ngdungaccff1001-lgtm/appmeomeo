@@ -1,1 +1,17 @@
-[]
+[
+  {
+    "id": "b4872914-dc07-4311-9350-19e6f7c5722e",
+    "name": "AimNeck",
+    "category": "Aim File",
+    "filename": "1787492854_Neck_Drag_FFTH-2.3105",
+    "original_filename": "Neck_Drag_FFTH-2.3105",
+    "target_game": "com.dts.freefireth",
+    "size": "63.0 KB",
+    "enabled": true,
+    "is_password_protected": true,
+    "password": "YaBaor",
+    "description": "Gói patch .3105 cho com.dts.freefireth",
+    "download_url": "/api/download/1787492854_Neck_Drag_FFTH-2.3105",
+    "created_at": "2026-08-23 20:47:34"
+  }
+]

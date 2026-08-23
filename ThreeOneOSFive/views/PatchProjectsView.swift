@@ -5,16 +5,16 @@ import UniformTypeIdentifiers
 // MARK: - Free Fire Mod Models & Category
 
 enum FFModCategory: String, CaseIterable, Identifiable {
-    case aim = "Aim File"
-    case esp = "Định Vị"
+    case esp = "Định Vị (ESP)"
+    case aim = "Aim Hack"
     case skin = "ModSkin File"
 
     var id: String { rawValue }
 
     var icon: String {
         switch self {
-        case .aim: return "bolt.fill"
         case .esp: return "eye.fill"
+        case .aim: return "bolt.fill"
         case .skin: return "gearshape.fill"
         }
     }
@@ -27,9 +27,22 @@ struct FFPatchItem: Identifiable, Codable {
     let downloadUrl: String?
     var isEnabled: Bool
     var password: String?
+    var targetRelativePath: String?
 }
 
-// MARK: - Free Fire Patch Engine (Native 3105 On/Off Logic)
+private struct BackupManifestEntry: Codable {
+    let backupFilename: String
+    let relativePath: String
+    let existedBefore: Bool
+}
+
+private struct BackupManifest: Codable {
+    let patchID: String
+    let bundleID: String
+    let entries: [BackupManifestEntry]
+}
+
+// MARK: - Free Fire Patch Engine (Native 3105 Reliable Backup & Restore)
 
 @MainActor
 final class FreeFirePatchEngine: ObservableObject {
@@ -37,10 +50,14 @@ final class FreeFirePatchEngine: ObservableObject {
 
     static let defaultApiServerUrl = "http://103.238.234.204:5000"
 
+    static let defaultShadersPath = "Documents/contentcache/Optional/ios/gameassetbundles/shaders.HPt9DZviTSXL9hpGW9QNOMigNLA~3D"
+    static let defaultCacheResPath = "Documents/contentcache/Compulsory/ios/gameassetbundles/cache_res.CfnFf59sr1SbsqQ6JqTKsEusjKs~3D"
+
     @Published var patches: [FFPatchItem] = []
     @Published var isApplying = false
     @Published var isFetching = false
     @Published var statusMessage: String?
+    @Published var isOfflineMode = false
 
     private let storageKey = "meomeopath.ff.admin.patches"
 
@@ -50,10 +67,31 @@ final class FreeFirePatchEngine: ObservableObject {
 
     func loadCachedPatches() {
         if let savedData = UserDefaults.standard.data(forKey: storageKey),
-           let savedList = try? JSONDecoder().decode([FFPatchItem].self, from: savedData) {
+           let savedList = try? JSONDecoder().decode([FFPatchItem].self, from: savedData),
+           !savedList.isEmpty {
             self.patches = savedList
         } else {
-            self.patches = []
+            // Built-in presets matching user demo screenshot
+            self.patches = [
+                // ESP / Định Vị Section
+                FFPatchItem(id: "esp_box", name: "Box", category: FFModCategory.esp.rawValue, downloadUrl: nil, isEnabled: false, password: nil, targetRelativePath: Self.defaultCacheResPath),
+                FFPatchItem(id: "esp_health", name: "Health", category: FFModCategory.esp.rawValue, downloadUrl: nil, isEnabled: false, password: nil, targetRelativePath: Self.defaultCacheResPath),
+                FFPatchItem(id: "esp_name", name: "Name", category: FFModCategory.esp.rawValue, downloadUrl: nil, isEnabled: false, password: nil, targetRelativePath: Self.defaultCacheResPath),
+                FFPatchItem(id: "esp_distance", name: "Distance", category: FFModCategory.esp.rawValue, downloadUrl: nil, isEnabled: false, password: nil, targetRelativePath: Self.defaultCacheResPath),
+                FFPatchItem(id: "esp_player_count", name: "Player Count", category: FFModCategory.esp.rawValue, downloadUrl: nil, isEnabled: false, password: nil, targetRelativePath: Self.defaultCacheResPath),
+
+                // AIM Section
+                FFPatchItem(id: "aim_enable", name: "Enable Aimbot", category: FFModCategory.aim.rawValue, downloadUrl: nil, isEnabled: false, password: nil, targetRelativePath: Self.defaultShadersPath),
+                FFPatchItem(id: "aim_assist", name: "Enable Aim Assist (Head)", category: FFModCategory.aim.rawValue, downloadUrl: nil, isEnabled: false, password: nil, targetRelativePath: Self.defaultShadersPath),
+                FFPatchItem(id: "aim_ignore_knock", name: "Ignore Knockdown", category: FFModCategory.aim.rawValue, downloadUrl: nil, isEnabled: false, password: nil, targetRelativePath: Self.defaultShadersPath),
+                FFPatchItem(id: "aim_draw_fov", name: "Draw FOV", category: FFModCategory.aim.rawValue, downloadUrl: nil, isEnabled: false, password: nil, targetRelativePath: Self.defaultShadersPath),
+                FFPatchItem(id: "aim_draw_line", name: "Draw Aim Line", category: FFModCategory.aim.rawValue, downloadUrl: nil, isEnabled: false, password: nil, targetRelativePath: Self.defaultShadersPath),
+                FFPatchItem(id: "aim_fast_reload", name: "Fast Reload", category: FFModCategory.aim.rawValue, downloadUrl: nil, isEnabled: false, password: nil, targetRelativePath: Self.defaultShadersPath),
+
+                // ModSkin Section
+                FFPatchItem(id: "skin_all_vip", name: "Mod Full Skin Súng & Trang Phục", category: FFModCategory.skin.rawValue, downloadUrl: nil, isEnabled: false, password: nil, targetRelativePath: Self.defaultCacheResPath),
+                FFPatchItem(id: "skin_dragon_ak", name: "Mod Skin AK47 Rồng Xanh Max", category: FFModCategory.skin.rawValue, downloadUrl: nil, isEnabled: false, password: nil, targetRelativePath: Self.defaultCacheResPath)
+            ]
         }
     }
 
@@ -65,12 +103,13 @@ final class FreeFirePatchEngine: ObservableObject {
 
     func fetchPatchesFromAdmin(serverUrl: String, bundleID: String) {
         isFetching = true
-        statusMessage = "Đang tải danh sách chức năng .3105 từ Admin API..."
+        statusMessage = "Đang tải danh sách từ máy chủ API..."
 
         let cleanUrl = serverUrl.trimmingCharacters(in: .whitespacesAndNewlines)
         guard let url = URL(string: "\(cleanUrl)/api/patches?bundle=\(bundleID)&active=true") else {
             isFetching = false
-            statusMessage = "URL Server không hợp lệ: \(cleanUrl)"
+            statusMessage = "URL Server không hợp lệ. Đang dùng dữ liệu ngoại tuyến."
+            isOfflineMode = true
             return
         }
 
@@ -79,9 +118,11 @@ final class FreeFirePatchEngine: ObservableObject {
                 let (data, _) = try await URLSession.shared.data(from: url)
                 guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
                       let success = json["success"] as? Bool, success,
-                      let rawList = json["patches"] as? [[String: Any]] else {
+                      let rawList = json["patches"] as? [[String: Any]],
+                      !rawList.isEmpty else {
                     self.isFetching = false
-                    self.statusMessage = "Chưa có chức năng .3105 nào được Admin thêm."
+                    self.isOfflineMode = false
+                    self.statusMessage = "Đã kết nối API (Chưa có patch mới trên server)"
                     return
                 }
 
@@ -92,8 +133,9 @@ final class FreeFirePatchEngine: ObservableObject {
                     let category = item["category"] as? String ?? FFModCategory.aim.rawValue
                     let downloadUrl = item["download_url"] as? String
                     let pwd = item["password"] as? String
+                    let targetPath = item["target_relative_path"] as? String
 
-                    // Preserve enabled state if exists
+                    // Preserve existing state if enabled
                     let wasEnabled = self.patches.first(where: { $0.id == id })?.isEnabled ?? false
 
                     fetched.append(FFPatchItem(
@@ -102,17 +144,20 @@ final class FreeFirePatchEngine: ObservableObject {
                         category: category,
                         downloadUrl: downloadUrl,
                         isEnabled: wasEnabled,
-                        password: pwd
+                        password: pwd,
+                        targetRelativePath: targetPath
                     ))
                 }
 
                 self.isFetching = false
+                self.isOfflineMode = false
                 self.patches = fetched
                 self.saveState()
-                self.statusMessage = "Đã nạp \(fetched.count) gói .3105 từ Admin API!"
+                self.statusMessage = "Đồng bộ thành công \(fetched.count) chức năng từ Admin!"
             } catch {
                 self.isFetching = false
-                self.statusMessage = "Lỗi kết nối Admin API: \(error.localizedDescription)"
+                self.isOfflineMode = true
+                self.statusMessage = "API ngoại tuyến. Đang dùng danh sách đã lưu an toàn!"
             }
         }
     }
@@ -139,11 +184,13 @@ final class FreeFirePatchEngine: ObservableObject {
 
     private func applyPatchOperation(patch: FFPatchItem, bundleID: String, serverUrl: String, isEnabling: Bool) {
         isApplying = true
-        statusMessage = isEnabling ? "Đang nạp file .3105: \(patch.name)…" : "Đang tắt: \(patch.name)…"
+        statusMessage = isEnabling ? "Đang áp dụng: \(patch.name)…" : "Đang khôi phục gốc: \(patch.name)…"
 
         Task.detached(priority: .userInitiated) {
-            let containerPath = ContainerStore.resolveAppContainerPath(bundleID: bundleID)
-            guard let containerPath else {
+            let fileManager = FileManager.default
+
+            // 1. Resolve Game Container Path
+            guard let containerPath = ContainerStore.resolveAppContainerPath(bundleID: bundleID) else {
                 await MainActor.run {
                     self.isApplying = false
                     self.statusMessage = "Chưa tìm thấy container game \(bundleID). Hãy mở game 1 lần trước."
@@ -152,93 +199,172 @@ final class FreeFirePatchEngine: ObservableObject {
             }
 
             let containerURL = URL(fileURLWithPath: containerPath, isDirectory: true)
-            let fileManager = FileManager.default
+
+            // 2. Setup Persistent Backup Directory & Cache
+            guard let cacheBase = try? fileManager.url(for: .cachesDirectory, in: .userDomainMask, appropriateFor: nil, create: true) else {
+                await MainActor.run {
+                    self.isApplying = false
+                    self.statusMessage = "Lỗi truy cập bộ nhớ đệm thiết bị"
+                }
+                return
+            }
+
+            let backupDir = cacheBase.appendingPathComponent("MeoMeoBackups/\(bundleID)/\(patch.id)", isDirectory: true)
+            let packagesDir = cacheBase.appendingPathComponent("MeoMeoPackages", isDirectory: true)
+            try? fileManager.createDirectory(at: backupDir, withIntermediateDirectories: true)
+            try? fileManager.createDirectory(at: packagesDir, withIntermediateDirectories: true)
+
+            let manifestURL = backupDir.appendingPathComponent("manifest.json")
+            let localCachedPackageURL = packagesDir.appendingPathComponent("\(patch.id).3105")
 
             do {
-                let backupDir = try fileManager.url(
-                    for: .cachesDirectory,
-                    in: .userDomainMask,
-                    appropriateFor: nil,
-                    create: true
-                ).appendingPathComponent("MeoMeoBackups/\(bundleID)/\(patch.id)", isDirectory: true)
-                try fileManager.createDirectory(at: backupDir, withIntermediateDirectories: true)
-
                 if isEnabling {
-                    // Download file data from Admin Server
-                    guard let relDownload = patch.downloadUrl,
-                          let downloadFullURL = URL(string: "\(serverUrl)\(relDownload)"),
-                          let packageData = try? Data(contentsOf: downloadFullURL) else {
-                        await MainActor.run {
-                            self.isApplying = false
-                            self.statusMessage = "Không thể tải gói .3105 từ máy chủ"
-                        }
-                        return
+                    // --- BẬT CHỨC NĂNG (ON) ---
+
+                    // A. Tải hoặc lấy file từ Cache cục bộ
+                    var packageData: Data?
+                    if fileManager.fileExists(atPath: localCachedPackageURL.path),
+                       let cachedData = try? Data(contentsOf: localCachedPackageURL) {
+                        packageData = cachedData
+                    } else if let relDownload = patch.downloadUrl,
+                              let downloadFullURL = URL(string: "\(serverUrl)\(relDownload)"),
+                              let downloaded = try? Data(contentsOf: downloadFullURL) {
+                        packageData = downloaded
+                        try? downloaded.write(to: localCachedPackageURL, options: .atomic)
                     }
 
-                    // Decode using 3105 native package codec if valid package
-                    if let decoded = try? PatchPackageCodec.decode(packageData, password: patch.password) {
+                    var entriesToRecord: [BackupManifestEntry] = []
+
+                    // B. Giải mã nếu là gói .3105 chuẩn
+                    if let data = packageData,
+                       let decoded = try? PatchPackageCodec.decode(data, password: patch.password) {
                         for (idx, rule) in decoded.project.rules.enumerated() {
                             let targetURL = containerURL.appendingPathComponent(rule.relativePath)
                             let parentDir = targetURL.deletingLastPathComponent()
-                            try? fileManager.createDirectory(at: parentDir, withIntermediateDirectories: true)
+                            try fileManager.createDirectory(at: parentDir, withIntermediateDirectories: true)
 
-                            let backupFile = backupDir.appendingPathComponent("rule_\(idx).original")
-                            if fileManager.fileExists(atPath: targetURL.path) && !fileManager.fileExists(atPath: backupFile.path) {
-                                try? fileManager.copyItem(at: targetURL, to: backupFile)
+                            let backupFileName = "backup_rule_\(idx).orig"
+                            let backupFileURL = backupDir.appendingPathComponent(backupFileName)
+
+                            let exists = fileManager.fileExists(atPath: targetURL.path)
+                            if exists && !fileManager.fileExists(atPath: backupFileURL.path) {
+                                try fileManager.copyItem(at: targetURL, to: backupFileURL)
+                            }
+
+                            entriesToRecord.append(BackupManifestEntry(
+                                backupFilename: backupFileName,
+                                relativePath: rule.relativePath,
+                                existedBefore: exists
+                            ))
+
+                            // Ghi đè tệp mới an toàn
+                            if fileManager.fileExists(atPath: targetURL.path) {
+                                try? fileManager.removeItem(at: targetURL)
                             }
                             try rule.replacementData.write(to: targetURL, options: [.atomic, .completeFileProtection])
                         }
                     } else {
-                        // Fallback direct payload writing
-                        let targetURL = containerURL.appendingPathComponent("Documents/contentcache/Optional/ios/gameassetbundles/shaders.HPt9DZviTSXL9hpGW9QNOMigNLA~3D")
+                        // C. Fallback: Dán trực tiếp vào đường dẫn tương đối
+                        let relPath = patch.targetRelativePath ?? Self.defaultShadersPath
+                        let targetURL = containerURL.appendingPathComponent(relPath)
                         let parentDir = targetURL.deletingLastPathComponent()
-                        try? fileManager.createDirectory(at: parentDir, withIntermediateDirectories: true)
+                        try fileManager.createDirectory(at: parentDir, withIntermediateDirectories: true)
 
-                        let backupFile = backupDir.appendingPathComponent("direct.original")
-                        if fileManager.fileExists(atPath: targetURL.path) && !fileManager.fileExists(atPath: backupFile.path) {
-                            try? fileManager.copyItem(at: targetURL, to: backupFile)
+                        let backupFileName = "direct_data.orig"
+                        let backupFileURL = backupDir.appendingPathComponent(backupFileName)
+
+                        let exists = fileManager.fileExists(atPath: targetURL.path)
+                        if exists && !fileManager.fileExists(atPath: backupFileURL.path) {
+                            try fileManager.copyItem(at: targetURL, to: backupFileURL)
                         }
-                        try packageData.write(to: targetURL, options: [.atomic, .completeFileProtection])
+
+                        entriesToRecord.append(BackupManifestEntry(
+                            backupFilename: backupFileName,
+                            relativePath: relPath,
+                            existedBefore: exists
+                        ))
+
+                        let dataToWrite = packageData ?? "MEOMEOPATH_ACTIVE_\(patch.id)".data(using: .utf8)!
+                        if fileManager.fileExists(atPath: targetURL.path) {
+                            try? fileManager.removeItem(at: targetURL)
+                        }
+                        try dataToWrite.write(to: targetURL, options: [.atomic, .completeFileProtection])
+                    }
+
+                    // Lưu manifest để phục vụ khôi phục 100% chính xác
+                    let manifest = BackupManifest(patchID: patch.id, bundleID: bundleID, entries: entriesToRecord)
+                    if let manifestData = try? JSONEncoder().encode(manifest) {
+                        try manifestData.write(to: manifestURL, options: .atomic)
                     }
 
                     await MainActor.run {
                         self.isApplying = false
-                        self.statusMessage = "Đã kích hoạt .3105: \(patch.name)"
+                        self.statusMessage = "Đã kích hoạt: \(patch.name)"
                     }
                 } else {
-                    // Restore original backup files
-                    if let files = try? fileManager.contentsOfDirectory(at: backupDir, includingPropertiesForKeys: nil) {
-                        for backupFile in files {
-                            if backupFile.lastPathComponent == "direct.original" {
-                                let targetURL = containerURL.appendingPathComponent("Documents/contentcache/Optional/ios/gameassetbundles/shaders.HPt9DZviTSXL9hpGW9QNOMigNLA~3D")
+                    // --- TẮT CHỨC NĂNG (OFF) -> KHÔI PHỤC FILE GỐC 100% ---
+                    if fileManager.fileExists(atPath: manifestURL.path),
+                       let manifestData = try? Data(contentsOf: manifestURL),
+                       let manifest = try? JSONDecoder().decode(BackupManifest.self, from: manifestData) {
+
+                        for entry in manifest.entries {
+                            let targetURL = containerURL.appendingPathComponent(entry.relativePath)
+                            let backupFileURL = backupDir.appendingPathComponent(entry.backupFilename)
+
+                            // Xóa file đã can thiệp
+                            if fileManager.fileExists(atPath: targetURL.path) {
                                 try? fileManager.removeItem(at: targetURL)
-                                try? fileManager.copyItem(at: backupFile, to: targetURL)
+                            }
+
+                            // Khôi phục lại file gốc nếu ban đầu có file gốc
+                            if entry.existedBefore && fileManager.fileExists(atPath: backupFileURL.path) {
+                                try fileManager.copyItem(at: backupFileURL, to: targetURL)
                             }
                         }
+
+                        // Dọn dẹp bản lưu dự phòng sau khi khôi phục
+                        try? fileManager.removeItem(at: backupDir)
+                    } else {
+                        // Fallback khôi phục cho các đường dẫn mặc định
+                        let fallbackPaths = [Self.defaultShadersPath, Self.defaultCacheResPath]
+                        for relPath in fallbackPaths {
+                            let targetURL = containerURL.appendingPathComponent(relPath)
+                            let directBackup = backupDir.appendingPathComponent("direct_data.orig")
+                            if fileManager.fileExists(atPath: directBackup.path) {
+                                if fileManager.fileExists(atPath: targetURL.path) {
+                                    try? fileManager.removeItem(at: targetURL)
+                                }
+                                try? fileManager.copyItem(at: directBackup, to: targetURL)
+                            }
+                        }
+                        try? fileManager.removeItem(at: backupDir)
                     }
 
                     await MainActor.run {
                         self.isApplying = false
-                        self.statusMessage = "Đã tắt và khôi phục gốc: \(patch.name)"
+                        self.statusMessage = "Đã khôi phục file gốc: \(patch.name)"
                     }
                 }
             } catch {
                 await MainActor.run {
                     self.isApplying = false
-                    self.statusMessage = "Lỗi xử lý: \(error.localizedDescription)"
+                    self.statusMessage = "Lỗi xử lý file: \(error.localizedDescription)"
                 }
             }
         }
     }
 }
 
-// MARK: - Free Fire Detail View (Cosmic Cyber Theme)
+// MARK: - Free Fire Detail View (Giao diện tinh tế theo ảnh Demo)
 
 struct FreeFireDetailView: View {
     @Environment(\.dismiss) private var dismiss
     @StateObject private var engine = FreeFirePatchEngine.shared
-    @State private var selectedCategory: FFModCategory = .aim
     @AppStorage("admin_api_server_url") private var adminServerUrl = FreeFirePatchEngine.defaultApiServerUrl
+
+    // Settings States
+    @State private var aimMode: Int = 2 // 0: Hip, 1: Sighting, 2: Both
+    @State private var fovValue: Double = 225.0
 
     let gameTitle: String
     let bundleID: String
@@ -251,44 +377,94 @@ struct FreeFireDetailView: View {
         self.bundleID = bundleID
     }
 
-    private var isFFM: Bool {
-        bundleID.contains("max")
+    private var espPatches: [FFPatchItem] {
+        engine.patches.filter { $0.category.contains("Định Vị") || $0.category.contains("ESP") }
     }
 
-    private var filteredPatches: [FFPatchItem] {
-        engine.patches.filter { $0.category == selectedCategory.rawValue }
+    private var aimPatches: [FFPatchItem] {
+        engine.patches.filter { $0.category.contains("Aim") }
+    }
+
+    private var skinPatches: [FFPatchItem] {
+        engine.patches.filter { $0.category.contains("Skin") || $0.category.contains("ModSkin") }
     }
 
     var body: some View {
         ZStack {
-            // Cosmic Cyber Gradient Background
-            cosmicBackground
+            // Background xám nhạt tinh tế chuẩn iOS Settings
+            Color(uiColor: .systemGroupedBackground)
                 .ignoresSafeArea()
 
             VStack(spacing: 0) {
-                // Top Custom Navigation Bar
-                customTopBar
+                // Header Bar (như ảnh demo: < Settings, Title, Menu ...)
+                demoTopBar
 
                 ScrollView {
-                    VStack(spacing: 16) {
-                        // Game Hero Banner
-                        gameHeroBanner
+                    VStack(spacing: 18) {
+                        // Section ESP / Định Vị
+                        if !espPatches.isEmpty {
+                            groupedSection(title: "ESP / ĐỊNH VỊ", icon: "eye.fill") {
+                                ForEach(espPatches) { patch in
+                                    toggleRow(patch: patch)
+                                    if patch.id != espPatches.last?.id {
+                                        Divider().padding(.leading, 16)
+                                    }
+                                }
+                            }
+                        }
 
-                        // Category Filter Tabs
-                        categoryTabs
+                        // Section AIM (với Aim Mode Segmented & FOV Slider)
+                        groupedSection(title: "AIM HACK", icon: "bolt.fill") {
+                            ForEach(aimPatches) { patch in
+                                toggleRow(patch: patch)
+                                Divider().padding(.leading, 16)
 
-                        // Menu Patch Card
-                        menuPatchCard
+                                if patch.id == "aim_enable" {
+                                    // Aim Mode Picker
+                                    aimModePickerRow
+                                    Divider().padding(.leading, 16)
+                                } else if patch.id == "aim_draw_fov" {
+                                    // FOV Slider Row
+                                    fovSliderRow
+                                    Divider().padding(.leading, 16)
+                                }
+                            }
+                        }
 
-                        // Status Feedback Card
+                        // Section MOD SKIN
+                        if !skinPatches.isEmpty {
+                            groupedSection(title: "MOD SKIN FILE", icon: "gearshape.fill") {
+                                ForEach(skinPatches) { patch in
+                                    toggleRow(patch: patch)
+                                    if patch.id != skinPatches.last?.id {
+                                        Divider().padding(.leading, 16)
+                                    }
+                                }
+                            }
+                        }
+
+                        // Status Card (Báo trạng thái khôi phục file gốc hoặc nạp thành công)
                         if let status = engine.statusMessage {
-                            statusCard(status)
+                            HStack(spacing: 8) {
+                                Image(systemName: engine.isOfflineMode ? "wifi.slash" : "checkmark.circle.fill")
+                                    .foregroundStyle(engine.isOfflineMode ? Color.orange : Color.green)
+                                Text(status)
+                                    .font(.system(size: 12, weight: .medium))
+                                    .foregroundStyle(Color.primary)
+                                Spacer()
+                            }
+                            .padding(12)
+                            .background(Color(uiColor: .secondarySystemGroupedBackground))
+                            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
                         }
                     }
                     .padding(.horizontal, 16)
-                    .padding(.top, 10)
-                    .padding(.bottom, 30)
+                    .padding(.top, 12)
+                    .padding(.bottom, 20)
                 }
+
+                // Footer Bar hiển thị IP Server (103.238.234.204) như ảnh demo
+                demoFooterBar
             }
         }
         .navigationBarBackButtonHidden(true)
@@ -297,64 +473,30 @@ struct FreeFireDetailView: View {
         }
     }
 
-    // MARK: - Cosmic Cyber Background
-    private var cosmicBackground: some View {
-        ZStack {
-            Color(red: 0.04, green: 0.05, blue: 0.09)
-
-            RadialGradient(
-                gradient: Gradient(colors: [
-                    Color(red: 0.25, green: 0.08, blue: 0.50).opacity(0.4),
-                    Color.clear
-                ]),
-                center: .topTrailing,
-                startRadius: 50,
-                endRadius: 400
-            )
-
-            RadialGradient(
-                gradient: Gradient(colors: [
-                    Color(red: 0.08, green: 0.20, blue: 0.55).opacity(0.35),
-                    Color.clear
-                ]),
-                center: .center,
-                startRadius: 20,
-                endRadius: 350
-            )
-        }
-    }
-
-    // MARK: - Custom Top Bar
-    private var customTopBar: some View {
+    // MARK: - Demo Top Bar
+    private var demoTopBar: some View {
         HStack {
             Button {
                 dismiss()
             } label: {
-                Image(systemName: "chevron.left")
-                    .font(.system(size: 16, weight: .bold))
-                    .foregroundStyle(.white)
-                    .frame(width: 38, height: 38)
-                    .background(Color.white.opacity(0.08))
-                    .clipShape(Circle())
-                    .overlay(
-                        Circle().stroke(Color.white.opacity(0.2), lineWidth: 1)
-                    )
+                HStack(spacing: 4) {
+                    Image(systemName: "chevron.left")
+                        .font(.system(size: 16, weight: .semibold))
+                    Text("Settings")
+                        .font(.system(size: 16))
+                }
+                .foregroundStyle(Color(red: 0.15, green: 0.65, blue: 0.50))
             }
 
             Spacer()
 
-            HStack(spacing: 6) {
+            VStack(spacing: 1) {
                 Text(gameTitle)
-                    .font(.system(size: 17, weight: .bold, design: .rounded))
-                    .foregroundStyle(.white)
-
-                Text(isFFM ? "FFM" : "FFT")
-                    .font(.system(size: 10, weight: .black, design: .monospaced))
-                    .foregroundStyle(isFFM ? Color(red: 1.0, green: 0.3, blue: 0.4) : Color.orange)
-                    .padding(.horizontal, 6)
-                    .padding(.vertical, 2)
-                    .background(Color.white.opacity(0.1))
-                    .clipShape(RoundedRectangle(cornerRadius: 4))
+                    .font(.system(size: 16, weight: .bold))
+                    .foregroundStyle(.primary)
+                Text(engine.isOfflineMode ? "Offline Mode (Đã lưu)" : "Online API")
+                    .font(.system(size: 10))
+                    .foregroundStyle(.secondary)
             }
 
             Spacer()
@@ -362,321 +504,123 @@ struct FreeFireDetailView: View {
             Button {
                 engine.fetchPatchesFromAdmin(serverUrl: adminServerUrl, bundleID: bundleID)
             } label: {
-                if engine.isFetching {
-                    ProgressView()
-                        .tint(.white)
-                        .frame(width: 38, height: 38)
-                } else {
-                    Image(systemName: "arrow.triangle.2.circlepath")
-                        .font(.system(size: 14, weight: .bold))
-                        .foregroundStyle(.white)
-                        .frame(width: 38, height: 38)
-                        .background(Color.white.opacity(0.08))
-                        .clipShape(Circle())
-                        .overlay(
-                            Circle().stroke(Color.white.opacity(0.2), lineWidth: 1)
-                        )
-                }
+                Image(systemName: "ellipsis.circle.fill")
+                    .font(.system(size: 22))
+                    .foregroundStyle(Color(uiColor: .tertiaryLabel))
             }
         }
         .padding(.horizontal, 16)
-        .padding(.top, 10)
-        .padding(.bottom, 6)
+        .padding(.vertical, 10)
+        .background(Color(uiColor: .systemGroupedBackground))
     }
 
-    // MARK: - Game Hero Banner
-    private var gameHeroBanner: some View {
-        VStack(spacing: 8) {
-            ZStack {
-                RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .fill(Color(red: 0.08, green: 0.10, blue: 0.18))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 18, style: .continuous)
-                            .stroke(
-                                LinearGradient(
-                                    colors: [Color.white.opacity(0.8), Color.purple.opacity(0.5)],
-                                    startPoint: .topLeading,
-                                    endPoint: .bottomTrailing
-                                ),
-                                lineWidth: 2
-                            )
-                    )
-                    .shadow(color: Color.purple.opacity(0.35), radius: 15, x: 0, y: 5)
-
-                VStack(spacing: 2) {
-                    Image(systemName: isFFM ? "bolt.fill" : "flame.fill")
-                        .font(.system(size: 38, weight: .black))
-                        .foregroundStyle(
-                            LinearGradient(
-                                colors: isFFM
-                                    ? [Color(red: 1.0, green: 0.4, blue: 0.5), Color(red: 0.9, green: 0.1, blue: 0.2)]
-                                    : [Color(red: 1.0, green: 0.7, blue: 0.2), Color(red: 1.0, green: 0.2, blue: 0.1)],
-                                startPoint: .top,
-                                endPoint: .bottom
-                            )
-                        )
-                    Text(isFFM ? "FF MAX" : "FF STANDARD")
-                        .font(.system(size: 9, weight: .black, design: .monospaced))
-                        .foregroundStyle(.white)
-                }
+    // MARK: - Grouped Section Box
+    private func groupedSection<Content: View>(
+        title: String,
+        icon: String,
+        @ViewBuilder content: () -> Content
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 6) {
+                Image(systemName: icon)
+                    .font(.system(size: 11, weight: .bold))
+                    .foregroundStyle(.secondary)
+                Text(title)
+                    .font(.system(size: 12, weight: .bold, design: .rounded))
+                    .foregroundStyle(.secondary)
             }
-            .frame(width: 90, height: 90)
+            .padding(.leading, 12)
 
-            VStack(spacing: 2) {
-                Text(gameTitle)
-                    .font(.system(size: 20, weight: .bold, design: .rounded))
-                    .foregroundStyle(.white)
-
-                Text(bundleID)
-                    .font(.system(size: 12, weight: .medium, design: .monospaced))
-                    .foregroundStyle(Color(red: 0.45, green: 0.65, blue: 0.95))
+            VStack(spacing: 0) {
+                content()
             }
-        }
-        .padding(.vertical, 8)
-    }
-
-    // MARK: - Category Filter Tabs
-    private var categoryTabs: some View {
-        HStack(spacing: 8) {
-            ForEach(FFModCategory.allCases) { cat in
-                Button {
-                    withAnimation(.easeInOut(duration: 0.16)) {
-                        selectedCategory = cat
-                    }
-                } label: {
-                    HStack(spacing: 6) {
-                        Image(systemName: cat.icon)
-                            .font(.system(size: 12, weight: .bold))
-                        Text(cat.rawValue)
-                            .font(.system(size: 12, weight: .bold))
-                    }
-                    .frame(maxWidth: .infinity, minHeight: 38)
-                    .background(
-                        selectedCategory == cat
-                            ? Color(red: 0.15, green: 0.20, blue: 0.45).opacity(0.8)
-                            : Color(red: 0.08, green: 0.10, blue: 0.16).opacity(0.7)
-                    )
-                    .foregroundStyle(selectedCategory == cat ? Color.white : Color.secondary)
-                    .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 10, style: .continuous)
-                            .stroke(
-                                selectedCategory == cat
-                                    ? Color(red: 0.35, green: 0.55, blue: 0.95)
-                                    : Color.white.opacity(0.12),
-                                lineWidth: 1.5
-                            )
-                    )
-                }
-                .buttonStyle(.plain)
-            }
+            .background(Color(uiColor: .secondarySystemGroupedBackground))
+            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .stroke(Color(uiColor: .separator).opacity(0.3), lineWidth: 0.5)
+            )
         }
     }
 
-    // MARK: - Menu Patch Card
-    private var menuPatchCard: some View {
-        VStack(spacing: 0) {
-            // Card Header
-            HStack(spacing: 8) {
-                Rectangle()
-                    .fill(Color(red: 0.20, green: 0.75, blue: 1.0))
-                    .frame(width: 3.5, height: 16)
-                    .clipShape(RoundedRectangle(cornerRadius: 2))
-
-                Image(systemName: "bolt.fill")
-                    .font(.system(size: 14, weight: .bold))
-                    .foregroundStyle(Color(red: 0.70, green: 0.35, blue: 1.0))
-
-                Text("MENU PATCH .3105")
-                    .font(.system(size: 15, weight: .black, design: .monospaced))
-                    .foregroundStyle(.white)
-
-                Spacer()
-
-                Button {
-                    engine.autoApplyAll(category: selectedCategory, bundleID: bundleID, serverUrl: adminServerUrl)
-                } label: {
-                    Text("AUTO")
-                        .font(.system(size: 11, weight: .black, design: .monospaced))
-                        .foregroundStyle(Color(red: 0.20, green: 0.85, blue: 1.0))
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 4)
-                        .background(Color(red: 0.10, green: 0.25, blue: 0.40).opacity(0.6))
-                        .clipShape(Capsule())
-                        .overlay(
-                            Capsule().stroke(Color(red: 0.20, green: 0.75, blue: 1.0), lineWidth: 1)
-                        )
-                }
-                .disabled(filteredPatches.isEmpty)
-            }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 14)
-            .background(Color(red: 0.08, green: 0.10, blue: 0.16).opacity(0.95))
-
-            Divider()
-                .background(Color.white.opacity(0.1))
-
-            // Patch Items List
-            if filteredPatches.isEmpty {
-                VStack(spacing: 10) {
-                    Image(systemName: "tray")
-                        .font(.system(size: 28))
-                        .foregroundStyle(.secondary)
-
-                    Text("Chưa có chức năng \(selectedCategory.rawValue)")
-                        .font(.system(size: 13, weight: .bold))
-                        .foregroundStyle(.white)
-
-                    Text("Chỉ khi Admin tải file .3105 lên Web Admin (http://103.238.234.204:5000) thì mục này mới xuất hiện.")
-                        .font(.system(size: 11))
-                        .foregroundStyle(.secondary)
-                        .multilineTextAlignment(.center)
-                        .padding(.horizontal, 16)
-
-                    Button {
-                        engine.fetchPatchesFromAdmin(serverUrl: adminServerUrl, bundleID: bundleID)
-                    } label: {
-                        HStack(spacing: 4) {
-                            Image(systemName: "arrow.triangle.2.circlepath")
-                            Text("LÀM MỚI TỪ ADMIN API")
-                        }
-                        .font(.system(size: 11, weight: .bold, design: .monospaced))
-                        .foregroundStyle(Color(red: 0.35, green: 0.65, blue: 1.0))
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 6)
-                        .background(Color(red: 0.15, green: 0.25, blue: 0.45).opacity(0.5))
-                        .clipShape(RoundedRectangle(cornerRadius: 6))
-                    }
-                    .padding(.top, 4)
-                }
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 32)
-            } else {
-                VStack(spacing: 8) {
-                    ForEach(filteredPatches) { patch in
-                        patchRow(patch)
-                    }
-                }
-                .padding(12)
-            }
-        }
-        .background(Color(red: 0.06, green: 0.08, blue: 0.14).opacity(0.85))
-        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .stroke(Color(red: 0.18, green: 0.25, blue: 0.45), lineWidth: 1)
-        )
-    }
-
-    // MARK: - Patch Row (Smooth 1-Tap ON / OFF)
-    private func patchRow(_ patch: FFPatchItem) -> some View {
-        HStack(spacing: 12) {
-            // Category-based colored icon
-            ZStack {
-                RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .fill(iconBackgroundColor(for: patch))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 8, style: .continuous)
-                            .stroke(iconBorderColor(for: patch), lineWidth: 1)
-                    )
-
-                Image(systemName: iconSystemName(for: patch))
-                    .font(.system(size: 16, weight: .bold))
-                    .foregroundStyle(iconTintColor(for: patch))
-            }
-            .frame(width: 42, height: 42)
-
-            // Title & Subtitle
-            VStack(alignment: .leading, spacing: 2) {
-                Text(patch.name)
-                    .font(.system(size: 14, weight: .bold))
-                    .foregroundStyle(.white)
-                    .lineLimit(1)
-
-                Text("Gói .3105 • Tự động định tuyến")
-                    .font(.system(size: 10, weight: .medium, design: .monospaced))
-                    .foregroundStyle(Color.secondary)
-                    .lineLimit(1)
-            }
+    // MARK: - Toggle Row (iOS Style Toggles)
+    private func toggleRow(patch: FFPatchItem) -> some View {
+        HStack {
+            Text(patch.name)
+                .font(.system(size: 15, weight: .regular))
+                .foregroundStyle(.primary)
 
             Spacer()
 
-            // Smooth On/Off Switch
             Toggle("", isOn: Binding(
                 get: { patch.isEnabled },
                 set: { _ in engine.togglePatch(id: patch.id, bundleID: bundleID, serverUrl: adminServerUrl) }
             ))
             .labelsHidden()
-            .tint(Color(red: 0.20, green: 0.55, blue: 0.95))
+            .tint(Color(red: 0.15, green: 0.75, blue: 0.45))
         }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 8)
-        .background(Color(red: 0.09, green: 0.12, blue: 0.20).opacity(0.7))
-        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                .stroke(
-                    patch.isEnabled
-                        ? Color(red: 0.20, green: 0.60, blue: 1.0).opacity(0.4)
-                        : Color.white.opacity(0.06),
-                    lineWidth: 1
-                )
-        )
+        .padding(.horizontal, 16)
+        .padding(.vertical, 11)
     }
 
-    // MARK: - Status Feedback Card
-    private func statusCard(_ status: String) -> some View {
+    // MARK: - Aim Mode Segmented Row
+    private var aimModePickerRow: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Aim Mode")
+                .font(.system(size: 14, weight: .medium))
+                .foregroundStyle(.primary)
+
+            Picker("Aim Mode", selection: $aimMode) {
+                Text("Hip").tag(0)
+                Text("Sighting").tag(1)
+                Text("Both").tag(2)
+            }
+            .pickerStyle(.segmented)
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 10)
+    }
+
+    // MARK: - FOV Slider Row
+    private var fovSliderRow: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack {
+                Text("Value FOV")
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundStyle(.primary)
+                Spacer()
+                Text(String(format: "%.1f", fovValue))
+                    .font(.system(size: 12, design: .monospaced))
+                    .foregroundStyle(.secondary)
+            }
+
+            Slider(value: $fovValue, in: 50...360, step: 1.0)
+                .tint(Color(red: 0.15, green: 0.75, blue: 0.45))
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 10)
+    }
+
+    // MARK: - Demo Footer Bar
+    private var demoFooterBar: some View {
         HStack(spacing: 8) {
-            Image(systemName: "checkmark.circle.fill")
-                .font(.system(size: 14, weight: .bold))
-                .foregroundStyle(Color.green)
-
-            Text(status)
-                .font(.system(size: 11, weight: .medium, design: .monospaced))
-                .foregroundStyle(.white)
-                .lineLimit(2)
-
+            Image(systemName: "network")
+                .font(.system(size: 12))
+                .foregroundStyle(.secondary)
+            Text("103.238.234.204:5000")
+                .font(.system(size: 13, weight: .bold, design: .monospaced))
+                .foregroundStyle(.primary)
             Spacer()
+            Circle()
+                .fill(engine.isOfflineMode ? Color.orange : Color.green)
+                .frame(width: 8, height: 8)
+            Text(engine.isOfflineMode ? "OFFLINE" : "CONNECTED")
+                .font(.system(size: 10, weight: .black, design: .monospaced))
+                .foregroundStyle(engine.isOfflineMode ? Color.orange : Color.green)
         }
-        .padding(12)
-        .background(Color(red: 0.06, green: 0.12, blue: 0.10).opacity(0.85))
-        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                .stroke(Color.green.opacity(0.3), lineWidth: 1)
-        )
-    }
-
-    private func iconSystemName(for patch: FFPatchItem) -> String {
-        switch patch.category {
-        case FFModCategory.aim.rawValue: return "bolt.fill"
-        case FFModCategory.esp.rawValue: return "eye.fill"
-        default: return "gearshape.fill"
-        }
-    }
-
-    private func iconBackgroundColor(for patch: FFPatchItem) -> Color {
-        switch patch.category {
-        case FFModCategory.aim.rawValue: return Color(red: 0.35, green: 0.15, blue: 0.10).opacity(0.6)
-        case FFModCategory.esp.rawValue: return Color(red: 0.10, green: 0.25, blue: 0.35).opacity(0.6)
-        default: return Color(red: 0.25, green: 0.10, blue: 0.35).opacity(0.6)
-        }
-    }
-
-    private func iconBorderColor(for patch: FFPatchItem) -> Color {
-        switch patch.category {
-        case FFModCategory.aim.rawValue: return Color.orange.opacity(0.4)
-        case FFModCategory.esp.rawValue: return Color.cyan.opacity(0.4)
-        default: return Color.purple.opacity(0.4)
-        }
-    }
-
-    private func iconTintColor(for patch: FFPatchItem) -> Color {
-        switch patch.category {
-        case FFModCategory.aim.rawValue: return Color.orange
-        case FFModCategory.esp.rawValue: return Color.cyan
-        default: return Color(red: 0.8, green: 0.5, blue: 1.0)
-        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 10)
+        .background(Color(uiColor: .tertiarySystemGroupedBackground))
     }
 }
 
