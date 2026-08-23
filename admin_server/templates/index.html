@@ -128,7 +128,7 @@
         .badge-aim { background: rgba(255, 94, 30, 0.18); color: var(--ff-orange); }
         .badge-esp { background: rgba(0, 210, 211, 0.18); color: var(--cyan); }
         .badge-skin { background: rgba(155, 89, 182, 0.18); color: var(--purple); }
-        .badge-lock { background: rgba(241, 196, 15, 0.18); color: #f1c40f; padding: 2px 6px; border-radius: 2px; font-size: 10px; font-weight: 700; }
+        .badge-admin { background: rgba(46, 204, 113, 0.18); color: var(--green); padding: 2px 6px; border-radius: 2px; font-size: 10px; font-weight: 700; }
 
         /* Switch */
         .switch { position: relative; display: inline-block; width: 44px; height: 22px; }
@@ -159,7 +159,7 @@
             <div class="logo-box">⚡</div>
             <div>
                 <h1>MeoMeoPath <span class="tag">.3105 ADMIN API</span></h1>
-                <p style="font-size: 12px; color: var(--text-dim); margin-top: 2px;">Hệ thống Đóng gói .3105 & Mật khẩu Admin cho FFM / FFT</p>
+                <p style="font-size: 12px; color: var(--text-dim); margin-top: 2px;">Hệ thống Đóng gói .3105 On/Off Chuẩn Native 3105 cho FFM / FFT</p>
             </div>
         </div>
         <div style="font-size: 12px; font-family: 'JetBrains Mono', monospace; color: var(--green);">
@@ -171,8 +171,8 @@
         <!-- Form Upload -->
         <div class="card">
             <div class="card-header">
-                <span>ĐÓNG GÓI & UPLOAD FILE .3105</span>
-                <span>ADMIN PANEL</span>
+                <span>UPLOAD & ĐÓNG GÓI .3105</span>
+                <span>ADMIN CONFIG</span>
             </div>
 
             <form id="uploadForm">
@@ -208,26 +208,26 @@
                 </div>
 
                 <div class="form-group">
-                    <label>Mật khẩu Admin cho gói .3105 (Tùy chọn - Bỏ trống nếu không đặt)</label>
-                    <input type="password" id="patchPassword" placeholder="Nhập mật khẩu Admin để khóa patch...">
+                    <label>Mật khẩu Admin giải mã .3105 (Nếu có - Admin cấu hình tại đây, App tự động mở khóa 1-chạm)</label>
+                    <input type="password" id="patchPassword" placeholder="Nhập mật khẩu Admin (tùy chọn)...">
                 </div>
 
                 <div class="upload-dropzone" onclick="document.getElementById('fileInput').click()">
                     <input type="file" id="fileInput" style="display: none;" onchange="updateFileName(this)">
                     <div style="font-size: 26px; margin-bottom: 6px;">📦</div>
                     <div id="dropzoneText" style="font-size: 13px; font-weight: 600;">Chọn file data patch để upload (.3105, .payload, .dat)</div>
-                    <div style="font-size: 11px; color: var(--text-dim); margin-top: 4px;">Hệ thống sẽ đóng gói chuẩn .3105 và đồng bộ tới iOS App</div>
+                    <div style="font-size: 11px; color: var(--text-dim); margin-top: 4px;">Người dùng iOS chỉ cần bật On/Off, không cần nhập mật khẩu</div>
                 </div>
 
-                <button type="button" class="btn" onclick="uploadPatch()">ĐÓNG GÓI VÀ THÊM VÀO MENU NGAY</button>
+                <button type="button" class="btn" onclick="uploadPatch()">THÊM VÀO MENU PATCH NGAY</button>
             </form>
         </div>
 
         <!-- Danh sách Patch -->
         <div class="card">
             <div class="card-header">
-                <span>DANH SÁCH GÓI .3105 TRÊN SERVER</span>
-                <span id="patchCount">{{ patches|length }} GÓI</span>
+                <span>DANH SÁCH GÓI .3105 ĐANG HOẠT ĐỘNG</span>
+                <span id="patchCount">{{ patches|length }} CHỨC NĂNG</span>
             </div>
 
             <div class="patch-list" id="patchList">
@@ -236,9 +236,7 @@
                     <div style="flex: 1;">
                         <div class="patch-name">
                             {{ p.name }}
-                            {% if p.is_password_protected %}
-                            <span class="badge-lock">🔒 ĐÃ KHÓA MK</span>
-                            {% endif %}
+                            <span class="badge-admin">✓ AUTO ON/OFF</span>
                         </div>
                         <div class="patch-meta">
                             <span class="badge-cat {% if p.category == 'Aim File' %}badge-aim{% elif p.category == 'Định Vị' %}badge-esp{% else %}badge-skin{% endif %}">
@@ -246,8 +244,8 @@
                             </span>
                             <span>{{ 'FFM' if p.target_game == 'com.dts.freefiremax' else 'FFT' }}</span>
                             <span>.3105 ({{ p.size }})</span>
-                            {% if p.is_password_protected %}
-                            <span style="color: #f1c40f;">MK: {{ p.password }}</span>
+                            {% if p.password %}
+                            <span style="color: #8b949e;">[MK Admin: {{ p.password }}]</span>
                             {% endif %}
                         </div>
                     </div>

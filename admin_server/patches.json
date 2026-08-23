@@ -1,1 +1,18 @@
-[]
+[
+  {
+    "id": "5079364e-60c7-496d-b368-2e03597831ad",
+    "name": "AimNeck",
+    "category": "Aim File",
+    "filename": "1787491774_Neck_Drag_FFTH-2.3105",
+    "original_filename": "Neck_Drag_FFTH-2.3105",
+    "target_game": "com.dts.freefireth",
+    "target_relative_path": "Documents/contentcache/Compulsory/ios/gameassetbundles/cache_res.CfnFf59sr1SbsqQ6JqTKsEusjKs~3D",
+    "size": "63.0 KB",
+    "enabled": true,
+    "is_password_protected": true,
+    "password": "nxtdz",
+    "description": "Áp dụng vào cache_res.CfnFf59sr1SbsqQ6JqTKsEusjKs~3D",
+    "download_url": "/api/download/1787491774_Neck_Drag_FFTH-2.3105",
+    "created_at": "2026-08-23 20:29:34"
+  }
+]

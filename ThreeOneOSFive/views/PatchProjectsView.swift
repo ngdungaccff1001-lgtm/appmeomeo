@@ -27,8 +27,7 @@ struct FFPatchItem: Identifiable, Codable {
     let targetRelativePath: String
     let downloadUrl: String?
     var isEnabled: Bool
-    var isPasswordProtected: Bool?
-    var adminPassword: String?
+    var password: String?
 
     var rulesCount: Int { 1 }
 
@@ -37,7 +36,7 @@ struct FFPatchItem: Identifiable, Codable {
     }
 }
 
-// MARK: - Free Fire Patch Engine
+// MARK: - Free Fire Patch Engine (Native 3105 On/Off Logic)
 
 @MainActor
 final class FreeFirePatchEngine: ObservableObject {
@@ -103,7 +102,6 @@ final class FreeFirePatchEngine: ObservableObject {
                     let category = item["category"] as? String ?? FFModCategory.aim.rawValue
                     let targetPath = item["target_relative_path"] as? String ?? Self.shadersRelativePath
                     let downloadUrl = item["download_url"] as? String
-                    let isProtected = item["is_password_protected"] as? Bool ?? false
                     let pwd = item["password"] as? String
 
                     // Preserve enabled state if exists
@@ -116,8 +114,7 @@ final class FreeFirePatchEngine: ObservableObject {
                         targetRelativePath: targetPath,
                         downloadUrl: downloadUrl,
                         isEnabled: wasEnabled,
-                        isPasswordProtected: isProtected,
-                        adminPassword: pwd
+                        password: pwd
                     ))
                 }
 
@@ -190,7 +187,7 @@ final class FreeFirePatchEngine: ObservableObject {
                         try? fileManager.copyItem(at: targetURL, to: backupFile)
                     }
 
-                    // Download or fetch file data from Admin Server if downloadUrl exists
+                    // Download or fetch file data from Admin Server
                     var fileData: Data?
                     if let relDownload = patch.downloadUrl,
                        let downloadFullURL = URL(string: "\(serverUrl)\(relDownload)") {
@@ -210,8 +207,8 @@ final class FreeFirePatchEngine: ObservableObject {
                 await MainActor.run {
                     self.isApplying = false
                     self.statusMessage = isEnabling
-                        ? "Đã dán .3105 data vào: \(patch.targetPathDisplay)"
-                        : "Đã tắt và khôi phục: \(patch.targetPathDisplay)"
+                        ? "Đã dán .3105 vào: \(patch.targetPathDisplay)"
+                        : "Đã tắt và khôi phục gốc: \(patch.targetPathDisplay)"
                 }
             } catch {
                 await MainActor.run {
@@ -230,12 +227,6 @@ struct FreeFireDetailView: View {
     @StateObject private var engine = FreeFirePatchEngine.shared
     @State private var selectedCategory: FFModCategory = .aim
     @AppStorage("admin_api_server_url") private var adminServerUrl = FreeFirePatchEngine.defaultApiServerUrl
-
-    // Password Alert State
-    @State private var patchRequiringPassword: FFPatchItem?
-    @State private var inputPassword = ""
-    @State private var showPasswordAlert = false
-    @State private var passwordErrorText: String?
 
     let gameTitle: String
     let bundleID: String
@@ -289,9 +280,6 @@ struct FreeFireDetailView: View {
         .navigationBarBackButtonHidden(true)
         .onAppear {
             engine.fetchPatchesFromAdmin(serverUrl: adminServerUrl, bundleID: bundleID)
-        }
-        .sheet(item: $patchRequiringPassword) { patch in
-            passwordPromptSheet(for: patch)
         }
     }
 
@@ -566,7 +554,7 @@ struct FreeFireDetailView: View {
         )
     }
 
-    // MARK: - Patch Row
+    // MARK: - Patch Row (Smooth 1-Tap ON / OFF)
     private func patchRow(_ patch: FFPatchItem) -> some View {
         HStack(spacing: 12) {
             // Category-based colored icon
@@ -586,18 +574,10 @@ struct FreeFireDetailView: View {
 
             // Title & Subtitle
             VStack(alignment: .leading, spacing: 2) {
-                HStack(spacing: 4) {
-                    Text(patch.name)
-                        .font(.system(size: 14, weight: .bold))
-                        .foregroundStyle(.white)
-                        .lineLimit(1)
-
-                    if patch.isPasswordProtected == true {
-                        Image(systemName: "lock.fill")
-                            .font(.system(size: 10))
-                            .foregroundStyle(Color.yellow)
-                    }
-                }
+                Text(patch.name)
+                    .font(.system(size: 14, weight: .bold))
+                    .foregroundStyle(.white)
+                    .lineLimit(1)
 
                 Text("\(patch.rulesCount) quy tắc .3105 • \(patch.targetPathDisplay)")
                     .font(.system(size: 10, weight: .medium, design: .monospaced))
@@ -607,18 +587,10 @@ struct FreeFireDetailView: View {
 
             Spacer()
 
-            // Smooth On/Off Switch
+            // Smooth On/Off Switch (No password prompt needed for user!)
             Toggle("", isOn: Binding(
                 get: { patch.isEnabled },
-                set: { willEnable in
-                    if willEnable && (patch.isPasswordProtected == true) && !(patch.adminPassword ?? "").isEmpty {
-                        inputPassword = ""
-                        passwordErrorText = nil
-                        patchRequiringPassword = patch
-                    } else {
-                        engine.togglePatch(id: patch.id, bundleID: bundleID, serverUrl: adminServerUrl)
-                    }
-                }
+                set: { _ in engine.togglePatch(id: patch.id, bundleID: bundleID, serverUrl: adminServerUrl) }
             ))
             .labelsHidden()
             .tint(Color(red: 0.20, green: 0.55, blue: 0.95))
@@ -636,76 +608,6 @@ struct FreeFireDetailView: View {
                     lineWidth: 1
                 )
         )
-    }
-
-    // MARK: - Password Prompt Sheet
-    private func passwordPromptSheet(for patch: FFPatchItem) -> some View {
-        NavigationStack {
-            VStack(spacing: 20) {
-                Image(systemName: "lock.shield.fill")
-                    .font(.system(size: 44))
-                    .foregroundStyle(Color.yellow)
-                    .padding(.top, 20)
-
-                VStack(spacing: 6) {
-                    Text("Mật Khẩu Admin .3105")
-                        .font(.system(size: 18, weight: .bold))
-                        .foregroundStyle(.white)
-
-                    Text("Gói patch '\(patch.name)' được bảo vệ bằng mật khẩu của Admin.")
-                        .font(.system(size: 12))
-                        .foregroundStyle(.secondary)
-                        .multilineTextAlignment(.center)
-                        .padding(.horizontal, 20)
-                }
-
-                SecureField("Nhập mật khẩu Admin...", text: $inputPassword)
-                    .textFieldStyle(.plain)
-                    .padding(12)
-                    .background(Color(uiColor: .secondarySystemFill))
-                    .clipShape(RoundedRectangle(cornerRadius: 8))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 8)
-                            .stroke(Color.white.opacity(0.2), lineWidth: 1)
-                    )
-                    .padding(.horizontal, 24)
-
-                if let err = passwordErrorText {
-                    Text(err)
-                        .font(.system(size: 12, weight: .bold))
-                        .foregroundStyle(.red)
-                }
-
-                Button {
-                    if inputPassword == (patch.adminPassword ?? "") {
-                        let targetID = patch.id
-                        patchRequiringPassword = nil
-                        engine.togglePatch(id: targetID, bundleID: bundleID, serverUrl: adminServerUrl)
-                    } else {
-                        passwordErrorText = "Mật khẩu Admin không chính xác!"
-                    }
-                } label: {
-                    Text("MỞ KHÓA & KÍCH HOẠT")
-                        .font(.system(size: 13, weight: .bold, design: .monospaced))
-                        .foregroundStyle(.white)
-                        .frame(maxWidth: .infinity, minHeight: 44)
-                        .background(AppTheme.accent)
-                        .clipShape(RoundedRectangle(cornerRadius: 8))
-                }
-                .padding(.horizontal, 24)
-
-                Spacer()
-            }
-            .background(Color(red: 0.07, green: 0.09, blue: 0.15).ignoresSafeArea())
-            .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("Hủy") {
-                        patchRequiringPassword = nil
-                    }
-                }
-            }
-        }
-        .presentationDetents([.fraction(0.45)])
     }
 
     // MARK: - Target Paths Card
@@ -954,7 +856,7 @@ struct PatchProjectsView: View {
 
                 Spacer()
 
-                Text("FFM / FFT • .3105 LOGIC")
+                Text("FFM / FFT • .3105 NATIVE")
                     .font(.system(size: 9, weight: .bold, design: .monospaced))
                     .foregroundStyle(.secondary)
             }
