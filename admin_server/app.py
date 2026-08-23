@@ -78,12 +78,12 @@ def admin_panel():
 @app.route('/api/key/verify', methods=['POST'])
 def api_verify_key():
     settings = get_settings()
-    if not settings.get('server_online', True):
+    if not settings.get('server_online', True) or settings.get('emergency_mode', False):
         return jsonify({
             "valid": False,
             "error_type": "server_offline",
-            "message": settings.get('emergency_message', 'Máy chủ đang tạm tắt!'),
-            "link_title": settings.get('emergency_link_title', 'MỞ LIÊN KẾT HỖ TRỢ'),
+            "message": settings.get('emergency_message', 'Phát hiện phiên bản bị can thiệp trái phép hoặc máy chủ đang bảo trì!'),
+            "link_title": settings.get('emergency_link_title', 'THAM GIA TELEGRAM'),
             "link_url": settings.get('emergency_link_url', 'https://t.me/ioscrackvn')
         }), 200
 
@@ -245,9 +245,10 @@ def api_update_settings():
     settings = get_settings()
 
     settings['server_online'] = bool(data.get('server_online', True))
-    settings['emergency_link_title'] = data.get('emergency_link_title', '').strip() or "THAM GIA TELEGRAM HỖ TRỢ"
+    settings['emergency_mode'] = bool(data.get('emergency_mode', False))
+    settings['emergency_link_title'] = data.get('emergency_link_title', '').strip() or "THAM GIA TELEGRAM"
     settings['emergency_link_url'] = data.get('emergency_link_url', '').strip() or "https://t.me/ioscrackvn"
-    settings['emergency_message'] = data.get('emergency_message', '').strip() or "Máy chủ đang bảo trì nâng cấp!"
+    settings['emergency_message'] = data.get('emergency_message', '').strip() or "Phát hiện phiên bản bị can thiệp trái phép, vui lòng tham gia Telegram để nhận hỗ trợ!"
 
     save_json(SETTINGS_FILE, settings)
     return jsonify({"success": True, "settings": settings})

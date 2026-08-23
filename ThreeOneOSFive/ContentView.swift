@@ -5,6 +5,7 @@ struct ContentView: View {
     @Environment(\.appLanguage) private var language
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @EnvironmentObject private var patchDraftCoordinator: PatchDraftCoordinator
+    @StateObject private var keyEngine = KeyAuthEngine.shared
     @State private var tabNavigation: AppTabNavigationState
     @State private var isSidebarOpen = false
     @AppStorage("app.appearance") private var appearance = AppAppearance.system.rawValue
@@ -53,12 +54,87 @@ struct ContentView: View {
                     .transition(.move(edge: .leading))
                     .zIndex(11)
             }
+            // EMERGENCY BLOCK OVERLAY — Khi Admin bật Kill Switch (server offline hoặc bị crack)
+            // Toàn bộ giao diện bị che phủ 100%, chỉ hiện nút link hỗ trợ
+            if keyEngine.isEmergencyMode {
+                emergencyBlockView
+                    .ignoresSafeArea()
+                    .zIndex(99)
+            }
         }
         .onChange(of: patchDraftCoordinator.request?.id) { requestID in
             if requestID != nil { tabNavigation.select(AppSection.patches.rawValue) }
         }
         .onChange(of: patchDraftCoordinator.importRequest?.id) { requestID in
             if requestID != nil { tabNavigation.select(AppSection.patches.rawValue) }
+        }
+    }
+
+    // MARK: - Emergency Block View (All UI Hidden, Only Link Button)
+    private var emergencyBlockView: some View {
+        ZStack {
+            AppTheme.pageBackground
+                .ignoresSafeArea()
+
+            VStack(spacing: 24) {
+                Spacer()
+
+                // Emergency Icon
+                ZStack {
+                    Circle()
+                        .fill(Color.red.opacity(0.12))
+                        .frame(width: 86, height: 86)
+                    Circle()
+                        .stroke(Color.red.opacity(0.3), lineWidth: 1.5)
+                        .frame(width: 86, height: 86)
+
+                    Image(systemName: "shield.slash.fill")
+                        .font(.system(size: 40, weight: .black))
+                        .foregroundStyle(Color.red)
+                }
+
+                VStack(spacing: 8) {
+                    Text("HỆ THỐNG ĐÃ BỊ KHÓA")
+                        .font(.system(size: 19, weight: .black, design: .monospaced))
+                        .foregroundStyle(.primary)
+
+                    Text(keyEngine.emergencyMessage ?? "Phát hiện phiên bản bị can thiệp trái phép hoặc hệ thống đang bảo trì. Vui lòng bấm vào nút bên dưới để vào nhóm hỗ trợ!")
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, 28)
+                        .lineSpacing(3)
+                }
+
+                // Nút bấm Link (Telegram / Mua Key / Hỗ Trợ) do Admin cấu hình
+                if let urlStr = keyEngine.emergencyLinkURL,
+                   let url = URL(string: urlStr), !urlStr.isEmpty {
+                    Button {
+                        UIApplication.shared.open(url)
+                    } label: {
+                        HStack(spacing: 8) {
+                            Image(systemName: "paperplane.fill")
+                                .font(.system(size: 15, weight: .bold))
+                            Text(keyEngine.emergencyLinkTitle ?? "THAM GIA TELEGRAM")
+                        }
+                        .font(.system(size: 14, weight: .black, design: .monospaced))
+                        .frame(maxWidth: .infinity, minHeight: 50)
+                        .background(AppTheme.accent)
+                        .foregroundStyle(.white)
+                        .clipShape(RoundedRectangle(cornerRadius: AppTheme.cardCornerRadius, style: .continuous))
+                        .shadow(color: AppTheme.accent.opacity(0.4), radius: 12, x: 0, y: 5)
+                    }
+                    .buttonStyle(.plain)
+                    .padding(.horizontal, 32)
+                }
+
+                Spacer()
+
+                Text("PROTECTED BY APIMEOMEO • ANTI-CRACK ENGINE")
+                    .font(.system(size: 9, weight: .bold, design: .monospaced))
+                    .foregroundStyle(.secondary.opacity(0.6))
+                    .padding(.bottom, 20)
+            }
         }
     }
 

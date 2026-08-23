@@ -426,9 +426,9 @@
                 <span>EMERGENCY KILL SWITCH</span>
             </div>
 
-            <div class="form-group" style="display: flex; align-items: center; justify-content: space-between; background: #080a0f; padding: 12px; border-radius: 4px; border: 1px solid var(--card-border); margin-bottom: 16px;">
+            <div class="form-group" style="display: flex; align-items: center; justify-content: space-between; background: #080a0f; padding: 12px; border-radius: 4px; border: 1px solid var(--card-border); margin-bottom: 12px;">
                 <div>
-                    <div style="font-size: 14px; font-weight: 700;">Trạng Thái Máy Chủ (Server Status)</div>
+                    <div style="font-size: 14px; font-weight: 700;">Trạng Thái Máy Chủ (Server Online)</div>
                     <div style="font-size: 11px; color: var(--text-dim);">Tắt server sẽ làm tất cả máy khách tự động out và xóa sạch file can thiệp!</div>
                 </div>
                 <label class="switch">
@@ -437,9 +437,20 @@
                 </label>
             </div>
 
+            <div class="form-group" style="display: flex; align-items: center; justify-content: space-between; background: #200d12; padding: 12px; border-radius: 4px; border: 1px solid #5a1c26; margin-bottom: 16px;">
+                <div>
+                    <div style="font-size: 14px; font-weight: 700; color: #ff4757;">Chế Độ Đã Bị Crack (Lockdown Toàn Bộ GUI)</div>
+                    <div style="font-size: 11px; color: #ff8590;">Khi bật: Ứng dụng iOS ẩn 100% giao diện, chỉ hiện thông báo và 1 nút Tham Gia Telegram!</div>
+                </div>
+                <label class="switch">
+                    <input type="checkbox" id="emergencyModeToggle" {% if settings.emergency_mode %}checked{% endif %} onchange="updateServerSettings()">
+                    <span class="slider"></span>
+                </label>
+            </div>
+
             <div class="form-group">
                 <label>Tiêu Đề Nút Bấm Link (Hiện khi Server Off / Hết Hạn / Bị Crack)</label>
-                <input type="text" id="emergencyLinkTitle" value="{{ settings.emergency_link_title }}" placeholder="VD: THAM GIA NHÓM TELEGRAM">
+                <input type="text" id="emergencyLinkTitle" value="{{ settings.emergency_link_title }}" placeholder="VD: THAM GIA TELEGRAM">
             </div>
 
             <div class="form-group">
@@ -449,7 +460,7 @@
 
             <div class="form-group">
                 <label>Thông Báo Khẩn Cấp Hiển Thị Trong App</label>
-                <input type="text" id="emergencyMessage" value="{{ settings.emergency_message }}" placeholder="VD: Server đang bảo trì nâng cấp, vui lòng tham gia Telegram để nhận thông báo mới!">
+                <input type="text" id="emergencyMessage" value="{{ settings.emergency_message }}" placeholder="VD: Phát hiện phiên bản bị can thiệp trái phép, vui lòng tham gia Telegram để nhận hỗ trợ!">
             </div>
 
             <button class="btn" onclick="updateServerSettings()">LƯU CẤU HÌNH SERVER</button>
@@ -581,6 +592,7 @@
 
     async function updateServerSettings() {
         const online = document.getElementById('serverOnlineToggle').checked;
+        const emergency = document.getElementById('emergencyModeToggle').checked;
         const linkTitle = document.getElementById('emergencyLinkTitle').value;
         const linkUrl = document.getElementById('emergencyLinkUrl').value;
         const msg = document.getElementById('emergencyMessage').value;
@@ -591,6 +603,7 @@
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     server_online: online,
+                    emergency_mode: emergency,
                     emergency_link_title: linkTitle,
                     emergency_link_url: linkUrl,
                     emergency_message: msg
@@ -598,9 +611,18 @@
             });
             const data = await res.json();
             if (data.success) {
-                alert('Đã cập nhật cài đặt Server thành công!');
-                document.getElementById('serverLiveStatus').innerText = online ? "● SERVER ONLINE" : "● SERVER OFFLINE (KILL SWITCH ON)";
-                document.getElementById('serverLiveStatus').style.color = online ? "var(--green)" : "#ff4757";
+                alert('Đã cập nhật cấu hình máy chủ thành công!');
+                const statusEl = document.getElementById('serverLiveStatus');
+                if (!online) {
+                    statusEl.innerText = "● SERVER OFFLINE (KILL SWITCH ON)";
+                    statusEl.style.color = "#ff4757";
+                } else if (emergency) {
+                    statusEl.innerText = "● CHẾ ĐỘ BỊ CRACK ĐANG BẬT (LOCK ALL GUI)";
+                    statusEl.style.color = "#f1c40f";
+                } else {
+                    statusEl.innerText = "● SERVER ONLINE";
+                    statusEl.style.color = "var(--green)";
+                }
             }
         } catch (e) { alert('Lỗi: ' + e.message); }
     }

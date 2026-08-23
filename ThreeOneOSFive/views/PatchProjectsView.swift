@@ -64,6 +64,8 @@ final class KeyAuthEngine: ObservableObject {
     @Published var expiresAt: Double?
     @Published var emergencyLinkTitle: String?
     @Published var emergencyLinkURL: String?
+    @Published var emergencyMessage: String?
+    @Published var isEmergencyMode: Bool = false
 
     var hwid: String {
         if let saved = UserDefaults.standard.string(forKey: "meomeo_device_hwid"), !saved.isEmpty {
@@ -169,6 +171,7 @@ final class KeyAuthEngine: ObservableObject {
                     self.isAuthenticated = true
                     self.isVerifying = false
                     self.errorMessage = nil
+                    self.isEmergencyMode = false
                     self.remainingSeconds = json["remaining_seconds"] as? Int ?? 0
                     self.durationDays = json["duration_days"] as? Int ?? 1
                     self.expiresAt = json["expires_at"] as? Double
@@ -180,7 +183,21 @@ final class KeyAuthEngine: ObservableObject {
                     UserDefaults.standard.set(trimmed, forKey: "meomeo_saved_api_key")
                     self.startCountdown()
                 } else {
-                    self.handleInvalidKey(message: msg ?? "Key không hợp lệ hoặc đã hết hạn!", linkTitle: linkTitle, linkUrl: linkUrl)
+                    // Khi server bật Kill Switch (server_online = false)
+                    let errorType = json["error_type"] as? String ?? ""
+                    let serverMsg = json["message"] as? String
+
+                    if errorType == "server_offline" {
+                        self.isEmergencyMode = true
+                        self.emergencyMessage = serverMsg ?? "Hệ thống đang tạm dừng."
+                        self.emergencyLinkTitle = linkTitle
+                        self.emergencyLinkURL = linkUrl
+                        // Xóa key để bắt buộc nhập lại khi server trở lại
+                        UserDefaults.standard.removeObject(forKey: "meomeo_saved_api_key")
+                        FreeFirePatchEngine.shared.cleanAllPatches()
+                    } else {
+                        self.handleInvalidKey(message: serverMsg ?? "Key không hợp lệ hoặc đã hết hạn!", linkTitle: linkTitle, linkUrl: linkUrl)
+                    }
                 }
             } catch {
                 self.handleInvalidKey(message: "Máy chủ Offline. Chức năng đã tự động khóa để bảo vệ!", linkTitle: nil, linkUrl: nil)
@@ -191,6 +208,7 @@ final class KeyAuthEngine: ObservableObject {
     private func handleInvalidKey(message: String, linkTitle: String?, linkUrl: String?) {
         self.isVerifying = false
         self.isAuthenticated = false
+        self.isEmergencyMode = false
         self.errorMessage = message
         self.emergencyLinkTitle = linkTitle
         self.emergencyLinkURL = linkUrl
@@ -201,6 +219,7 @@ final class KeyAuthEngine: ObservableObject {
 
     func logout() {
         self.isAuthenticated = false
+        self.isEmergencyMode = false
         self.currentKey = ""
         self.errorMessage = nil
         UserDefaults.standard.removeObject(forKey: "meomeo_saved_api_key")
@@ -958,31 +977,20 @@ struct KeyLoginView: View {
 
     var body: some View {
         VStack(spacing: 16) {
-            // Header
-            VStack(spacing: 6) {
-                ZStack {
-                    RoundedRectangle(cornerRadius: 12)
-                        .fill(AppTheme.accent.opacity(0.18))
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 12).stroke(AppTheme.accent.opacity(0.4), lineWidth: 1.5)
-                        )
-                    Image(systemName: "key.fill")
-                        .font(.system(size: 26, weight: .black))
-                        .foregroundStyle(AppTheme.accent)
-                }
-                .frame(width: 60, height: 60)
-                .shadow(color: AppTheme.accent.opacity(0.35), radius: 10, x: 0, y: 4)
-
-                Text("KÍCH HOẠT API KEY")
-                    .font(.system(size: 17, weight: .black, design: .monospaced))
+            // Header (Không icon chìa khoá, giao diện tinh gọn chuẩn VIP)
+            VStack(spacing: 4) {
+                Text("KÍCH HOẠT APIMEOMEO")
+                    .font(.system(size: 16, weight: .black, design: .monospaced))
                     .foregroundStyle(.primary)
 
-                Text("Nhập API Key để mở khóa chức năng Free Fire & FFM")
+                Text("Nhập mã API Key (1 / 3 / 7 / 30 Ngày) để mở khóa chức năng")
                     .font(.system(size: 11))
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
             }
-            .padding(.top, 10)
+            .padding(.top, 4)
+
+            Divider()
 
             // Input Field
             VStack(alignment: .leading, spacing: 6) {
@@ -1007,7 +1015,7 @@ struct KeyLoginView: View {
                         Text("DÁN")
                             .font(.system(size: 11, weight: .bold, design: .monospaced))
                             .foregroundStyle(AppTheme.accent)
-                            .padding(.horizontal, 10)
+                            .padding(.horizontal, 12)
                             .padding(.vertical, 10)
                             .background(AppTheme.accent.opacity(0.15))
                             .clipShape(RoundedRectangle(cornerRadius: 6))
@@ -1034,12 +1042,11 @@ struct KeyLoginView: View {
             Button {
                 keyEngine.verifyKey(inputKey)
             } label: {
-                HStack {
+                HStack(spacing: 8) {
                     if keyEngine.isVerifying {
                         ProgressView().tint(.white)
                     } else {
-                        Image(systemName: "checkmark.shield.fill")
-                        Text("KÍCH HOẠT KEY NGAY")
+                        Text("XÁC NHẬN KÍCH HOẠT")
                     }
                 }
                 .font(.system(size: 13, weight: .black, design: .monospaced))
@@ -1047,43 +1054,37 @@ struct KeyLoginView: View {
                 .background(AppTheme.accent)
                 .foregroundStyle(.white)
                 .clipShape(RoundedRectangle(cornerRadius: 6))
+                .shadow(color: AppTheme.accent.opacity(0.3), radius: 8, x: 0, y: 3)
             }
             .disabled(keyEngine.isVerifying || inputKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
 
-            // NÚT MỞ LINK HỖ TRỢ / MUA KEY / TELEGRAM KHI CẦN
-            if let linkUrlStr = keyEngine.emergencyLinkURL,
-               let url = URL(string: linkUrlStr),
-               !linkUrlStr.isEmpty {
-                Button {
-                    UIApplication.shared.open(url)
-                } label: {
-                    HStack(spacing: 6) {
-                        Image(systemName: "link.circle.fill")
-                        Text(keyEngine.emergencyLinkTitle ?? "THAM GIA TELEGRAM HỖ TRỢ")
-                    }
-                    .font(.system(size: 12, weight: .bold, design: .monospaced))
-                    .frame(maxWidth: .infinity, minHeight: 40)
-                    .background(Color(red: 0.15, green: 0.50, blue: 0.95).opacity(0.18))
-                    .foregroundStyle(Color(red: 0.20, green: 0.65, blue: 1.0))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 6).stroke(Color(red: 0.20, green: 0.65, blue: 1.0).opacity(0.4), lineWidth: 1)
-                    )
+            Divider()
+
+            // HWID & Device Info Box
+            VStack(spacing: 4) {
+                HStack {
+                    Text("Thiết Bị:")
+                        .font(.system(size: 10, weight: .medium))
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                    Text("\(keyEngine.deviceName) • iOS \(keyEngine.osVersion)")
+                        .font(.system(size: 10, weight: .bold, design: .monospaced))
+                        .foregroundStyle(.primary)
+                }
+
+                HStack {
+                    Text("Mã HWID:")
+                        .font(.system(size: 10, weight: .medium))
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                    Text(keyEngine.hwid)
+                        .font(.system(size: 9, design: .monospaced))
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
                 }
             }
-
-            // HWID Info Box
-            VStack(spacing: 3) {
-                Text("HWID THIẾT BỊ: \(keyEngine.hwid)")
-                    .font(.system(size: 9, design: .monospaced))
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
-                Text("\(keyEngine.deviceName) • iOS \(keyEngine.osVersion)")
-                    .font(.system(size: 9, design: .monospaced))
-                    .foregroundStyle(.secondary)
-            }
-            .padding(.top, 4)
         }
-        .padding(16)
+        .padding(14)
         .background(
             RoundedRectangle(cornerRadius: AppTheme.cardCornerRadius, style: .continuous)
                 .fill(AppTheme.cardBackground)

@@ -1,0 +1,21 @@
+[
+  {
+    "key": "MEOMEO-KN1W-WXOT-O9PP",
+    "duration_days": 30,
+    "device_limit": 1,
+    "status": "active",
+    "created_at": 1787499218.4011414,
+    "first_activated_at": 1787499235.7629209,
+    "expires_at": 1790091235.7629209,
+    "bound_hwids": [
+      {
+        "hwid": "B9A2D543-E35F-40AE-8C77-A0CD516E8812",
+        "device_name": "iPhone12,3 (26.4.0)",
+        "registered_at": "2026-08-23 22:33:55"
+      }
+    ],
+    "note": "nxtdz",
+    "last_active": "2026-08-23 22:35:35",
+    "expires_at_str": "2026-09-22 22:33"
+  }
+]
