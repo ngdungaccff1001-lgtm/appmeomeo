@@ -42,7 +42,74 @@ private struct BackupManifest: Codable {
     let entries: [BackupManifestEntry]
 }
 
-// MARK: - Free Fire Patch Engine (5s Auto-Check API & Clean When Offline)
+// MARK: - Game Image Icon URLs (Official High-Res Art)
+
+enum GameIconProvider {
+    static let fftIconURL = "https://is1-ssl.mzstatic.com/image/thumb/Purple211/v4/a5/45/ea/a545ea88-ea9e-b2d9-1c9f-3cb8faee5ee3/AppIcon-0-0-1x_U007emarketing-0-7-0-85-220.png/256x256bb.jpg"
+    static let ffmIconURL = "https://is1-ssl.mzstatic.com/image/thumb/Purple221/v4/44/2c/e0/442ce0d9-b695-ca03-f9f3-ee3729e2f947/AppIcon-0-0-1x_U007emarketing-0-7-0-85-220.png/256x256bb.jpg"
+
+    static func url(for bundleID: String) -> String {
+        bundleID.contains("max") ? ffmIconURL : fftIconURL
+    }
+}
+
+struct GameAsyncIconView: View {
+    let bundleID: String
+    let size: CGFloat
+
+    private var isFFM: Bool {
+        bundleID.contains("max")
+    }
+
+    var body: some View {
+        AsyncImage(url: URL(string: GameIconProvider.url(for: bundleID))) { phase in
+            switch phase {
+            case .success(let image):
+                image
+                    .resizable()
+                    .aspectRatio(contentMode: .fill)
+                    .frame(width: size, height: size)
+                    .clipShape(RoundedRectangle(cornerRadius: size * 0.22, style: .continuous))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: size * 0.22, style: .continuous)
+                            .stroke(Color.white.opacity(0.2), lineWidth: 1)
+                    )
+                    .shadow(color: (isFFM ? Color.red : Color.orange).opacity(0.3), radius: 6, x: 0, y: 3)
+            default:
+                ZStack {
+                    RoundedRectangle(cornerRadius: size * 0.22, style: .continuous)
+                        .fill(
+                            LinearGradient(
+                                colors: isFFM
+                                    ? [Color(red: 0.95, green: 0.15, blue: 0.25), Color(red: 0.55, green: 0.05, blue: 0.12)]
+                                    : [Color(red: 1.00, green: 0.50, blue: 0.10), Color(red: 0.80, green: 0.20, blue: 0.05)],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
+                        .overlay(
+                            RoundedRectangle(cornerRadius: size * 0.22, style: .continuous)
+                                .stroke(Color.white.opacity(0.3), lineWidth: 1)
+                        )
+
+                    VStack(spacing: 1) {
+                        Image(systemName: isFFM ? "bolt.fill" : "flame.fill")
+                            .font(.system(size: size * 0.42, weight: .black))
+                            .foregroundStyle(.white)
+                        Text(isFFM ? "MAX" : "FFT")
+                            .font(.system(size: size * 0.16, weight: .black, design: .monospaced))
+                            .foregroundStyle(.white.opacity(0.9))
+                    }
+                }
+                .frame(width: size, height: size)
+                .shadow(color: (isFFM ? Color.red : Color.orange).opacity(0.3), radius: 6, x: 0, y: 3)
+            }
+        }
+        .frame(width: size, height: size)
+    }
+}
+
+// MARK: - Free Fire Patch Engine (5s Healthcheck & Clean When Offline)
 
 @MainActor
 final class FreeFirePatchEngine: ObservableObject {
@@ -70,12 +137,11 @@ final class FreeFirePatchEngine: ObservableObject {
         pollingTask?.cancel()
     }
 
-    // MARK: - 5s Realtime Polling Loop
     func start5sHealthCheck() {
         pollingTask?.cancel()
         pollingTask = Task { [weak self] in
             while !Task.isCancelled {
-                try? await Task.sleep(nanoseconds: 5_000_000_000) // 5 giây
+                try? await Task.sleep(nanoseconds: 5_000_000_000)
                 await self?.performPeriodicCheck()
             }
         }
@@ -98,13 +164,13 @@ final class FreeFirePatchEngine: ObservableObject {
         guard let url = URL(string: "\(cleanUrl)/api/patches?bundle=\(bundleID)&active=true") else {
             isFetching = false
             isOfflineMode = true
-            patches = [] // Clean khi server URL không hợp lệ
+            patches = []
             statusMessage = "URL Server không hợp lệ. Đã ẩn chức năng để tránh lỗi!"
             return
         }
 
         var request = URLRequest(url: url)
-        request.timeoutInterval = 3.5 // Timeout nhanh 3.5s
+        request.timeoutInterval = 3.5
 
         Task {
             do {
@@ -113,7 +179,6 @@ final class FreeFirePatchEngine: ObservableObject {
                       let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
                       let success = json["success"] as? Bool, success,
                       let rawList = json["patches"] as? [[String: Any]] else {
-                    // Phản hồi không hợp lệ -> Coi như server lỗi -> Clean chức năng
                     self.isFetching = false
                     self.isOfflineMode = true
                     self.patches = []
@@ -148,7 +213,6 @@ final class FreeFirePatchEngine: ObservableObject {
                 self.patches = fetched
                 self.statusMessage = "API Online • \(fetched.count) chức năng sẵn sàng!"
             } catch {
-                // Server sập / timeout -> Clean toàn bộ chức năng tránh bug
                 self.isFetching = false
                 self.isOfflineMode = true
                 self.patches = []
@@ -210,7 +274,6 @@ final class FreeFirePatchEngine: ObservableObject {
 
             do {
                 if isEnabling {
-                    // --- BẬT CHỨC NĂNG (ON) ---
                     var packageData: Data?
                     if fileManager.fileExists(atPath: localCachedPackageURL.path),
                        let cachedData = try? Data(contentsOf: localCachedPackageURL) {
@@ -287,7 +350,6 @@ final class FreeFirePatchEngine: ObservableObject {
                         self.statusMessage = "Đã kích hoạt: \(patch.name)"
                     }
                 } else {
-                    // --- TẮT CHỨC NĂNG (OFF) -> KHÔI PHỤC FILE GỐC 100% ---
                     if fileManager.fileExists(atPath: manifestURL.path),
                        let manifestData = try? Data(contentsOf: manifestURL),
                        let manifest = try? JSONDecoder().decode(BackupManifest.self, from: manifestData) {
@@ -418,7 +480,6 @@ struct FreeFireDetailView: View {
 
             Spacer()
 
-            // 5s Indicator Icon
             HStack(spacing: 4) {
                 Circle()
                     .fill(engine.isOfflineMode ? Color.red : Color.green)
@@ -437,38 +498,12 @@ struct FreeFireDetailView: View {
         .background(Color(uiColor: .secondarySystemBackground))
     }
 
-    // MARK: - Game Hero Banner With Rich Icon
+    // MARK: - Game Hero Banner With High-Res Art
     private var gameHeroBanner: some View {
         HStack(spacing: 14) {
-            ZStack {
-                RoundedRectangle(cornerRadius: 10)
-                    .fill(
-                        LinearGradient(
-                            colors: isFFM
-                                ? [Color(red: 0.95, green: 0.15, blue: 0.25), Color(red: 0.55, green: 0.05, blue: 0.12)]
-                                : [Color(red: 1.00, green: 0.50, blue: 0.10), Color(red: 0.80, green: 0.20, blue: 0.05)],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                    )
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 10)
-                            .stroke(Color.white.opacity(0.3), lineWidth: 1.5)
-                    )
-                    .shadow(color: (isFFM ? Color.red : Color.orange).opacity(0.35), radius: 8, x: 0, y: 3)
+            GameAsyncIconView(bundleID: bundleID, size: 56)
 
-                VStack(spacing: 1) {
-                    Image(systemName: isFFM ? "bolt.fill" : "flame.fill")
-                        .font(.system(size: 26, weight: .black))
-                        .foregroundStyle(.white)
-                    Text(isFFM ? "MAX" : "FFT")
-                        .font(.system(size: 8, weight: .black, design: .monospaced))
-                        .foregroundStyle(.white.opacity(0.9))
-                }
-            }
-            .frame(width: 54, height: 54)
-
-            VStack(alignment: .leading, spacing: 2) {
+            VStack(alignment: .leading, spacing: 3) {
                 HStack(spacing: 6) {
                     Text(gameTitle)
                         .font(.system(size: 16, weight: .bold))
@@ -667,7 +702,7 @@ struct FreeFireDetailView: View {
     }
 }
 
-// MARK: - Main Patch Projects View (Function Hub With Rich Game Icons)
+// MARK: - Main Patch Projects View (Function Hub With Real Game Art Icons)
 
 struct PatchProjectsView: View {
     @Environment(\.appLanguage) private var language
@@ -709,7 +744,7 @@ struct PatchProjectsView: View {
         }
     }
 
-    // MARK: - Free Fire Game Injection Hub (FFM & FFT With Enhanced Icons)
+    // MARK: - Free Fire Game Injection Hub With Real Image Artwork
     private var freeFireHubSection: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack {
@@ -725,24 +760,20 @@ struct PatchProjectsView: View {
             }
 
             VStack(spacing: 12) {
-                // Free Fire Standard (FFT) - Vibrant Flame Icon
+                // Free Fire Standard (FFT)
                 gameCard(
                     title: "Free Fire Standard (FFT)",
                     bundleID: "com.dts.freefireth",
                     badgeText: "FFT",
-                    icon: "flame.fill",
-                    colorTop: Color(red: 1.00, green: 0.55, blue: 0.10),
-                    colorBottom: Color(red: 0.85, green: 0.20, blue: 0.05)
+                    badgeColor: Color(red: 1.00, green: 0.50, blue: 0.10)
                 )
 
-                // Free Fire MAX (FFM) - Lightning Cyber Icon
+                // Free Fire MAX (FFM)
                 gameCard(
                     title: "Free Fire MAX (FFM)",
                     bundleID: "com.dts.freefiremax",
                     badgeText: "FFM",
-                    icon: "bolt.fill",
-                    colorTop: Color(red: 1.00, green: 0.25, blue: 0.35),
-                    colorBottom: Color(red: 0.70, green: 0.05, blue: 0.15)
+                    badgeColor: Color(red: 1.00, green: 0.20, blue: 0.30)
                 )
             }
         }
@@ -752,38 +783,12 @@ struct PatchProjectsView: View {
         title: String,
         bundleID: String,
         badgeText: String,
-        icon: String,
-        colorTop: Color,
-        colorBottom: Color
+        badgeColor: Color
     ) -> some View {
         NavigationLink(destination: FreeFireDetailView(gameTitle: title, bundleID: bundleID)) {
             HStack(spacing: 14) {
-                // High-Tech Gaming Icon Badge
-                ZStack {
-                    RoundedRectangle(cornerRadius: 10, style: .continuous)
-                        .fill(
-                            LinearGradient(
-                                colors: [colorTop, colorBottom],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            )
-                        )
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                                .stroke(Color.white.opacity(0.35), lineWidth: 1.5)
-                        )
-                        .shadow(color: colorBottom.opacity(0.4), radius: 6, x: 0, y: 3)
-
-                    VStack(spacing: 1) {
-                        Image(systemName: icon)
-                            .font(.system(size: 20, weight: .black))
-                            .foregroundStyle(.white)
-                        Text(badgeText)
-                            .font(.system(size: 7, weight: .black, design: .monospaced))
-                            .foregroundStyle(.white.opacity(0.9))
-                    }
-                }
-                .frame(width: 48, height: 48)
+                // Real Game Image Art Icon
+                GameAsyncIconView(bundleID: bundleID, size: 50)
 
                 VStack(alignment: .leading, spacing: 3) {
                     HStack(spacing: 6) {
@@ -793,10 +798,10 @@ struct PatchProjectsView: View {
 
                         Text(badgeText)
                             .font(.system(size: 9, weight: .black, design: .monospaced))
-                            .foregroundStyle(colorTop)
+                            .foregroundStyle(badgeColor)
                             .padding(.horizontal, 5)
                             .padding(.vertical, 1.5)
-                            .background(colorTop.opacity(0.15))
+                            .background(badgeColor.opacity(0.15))
                             .clipShape(RoundedRectangle(cornerRadius: 3))
                     }
 
@@ -811,7 +816,7 @@ struct PatchProjectsView: View {
                     .font(.system(size: 14, weight: .bold))
                     .foregroundStyle(.secondary)
             }
-            .padding(14)
+            .padding(12)
             .background(
                 RoundedRectangle(cornerRadius: AppTheme.cardCornerRadius, style: .continuous)
                     .fill(AppTheme.cardBackground)
