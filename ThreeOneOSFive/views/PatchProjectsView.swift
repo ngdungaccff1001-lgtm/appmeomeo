@@ -72,7 +72,7 @@ final class FreeFirePatchEngine: ObservableObject {
         }
     }
 
-    func fetchPatchesFromAdmin(serverUrl: String = defaultApiServerUrl, bundleID: String) {
+    func fetchPatchesFromAdmin(serverUrl: String, bundleID: String) {
         isFetching = true
         statusMessage = "Đang tải danh sách chức năng từ Admin API..."
 
@@ -83,19 +83,13 @@ final class FreeFirePatchEngine: ObservableObject {
             return
         }
 
-        URLSession.shared.dataTask(with: url) { [weak self] data, response, error in
-            Task { @MainActor in
-                guard let self = self else { return }
-                self.isFetching = false
-                if let error = error {
-                    self.statusMessage = "Lỗi kết nối Admin API: \(error.localizedDescription)"
-                    return
-                }
-
-                guard let data = data,
-                      let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+        Task {
+            do {
+                let (data, _) = try await URLSession.shared.data(from: url)
+                guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
                       let success = json["success"] as? Bool, success,
                       let rawList = json["patches"] as? [[String: Any]] else {
+                    self.isFetching = false
                     self.statusMessage = "Chưa có chức năng nào được Admin thêm."
                     return
                 }
@@ -121,14 +115,18 @@ final class FreeFirePatchEngine: ObservableObject {
                     ))
                 }
 
+                self.isFetching = false
                 self.patches = fetched
                 self.saveState()
                 self.statusMessage = "Đã cập nhật \(fetched.count) chức năng từ Admin API!"
+            } catch {
+                self.isFetching = false
+                self.statusMessage = "Lỗi kết nối Admin API: \(error.localizedDescription)"
             }
-        }.resume()
+        }
     }
 
-    func togglePatch(id: String, bundleID: String, serverUrl: String = defaultApiServerUrl) {
+    func togglePatch(id: String, bundleID: String, serverUrl: String) {
         guard let index = patches.firstIndex(where: { $0.id == id }) else { return }
         patches[index].isEnabled.toggle()
         saveState()
@@ -137,7 +135,7 @@ final class FreeFirePatchEngine: ObservableObject {
         applyPatchOperation(patch: patch, bundleID: bundleID, serverUrl: serverUrl, isEnabling: patch.isEnabled)
     }
 
-    func autoApplyAll(category: FFModCategory, bundleID: String, serverUrl: String = defaultApiServerUrl) {
+    func autoApplyAll(category: FFModCategory, bundleID: String, serverUrl: String) {
         for i in 0..<patches.count {
             if patches[i].category == category.rawValue {
                 patches[i].isEnabled = true
