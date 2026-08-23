@@ -129,15 +129,24 @@ struct PatchProjectsView: View {
             .sheet(isPresented: $showImporter) {
                 FileDocumentPicker(
                     allowedContentTypes: PatchPackagePickerPolicy.allowedContentTypes,
-                    asCopy: PatchPackagePickerPolicy.copiesSelectedDocument
-                ) { result in
-                    switch result {
-                    case .success(let url):
-                        importFile(url)
-                    case .failure(let error):
-                        log("patch picker error: \(error.localizedDescription)")
+                    copiesSelectedDocument: PatchPackagePickerPolicy.copiesSelectedDocument,
+                    allowsMultipleSelection: false,
+                    onSelection: { result in
+                        showImporter = false
+                        switch result {
+                        case .success(let urls):
+                            if let url = urls.first {
+                                importFile(url)
+                            }
+                        case .failure(let error):
+                            log("patch picker error: \(error.localizedDescription)")
+                        }
+                    },
+                    onCancel: {
+                        showImporter = false
                     }
-                }
+                )
+                .ignoresSafeArea()
             }
             .sheet(isPresented: $showCreate) {
                 PatchProjectEditorView(
