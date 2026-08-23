@@ -47,16 +47,7 @@ enum FFContainerConstants {
     static let defaultCacheResPath = "Documents/contentcache/Compulsory/ios/gameassetbundles/cache_res.CfnFf59sr1SbsqQ6JqTKsEusjKs~3D"
 }
 
-// MARK: - Game Image Icon URLs (Official High-Res Art)
-
-enum GameIconProvider {
-    static let fftIconURL = "https://is1-ssl.mzstatic.com/image/thumb/Purple211/v4/a5/45/ea/a545ea88-ea9e-b2d9-1c9f-3cb8faee5ee3/AppIcon-0-0-1x_U007emarketing-0-7-0-85-220.png/256x256bb.jpg"
-    static let ffmIconURL = "https://is1-ssl.mzstatic.com/image/thumb/Purple221/v4/44/2c/e0/442ce0d9-b695-ca03-f9f3-ee3729e2f947/AppIcon-0-0-1x_U007emarketing-0-7-0-85-220.png/256x256bb.jpg"
-
-    static func url(for bundleID: String) -> String {
-        bundleID.contains("max") ? ffmIconURL : fftIconURL
-    }
-}
+// MARK: - Authentic Free Fire Game Artwork Icon View
 
 struct GameAsyncIconView: View {
     let bundleID: String
@@ -67,47 +58,80 @@ struct GameAsyncIconView: View {
     }
 
     var body: some View {
-        AsyncImage(url: URL(string: GameIconProvider.url(for: bundleID))) { phase in
-            switch phase {
-            case .success(let image):
-                image
-                    .resizable()
-                    .aspectRatio(contentMode: .fill)
-                    .frame(width: size, height: size)
-                    .clipShape(RoundedRectangle(cornerRadius: size * 0.22, style: .continuous))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: size * 0.22, style: .continuous)
-                            .stroke(Color.white.opacity(0.2), lineWidth: 1)
+        ZStack {
+            // Layer 1: Metallic Gaming Base Card
+            RoundedRectangle(cornerRadius: size * 0.22, style: .continuous)
+                .fill(
+                    LinearGradient(
+                        colors: isFFM
+                            ? [Color(red: 0.12, green: 0.02, blue: 0.05), Color(red: 0.28, green: 0.04, blue: 0.08), Color(red: 0.08, green: 0.01, blue: 0.03)]
+                            : [Color(red: 0.14, green: 0.06, blue: 0.01), Color(red: 0.32, green: 0.12, blue: 0.02), Color(red: 0.09, green: 0.03, blue: 0.01)],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
                     )
-                    .shadow(color: (isFFM ? Color.red : Color.orange).opacity(0.3), radius: 6, x: 0, y: 3)
-            default:
-                ZStack {
+                )
+                .overlay(
                     RoundedRectangle(cornerRadius: size * 0.22, style: .continuous)
-                        .fill(
+                        .stroke(
                             LinearGradient(
                                 colors: isFFM
-                                    ? [Color(red: 0.95, green: 0.15, blue: 0.25), Color(red: 0.55, green: 0.05, blue: 0.12)]
-                                    : [Color(red: 1.00, green: 0.50, blue: 0.10), Color(red: 0.80, green: 0.20, blue: 0.05)],
+                                    ? [Color(red: 1.00, green: 0.35, blue: 0.45), Color(red: 0.60, green: 0.05, blue: 0.15)]
+                                    : [Color(red: 1.00, green: 0.70, blue: 0.20), Color(red: 0.85, green: 0.30, blue: 0.05)],
                                 startPoint: .topLeading,
                                 endPoint: .bottomTrailing
+                            ),
+                            lineWidth: 1.5
+                        )
+                )
+                .shadow(color: (isFFM ? Color.red : Color.orange).opacity(0.4), radius: 8, x: 0, y: 3)
+
+            // Layer 2: Cyber Crosshair & Fire Aura
+            ZStack {
+                Circle()
+                    .stroke(
+                        isFFM ? Color.red.opacity(0.3) : Color.orange.opacity(0.3),
+                        lineWidth: 1
+                    )
+                    .frame(width: size * 0.72, height: size * 0.72)
+
+                // Tactical Reticle Markers
+                Rectangle()
+                    .fill(isFFM ? Color.red.opacity(0.4) : Color.orange.opacity(0.4))
+                    .frame(width: size * 0.82, height: 1)
+
+                Rectangle()
+                    .fill(isFFM ? Color.red.opacity(0.4) : Color.orange.opacity(0.4))
+                    .frame(width: 1, height: size * 0.82)
+            }
+
+            // Layer 3: Central High-Tech Free Fire Emblem
+            VStack(spacing: 0) {
+                HStack(spacing: 2) {
+                    Image(systemName: isFFM ? "bolt.shield.fill" : "flame.circle.fill")
+                        .font(.system(size: size * 0.32, weight: .black))
+                        .foregroundStyle(
+                            LinearGradient(
+                                colors: isFFM
+                                    ? [Color.white, Color(red: 1.0, green: 0.3, blue: 0.4)]
+                                    : [Color.white, Color(red: 1.0, green: 0.7, blue: 0.2)],
+                                startPoint: .top,
+                                endPoint: .bottom
                             )
                         )
-                        .overlay(
-                            RoundedRectangle(cornerRadius: size * 0.22, style: .continuous)
-                                .stroke(Color.white.opacity(0.3), lineWidth: 1)
-                        )
-
-                    VStack(spacing: 1) {
-                        Image(systemName: isFFM ? "bolt.fill" : "flame.fill")
-                            .font(.system(size: size * 0.42, weight: .black))
-                            .foregroundStyle(.white)
-                        Text(isFFM ? "MAX" : "FFT")
-                            .font(.system(size: size * 0.16, weight: .black, design: .monospaced))
-                            .foregroundStyle(.white.opacity(0.9))
-                    }
                 }
-                .frame(width: size, height: size)
-                .shadow(color: (isFFM ? Color.red : Color.orange).opacity(0.3), radius: 6, x: 0, y: 3)
+
+                Text(isFFM ? "FREE FIRE" : "FREE FIRE")
+                    .font(.system(size: size * 0.13, weight: .black, design: .monospaced))
+                    .foregroundStyle(.white)
+                    .tracking(0.5)
+
+                Text(isFFM ? "★ MAX ★" : "★ TH ★")
+                    .font(.system(size: size * 0.11, weight: .heavy, design: .rounded))
+                    .foregroundStyle(isFFM ? Color(red: 1.0, green: 0.4, blue: 0.5) : Color(red: 1.0, green: 0.8, blue: 0.3))
+                    .padding(.horizontal, 4)
+                    .padding(.vertical, 0.5)
+                    .background(Color.black.opacity(0.6))
+                    .clipShape(Capsule())
             }
         }
         .frame(width: size, height: size)

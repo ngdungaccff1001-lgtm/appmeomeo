@@ -393,11 +393,11 @@ private struct DashboardView: View {
                 AppLogo(size: 38)
 
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("WELCOME TO MEOMEOPATH")
+                    Text("CHÀO MỪNG ĐẾN APIMEOMEO")
                         .font(.system(size: 15, weight: .black, design: .monospaced))
                         .foregroundStyle(AppTheme.accent)
 
-                    Text("Hệ thống Quản lý Patch & API MeoMeo")
+                    Text("Hệ thống Mod & Patch Tối Ưu Game Free Fire Chuyên Nghiệp")
                         .font(.system(size: 11, weight: .medium))
                         .foregroundStyle(.secondary)
                 }
