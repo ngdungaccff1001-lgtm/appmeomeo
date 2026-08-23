@@ -144,7 +144,7 @@ struct PatchProjectsView: View {
                     existingProject: nil,
                     passwordIsProtected: false
                 ) { project, password in
-                    store.save(project: project, password: password)
+                    store.create(project: project, password: password)
                 }
             }
             .sheet(isPresented: $showServerConfig) {
@@ -439,14 +439,8 @@ struct PatchProjectsView: View {
     }
 
     private func importFile(_ url: URL) {
-        guard let data = try? Data(contentsOf: url) else { return }
-        do {
-            _ = try PatchProjectLibrary.installImportedPackage(data: data, originalFilename: url.lastPathComponent)
-            store.reload()
-            syncStatusMessage = "Đã nhập thành công: \(url.lastPathComponent)"
-        } catch {
-            syncStatusMessage = "Lỗi nhập file: \(error.localizedDescription)"
-        }
+        store.importPackage(at: url)
+        syncStatusMessage = "Đã nhập thành công: \(url.lastPathComponent)"
     }
 
     private func syncPatchesForGame(bundleID: String) {
