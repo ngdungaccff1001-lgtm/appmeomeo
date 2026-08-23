@@ -37,7 +37,7 @@ def api_status():
     return jsonify({
         "status": "online",
         "service": "MeoMeoPath Admin API",
-        "version": "1.2.0",
+        "version": "2.0.0",
         "timestamp": int(time.time()),
         "supported_games": ["com.dts.freefireth", "com.dts.freefiremax"]
     })
@@ -51,8 +51,10 @@ def api_get_patches():
 
     result = []
     for p in patches:
-        if bundle and p.get('target_game') != bundle and p.get('target_game') != 'all':
-            continue
+        # Strict game separation: FFT only gets FFT, FFM only gets FFM
+        if bundle:
+            if p.get('target_game') != bundle and p.get('target_game') != 'all':
+                continue
         if category and p.get('category') != category:
             continue
         if only_active and not p.get('enabled', False):
@@ -85,7 +87,6 @@ def api_upload():
         if not raw_filename:
             raw_filename = f"patch_{int(time.time())}.3105"
         
-        # Giữ nguyên hoặc lưu đúng định dạng .3105
         base_name = os.path.splitext(raw_filename)[0]
         unique_filename = f"{int(time.time())}_{base_name}.3105"
         filepath = os.path.join(UPLOAD_FOLDER, unique_filename)
@@ -168,8 +169,8 @@ def api_download(filename):
 
 if __name__ == '__main__':
     print("==================================================")
-    print("🔥 MEOMEOPATH ADMIN WEB SERVER (3105 HUB) 🔥")
+    print("🔥 MEOMEOPATH ADMIN WEB SERVER 🔥")
     print("👉 Web Admin: http://0.0.0.0:5000")
-    print("👉 API Patch Hub: http://0.0.0.0:5000/api/patches")
+    print("👉 API Endpoint: http://0.0.0.0:5000/api/patches")
     print("==================================================")
     app.run(host='0.0.0.0', port=5000, debug=True)

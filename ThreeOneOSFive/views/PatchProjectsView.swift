@@ -5,16 +5,16 @@ import UniformTypeIdentifiers
 // MARK: - Free Fire Mod Models & Category
 
 enum FFModCategory: String, CaseIterable, Identifiable {
-    case esp = "Định Vị (ESP)"
-    case aim = "Aim Hack"
+    case aim = "Aim File"
+    case esp = "Định Vị"
     case skin = "ModSkin File"
 
     var id: String { rawValue }
 
     var icon: String {
         switch self {
-        case .esp: return "eye.fill"
         case .aim: return "bolt.fill"
+        case .esp: return "eye.fill"
         case .skin: return "gearshape.fill"
         }
     }
@@ -42,7 +42,7 @@ private struct BackupManifest: Codable {
     let entries: [BackupManifestEntry]
 }
 
-// MARK: - Free Fire Patch Engine (Native 3105 Reliable Backup & Restore)
+// MARK: - Free Fire Patch Engine (Strict Separation & Reliable Restoration)
 
 @MainActor
 final class FreeFirePatchEngine: ObservableObject {
@@ -58,58 +58,41 @@ final class FreeFirePatchEngine: ObservableObject {
     @Published var isFetching = false
     @Published var statusMessage: String?
     @Published var isOfflineMode = false
+    @Published var currentBundleID: String = ""
 
-    private let storageKey = "meomeopath.ff.admin.patches"
-
-    init() {
-        loadCachedPatches()
+    private func storageKey(for bundleID: String) -> String {
+        "meomeopath.admin.patches.\(bundleID)"
     }
 
-    func loadCachedPatches() {
-        if let savedData = UserDefaults.standard.data(forKey: storageKey),
-           let savedList = try? JSONDecoder().decode([FFPatchItem].self, from: savedData),
-           !savedList.isEmpty {
+    func loadCachedPatches(bundleID: String) {
+        currentBundleID = bundleID
+        let key = storageKey(for: bundleID)
+        if let savedData = UserDefaults.standard.data(forKey: key),
+           let savedList = try? JSONDecoder().decode([FFPatchItem].self, from: savedData) {
             self.patches = savedList
         } else {
-            // Built-in presets matching user demo screenshot
-            self.patches = [
-                // ESP / Định Vị Section
-                FFPatchItem(id: "esp_box", name: "Box", category: FFModCategory.esp.rawValue, downloadUrl: nil, isEnabled: false, password: nil, targetRelativePath: Self.defaultCacheResPath),
-                FFPatchItem(id: "esp_health", name: "Health", category: FFModCategory.esp.rawValue, downloadUrl: nil, isEnabled: false, password: nil, targetRelativePath: Self.defaultCacheResPath),
-                FFPatchItem(id: "esp_name", name: "Name", category: FFModCategory.esp.rawValue, downloadUrl: nil, isEnabled: false, password: nil, targetRelativePath: Self.defaultCacheResPath),
-                FFPatchItem(id: "esp_distance", name: "Distance", category: FFModCategory.esp.rawValue, downloadUrl: nil, isEnabled: false, password: nil, targetRelativePath: Self.defaultCacheResPath),
-                FFPatchItem(id: "esp_player_count", name: "Player Count", category: FFModCategory.esp.rawValue, downloadUrl: nil, isEnabled: false, password: nil, targetRelativePath: Self.defaultCacheResPath),
-
-                // AIM Section
-                FFPatchItem(id: "aim_enable", name: "Enable Aimbot", category: FFModCategory.aim.rawValue, downloadUrl: nil, isEnabled: false, password: nil, targetRelativePath: Self.defaultShadersPath),
-                FFPatchItem(id: "aim_assist", name: "Enable Aim Assist (Head)", category: FFModCategory.aim.rawValue, downloadUrl: nil, isEnabled: false, password: nil, targetRelativePath: Self.defaultShadersPath),
-                FFPatchItem(id: "aim_ignore_knock", name: "Ignore Knockdown", category: FFModCategory.aim.rawValue, downloadUrl: nil, isEnabled: false, password: nil, targetRelativePath: Self.defaultShadersPath),
-                FFPatchItem(id: "aim_draw_fov", name: "Draw FOV", category: FFModCategory.aim.rawValue, downloadUrl: nil, isEnabled: false, password: nil, targetRelativePath: Self.defaultShadersPath),
-                FFPatchItem(id: "aim_draw_line", name: "Draw Aim Line", category: FFModCategory.aim.rawValue, downloadUrl: nil, isEnabled: false, password: nil, targetRelativePath: Self.defaultShadersPath),
-                FFPatchItem(id: "aim_fast_reload", name: "Fast Reload", category: FFModCategory.aim.rawValue, downloadUrl: nil, isEnabled: false, password: nil, targetRelativePath: Self.defaultShadersPath),
-
-                // ModSkin Section
-                FFPatchItem(id: "skin_all_vip", name: "Mod Full Skin Súng & Trang Phục", category: FFModCategory.skin.rawValue, downloadUrl: nil, isEnabled: false, password: nil, targetRelativePath: Self.defaultCacheResPath),
-                FFPatchItem(id: "skin_dragon_ak", name: "Mod Skin AK47 Rồng Xanh Max", category: FFModCategory.skin.rawValue, downloadUrl: nil, isEnabled: false, password: nil, targetRelativePath: Self.defaultCacheResPath)
-            ]
+            // ONLY Admin-added items! No fake/dummy presets.
+            self.patches = []
         }
     }
 
-    func saveState() {
+    func saveState(for bundleID: String) {
+        let key = storageKey(for: bundleID)
         if let data = try? JSONEncoder().encode(patches) {
-            UserDefaults.standard.set(data, forKey: storageKey)
+            UserDefaults.standard.set(data, forKey: key)
         }
     }
 
     func fetchPatchesFromAdmin(serverUrl: String, bundleID: String) {
+        currentBundleID = bundleID
         isFetching = true
-        statusMessage = "Đang tải danh sách từ máy chủ API..."
+        statusMessage = "Đang tải danh sách từ Admin API..."
 
         let cleanUrl = serverUrl.trimmingCharacters(in: .whitespacesAndNewlines)
         guard let url = URL(string: "\(cleanUrl)/api/patches?bundle=\(bundleID)&active=true") else {
             isFetching = false
-            statusMessage = "URL Server không hợp lệ. Đang dùng dữ liệu ngoại tuyến."
             isOfflineMode = true
+            statusMessage = "Đang dùng danh sách đã lưu an toàn."
             return
         }
 
@@ -118,11 +101,10 @@ final class FreeFirePatchEngine: ObservableObject {
                 let (data, _) = try await URLSession.shared.data(from: url)
                 guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
                       let success = json["success"] as? Bool, success,
-                      let rawList = json["patches"] as? [[String: Any]],
-                      !rawList.isEmpty else {
+                      let rawList = json["patches"] as? [[String: Any]] else {
                     self.isFetching = false
                     self.isOfflineMode = false
-                    self.statusMessage = "Đã kết nối API (Chưa có patch mới trên server)"
+                    self.statusMessage = "Chưa có file patch nào từ Admin."
                     return
                 }
 
@@ -152,12 +134,12 @@ final class FreeFirePatchEngine: ObservableObject {
                 self.isFetching = false
                 self.isOfflineMode = false
                 self.patches = fetched
-                self.saveState()
-                self.statusMessage = "Đồng bộ thành công \(fetched.count) chức năng từ Admin!"
+                self.saveState(for: bundleID)
+                self.statusMessage = "Đã đồng bộ \(fetched.count) chức năng từ Admin!"
             } catch {
                 self.isFetching = false
                 self.isOfflineMode = true
-                self.statusMessage = "API ngoại tuyến. Đang dùng danh sách đã lưu an toàn!"
+                self.statusMessage = "Admin API tạm ngắt kết nối. Đang dùng dữ liệu ngoại tuyến!"
             }
         }
     }
@@ -165,7 +147,7 @@ final class FreeFirePatchEngine: ObservableObject {
     func togglePatch(id: String, bundleID: String, serverUrl: String) {
         guard let index = patches.firstIndex(where: { $0.id == id }) else { return }
         patches[index].isEnabled.toggle()
-        saveState()
+        saveState(for: bundleID)
 
         let patch = patches[index]
         applyPatchOperation(patch: patch, bundleID: bundleID, serverUrl: serverUrl, isEnabling: patch.isEnabled)
@@ -178,7 +160,7 @@ final class FreeFirePatchEngine: ObservableObject {
                 applyPatchOperation(patch: patches[i], bundleID: bundleID, serverUrl: serverUrl, isEnabling: true)
             }
         }
-        saveState()
+        saveState(for: bundleID)
         statusMessage = "Đã tự động kích hoạt toàn bộ mục \(category.rawValue)!"
     }
 
@@ -200,7 +182,7 @@ final class FreeFirePatchEngine: ObservableObject {
 
             let containerURL = URL(fileURLWithPath: containerPath, isDirectory: true)
 
-            // 2. Setup Persistent Backup Directory & Cache
+            // 2. Persistent Backup Directory & Package Cache
             guard let cacheBase = try? fileManager.url(for: .cachesDirectory, in: .userDomainMask, appropriateFor: nil, create: true) else {
                 await MainActor.run {
                     self.isApplying = false
@@ -220,8 +202,6 @@ final class FreeFirePatchEngine: ObservableObject {
             do {
                 if isEnabling {
                     // --- BẬT CHỨC NĂNG (ON) ---
-
-                    // A. Tải hoặc lấy file từ Cache cục bộ
                     var packageData: Data?
                     if fileManager.fileExists(atPath: localCachedPackageURL.path),
                        let cachedData = try? Data(contentsOf: localCachedPackageURL) {
@@ -235,7 +215,7 @@ final class FreeFirePatchEngine: ObservableObject {
 
                     var entriesToRecord: [BackupManifestEntry] = []
 
-                    // B. Giải mã nếu là gói .3105 chuẩn
+                    // Giải mã gói .3105
                     if let data = packageData,
                        let decoded = try? PatchPackageCodec.decode(data, password: patch.password) {
                         for (idx, rule) in decoded.project.rules.enumerated() {
@@ -257,14 +237,13 @@ final class FreeFirePatchEngine: ObservableObject {
                                 existedBefore: exists
                             ))
 
-                            // Ghi đè tệp mới an toàn
                             if fileManager.fileExists(atPath: targetURL.path) {
                                 try? fileManager.removeItem(at: targetURL)
                             }
                             try rule.replacementData.write(to: targetURL, options: [.atomic, .completeFileProtection])
                         }
                     } else {
-                        // C. Fallback: Dán trực tiếp vào đường dẫn tương đối
+                        // Fallback dán dữ liệu vào shaders / cache_res
                         let relPath = patch.targetRelativePath ?? Self.defaultShadersPath
                         let targetURL = containerURL.appendingPathComponent(relPath)
                         let parentDir = targetURL.deletingLastPathComponent()
@@ -291,7 +270,7 @@ final class FreeFirePatchEngine: ObservableObject {
                         try dataToWrite.write(to: targetURL, options: [.atomic, .completeFileProtection])
                     }
 
-                    // Lưu manifest để phục vụ khôi phục 100% chính xác
+                    // Lưu manifest
                     let manifest = BackupManifest(patchID: patch.id, bundleID: bundleID, entries: entriesToRecord)
                     if let manifestData = try? JSONEncoder().encode(manifest) {
                         try manifestData.write(to: manifestURL, options: .atomic)
@@ -311,21 +290,17 @@ final class FreeFirePatchEngine: ObservableObject {
                             let targetURL = containerURL.appendingPathComponent(entry.relativePath)
                             let backupFileURL = backupDir.appendingPathComponent(entry.backupFilename)
 
-                            // Xóa file đã can thiệp
                             if fileManager.fileExists(atPath: targetURL.path) {
                                 try? fileManager.removeItem(at: targetURL)
                             }
 
-                            // Khôi phục lại file gốc nếu ban đầu có file gốc
                             if entry.existedBefore && fileManager.fileExists(atPath: backupFileURL.path) {
                                 try fileManager.copyItem(at: backupFileURL, to: targetURL)
                             }
                         }
 
-                        // Dọn dẹp bản lưu dự phòng sau khi khôi phục
                         try? fileManager.removeItem(at: backupDir)
                     } else {
-                        // Fallback khôi phục cho các đường dẫn mặc định
                         let fallbackPaths = [Self.defaultShadersPath, Self.defaultCacheResPath]
                         for relPath in fallbackPaths {
                             let targetURL = containerURL.appendingPathComponent(relPath)
@@ -355,16 +330,13 @@ final class FreeFirePatchEngine: ObservableObject {
     }
 }
 
-// MARK: - Free Fire Detail View (Giao diện tinh tế theo ảnh Demo)
+// MARK: - Free Fire Detail View (Only Admin Patches)
 
 struct FreeFireDetailView: View {
     @Environment(\.dismiss) private var dismiss
     @StateObject private var engine = FreeFirePatchEngine.shared
+    @State private var selectedCategory: FFModCategory = .aim
     @AppStorage("admin_api_server_url") private var adminServerUrl = FreeFirePatchEngine.defaultApiServerUrl
-
-    // Settings States
-    @State private var aimMode: Int = 2 // 0: Hip, 1: Sighting, 2: Both
-    @State private var fovValue: Double = 225.0
 
     let gameTitle: String
     let bundleID: String
@@ -377,178 +349,254 @@ struct FreeFireDetailView: View {
         self.bundleID = bundleID
     }
 
-    private var espPatches: [FFPatchItem] {
-        engine.patches.filter { $0.category.contains("Định Vị") || $0.category.contains("ESP") }
+    private var isFFM: Bool {
+        bundleID.contains("max")
     }
 
-    private var aimPatches: [FFPatchItem] {
-        engine.patches.filter { $0.category.contains("Aim") }
-    }
-
-    private var skinPatches: [FFPatchItem] {
-        engine.patches.filter { $0.category.contains("Skin") || $0.category.contains("ModSkin") }
+    private var filteredPatches: [FFPatchItem] {
+        engine.patches.filter { $0.category == selectedCategory.rawValue }
     }
 
     var body: some View {
         ZStack {
-            // Background xám nhạt tinh tế chuẩn iOS Settings
-            Color(uiColor: .systemGroupedBackground)
+            AppTheme.pageBackground
                 .ignoresSafeArea()
 
             VStack(spacing: 0) {
-                // Header Bar (như ảnh demo: < Settings, Title, Menu ...)
-                demoTopBar
+                // Header Bar
+                topNavBar
 
                 ScrollView {
-                    VStack(spacing: 18) {
-                        // Section ESP / Định Vị
-                        if !espPatches.isEmpty {
-                            groupedSection(title: "ESP / ĐỊNH VỊ", icon: "eye.fill") {
-                                ForEach(espPatches) { patch in
-                                    toggleRow(patch: patch)
-                                    if patch.id != espPatches.last?.id {
-                                        Divider().padding(.leading, 16)
-                                    }
-                                }
-                            }
-                        }
+                    VStack(spacing: 14) {
+                        // Game Hero Banner
+                        gameHeroBanner
 
-                        // Section AIM (với Aim Mode Segmented & FOV Slider)
-                        groupedSection(title: "AIM HACK", icon: "bolt.fill") {
-                            ForEach(aimPatches) { patch in
-                                toggleRow(patch: patch)
-                                Divider().padding(.leading, 16)
+                        // Category Filter Tabs
+                        categoryTabs
 
-                                if patch.id == "aim_enable" {
-                                    // Aim Mode Picker
-                                    aimModePickerRow
-                                    Divider().padding(.leading, 16)
-                                } else if patch.id == "aim_draw_fov" {
-                                    // FOV Slider Row
-                                    fovSliderRow
-                                    Divider().padding(.leading, 16)
-                                }
-                            }
-                        }
+                        // Menu Patch Card
+                        menuPatchCard
 
-                        // Section MOD SKIN
-                        if !skinPatches.isEmpty {
-                            groupedSection(title: "MOD SKIN FILE", icon: "gearshape.fill") {
-                                ForEach(skinPatches) { patch in
-                                    toggleRow(patch: patch)
-                                    if patch.id != skinPatches.last?.id {
-                                        Divider().padding(.leading, 16)
-                                    }
-                                }
-                            }
-                        }
-
-                        // Status Card (Báo trạng thái khôi phục file gốc hoặc nạp thành công)
+                        // Status Feedback Card
                         if let status = engine.statusMessage {
-                            HStack(spacing: 8) {
-                                Image(systemName: engine.isOfflineMode ? "wifi.slash" : "checkmark.circle.fill")
-                                    .foregroundStyle(engine.isOfflineMode ? Color.orange : Color.green)
-                                Text(status)
-                                    .font(.system(size: 12, weight: .medium))
-                                    .foregroundStyle(Color.primary)
-                                Spacer()
-                            }
-                            .padding(12)
-                            .background(Color(uiColor: .secondarySystemGroupedBackground))
-                            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                            statusCard(status)
                         }
                     }
                     .padding(.horizontal, 16)
-                    .padding(.top, 12)
-                    .padding(.bottom, 20)
+                    .padding(.top, 10)
+                    .padding(.bottom, 24)
                 }
-
-                // Footer Bar hiển thị IP Server (103.238.234.204) như ảnh demo
-                demoFooterBar
             }
         }
         .navigationBarBackButtonHidden(true)
         .onAppear {
+            engine.loadCachedPatches(bundleID: bundleID)
             engine.fetchPatchesFromAdmin(serverUrl: adminServerUrl, bundleID: bundleID)
         }
     }
 
-    // MARK: - Demo Top Bar
-    private var demoTopBar: some View {
+    // MARK: - Top Nav Bar
+    private var topNavBar: some View {
         HStack {
             Button {
                 dismiss()
             } label: {
                 HStack(spacing: 4) {
                     Image(systemName: "chevron.left")
-                        .font(.system(size: 16, weight: .semibold))
-                    Text("Settings")
-                        .font(.system(size: 16))
+                        .font(.system(size: 15, weight: .bold))
+                    Text("Quay Lại")
+                        .font(.system(size: 15, weight: .medium))
                 }
-                .foregroundStyle(Color(red: 0.15, green: 0.65, blue: 0.50))
+                .foregroundStyle(AppTheme.accent)
             }
 
             Spacer()
 
-            VStack(spacing: 1) {
-                Text(gameTitle)
-                    .font(.system(size: 16, weight: .bold))
-                    .foregroundStyle(.primary)
-                Text(engine.isOfflineMode ? "Offline Mode (Đã lưu)" : "Online API")
-                    .font(.system(size: 10))
-                    .foregroundStyle(.secondary)
-            }
+            Text(gameTitle)
+                .font(.system(size: 16, weight: .bold, design: .rounded))
+                .foregroundStyle(.primary)
 
             Spacer()
 
             Button {
                 engine.fetchPatchesFromAdmin(serverUrl: adminServerUrl, bundleID: bundleID)
             } label: {
-                Image(systemName: "ellipsis.circle.fill")
-                    .font(.system(size: 22))
-                    .foregroundStyle(Color(uiColor: .tertiaryLabel))
+                if engine.isFetching {
+                    ProgressView()
+                } else {
+                    Image(systemName: "arrow.triangle.2.circlepath")
+                        .font(.system(size: 15, weight: .bold))
+                        .foregroundStyle(AppTheme.accent)
+                }
             }
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 10)
-        .background(Color(uiColor: .systemGroupedBackground))
+        .background(Color(uiColor: .secondarySystemBackground))
     }
 
-    // MARK: - Grouped Section Box
-    private func groupedSection<Content: View>(
-        title: String,
-        icon: String,
-        @ViewBuilder content: () -> Content
-    ) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
-            HStack(spacing: 6) {
-                Image(systemName: icon)
-                    .font(.system(size: 11, weight: .bold))
-                    .foregroundStyle(.secondary)
-                Text(title)
-                    .font(.system(size: 12, weight: .bold, design: .rounded))
-                    .foregroundStyle(.secondary)
-            }
-            .padding(.leading, 12)
+    // MARK: - Game Hero Banner
+    private var gameHeroBanner: some View {
+        HStack(spacing: 14) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 8)
+                    .fill(isFFM ? Color.red.opacity(0.18) : Color.orange.opacity(0.18))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 8)
+                            .stroke(isFFM ? Color.red.opacity(0.4) : Color.orange.opacity(0.4), lineWidth: 1)
+                    )
 
-            VStack(spacing: 0) {
-                content()
+                Image(systemName: isFFM ? "bolt.fill" : "flame.fill")
+                    .font(.system(size: 26, weight: .black))
+                    .foregroundStyle(isFFM ? Color.red : Color.orange)
             }
-            .background(Color(uiColor: .secondarySystemGroupedBackground))
-            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .stroke(Color(uiColor: .separator).opacity(0.3), lineWidth: 0.5)
-            )
+            .frame(width: 52, height: 52)
+
+            VStack(alignment: .leading, spacing: 2) {
+                HStack(spacing: 6) {
+                    Text(gameTitle)
+                        .font(.system(size: 16, weight: .bold))
+                        .foregroundStyle(.primary)
+
+                    Text(isFFM ? "FFM" : "FFT")
+                        .font(.system(size: 9, weight: .black, design: .monospaced))
+                        .foregroundStyle(isFFM ? Color.red : Color.orange)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background((isFFM ? Color.red : Color.orange).opacity(0.15))
+                        .clipShape(RoundedRectangle(cornerRadius: 4))
+                }
+
+                Text(bundleID)
+                    .font(.system(size: 11, design: .monospaced))
+                    .foregroundStyle(.secondary)
+            }
+
+            Spacer()
+        }
+        .padding(12)
+        .background(
+            RoundedRectangle(cornerRadius: AppTheme.cardCornerRadius, style: .continuous)
+                .fill(AppTheme.cardBackground)
+                .overlay(
+                    RoundedRectangle(cornerRadius: AppTheme.cardCornerRadius, style: .continuous)
+                        .stroke(AppTheme.cardBorder, lineWidth: 1)
+                )
+        )
+    }
+
+    // MARK: - Category Filter Tabs
+    private var categoryTabs: some View {
+        HStack(spacing: 6) {
+            ForEach(FFModCategory.allCases) { cat in
+                Button {
+                    withAnimation(.easeInOut(duration: 0.15)) {
+                        selectedCategory = cat
+                    }
+                } label: {
+                    HStack(spacing: 6) {
+                        Image(systemName: cat.icon)
+                            .font(.system(size: 11, weight: .bold))
+                        Text(cat.rawValue)
+                            .font(.system(size: 12, weight: .bold))
+                    }
+                    .frame(maxWidth: .infinity, minHeight: 36)
+                    .background(
+                        selectedCategory == cat ? AppTheme.accent : AppTheme.cardBackground
+                    )
+                    .foregroundStyle(selectedCategory == cat ? Color.white : Color.primary)
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 8)
+                            .stroke(selectedCategory == cat ? Color.clear : AppTheme.cardBorder, lineWidth: 1)
+                    )
+                }
+                .buttonStyle(.plain)
+            }
         }
     }
 
-    // MARK: - Toggle Row (iOS Style Toggles)
-    private func toggleRow(patch: FFPatchItem) -> some View {
-        HStack {
-            Text(patch.name)
-                .font(.system(size: 15, weight: .regular))
-                .foregroundStyle(.primary)
+    // MARK: - Menu Patch Card (Only Admin-Added Items)
+    private var menuPatchCard: some View {
+        VStack(spacing: 0) {
+            HStack {
+                Text("DANH SÁCH CHỨC NĂNG")
+                    .font(.system(size: 11, weight: .bold, design: .monospaced))
+                    .foregroundStyle(.secondary)
+
+                Spacer()
+
+                Button {
+                    engine.autoApplyAll(category: selectedCategory, bundleID: bundleID, serverUrl: adminServerUrl)
+                } label: {
+                    Text("BẬT TẤT CẢ")
+                        .font(.system(size: 10, weight: .bold, design: .monospaced))
+                        .foregroundStyle(AppTheme.accent)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 3)
+                        .background(AppTheme.accent.opacity(0.12))
+                        .clipShape(RoundedRectangle(cornerRadius: 4))
+                }
+                .disabled(filteredPatches.isEmpty)
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 10)
+
+            Divider()
+
+            if filteredPatches.isEmpty {
+                VStack(spacing: 8) {
+                    Image(systemName: "tray")
+                        .font(.system(size: 26))
+                        .foregroundStyle(.secondary)
+
+                    Text("Chưa có file nào trong mục \(selectedCategory.rawValue)")
+                        .font(.system(size: 13, weight: .bold))
+                        .foregroundStyle(.primary)
+
+                    Text("Chỉ khi Admin tải file lên máy chủ thì mục này mới xuất hiện.")
+                        .font(.system(size: 11))
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
+                }
+                .padding(.vertical, 28)
+                .frame(maxWidth: .infinity)
+            } else {
+                VStack(spacing: 0) {
+                    ForEach(filteredPatches) { patch in
+                        patchRow(patch)
+                        if patch.id != filteredPatches.last?.id {
+                            Divider().padding(.leading, 14)
+                        }
+                    }
+                }
+            }
+        }
+        .background(
+            RoundedRectangle(cornerRadius: AppTheme.cardCornerRadius, style: .continuous)
+                .fill(AppTheme.cardBackground)
+                .overlay(
+                    RoundedRectangle(cornerRadius: AppTheme.cardCornerRadius, style: .continuous)
+                        .stroke(AppTheme.cardBorder, lineWidth: 1)
+                )
+        )
+    }
+
+    private func patchRow(_ patch: FFPatchItem) -> some View {
+        HStack(spacing: 12) {
+            Image(systemName: "bolt.fill")
+                .font(.system(size: 14, weight: .bold))
+                .foregroundStyle(AppTheme.accent)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(patch.name)
+                    .font(.system(size: 14, weight: .bold))
+                    .foregroundStyle(.primary)
+
+                Text(patch.isEnabled ? "Đang bật • Tự động dán container" : "Chưa kích hoạt")
+                    .font(.system(size: 10, design: .monospaced))
+                    .foregroundStyle(patch.isEnabled ? Color.green : Color.secondary)
+            }
 
             Spacer()
 
@@ -557,146 +605,58 @@ struct FreeFireDetailView: View {
                 set: { _ in engine.togglePatch(id: patch.id, bundleID: bundleID, serverUrl: adminServerUrl) }
             ))
             .labelsHidden()
-            .tint(Color(red: 0.15, green: 0.75, blue: 0.45))
+            .tint(AppTheme.accent)
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 11)
-    }
-
-    // MARK: - Aim Mode Segmented Row
-    private var aimModePickerRow: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("Aim Mode")
-                .font(.system(size: 14, weight: .medium))
-                .foregroundStyle(.primary)
-
-            Picker("Aim Mode", selection: $aimMode) {
-                Text("Hip").tag(0)
-                Text("Sighting").tag(1)
-                Text("Both").tag(2)
-            }
-            .pickerStyle(.segmented)
-        }
-        .padding(.horizontal, 16)
+        .padding(.horizontal, 14)
         .padding(.vertical, 10)
     }
 
-    // MARK: - FOV Slider Row
-    private var fovSliderRow: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            HStack {
-                Text("Value FOV")
-                    .font(.system(size: 14, weight: .medium))
-                    .foregroundStyle(.primary)
-                Spacer()
-                Text(String(format: "%.1f", fovValue))
-                    .font(.system(size: 12, design: .monospaced))
-                    .foregroundStyle(.secondary)
-            }
-
-            Slider(value: $fovValue, in: 50...360, step: 1.0)
-                .tint(Color(red: 0.15, green: 0.75, blue: 0.45))
-        }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 10)
-    }
-
-    // MARK: - Demo Footer Bar
-    private var demoFooterBar: some View {
+    // MARK: - Status Feedback Card
+    private func statusCard(_ status: String) -> some View {
         HStack(spacing: 8) {
-            Image(systemName: "network")
-                .font(.system(size: 12))
-                .foregroundStyle(.secondary)
-            Text("103.238.234.204:5000")
-                .font(.system(size: 13, weight: .bold, design: .monospaced))
+            Image(systemName: engine.isOfflineMode ? "wifi.slash" : "checkmark.circle.fill")
+                .foregroundStyle(engine.isOfflineMode ? Color.orange : Color.green)
+            Text(status)
+                .font(.system(size: 12, weight: .medium, design: .monospaced))
                 .foregroundStyle(.primary)
             Spacer()
-            Circle()
-                .fill(engine.isOfflineMode ? Color.orange : Color.green)
-                .frame(width: 8, height: 8)
-            Text(engine.isOfflineMode ? "OFFLINE" : "CONNECTED")
-                .font(.system(size: 10, weight: .black, design: .monospaced))
-                .foregroundStyle(engine.isOfflineMode ? Color.orange : Color.green)
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 10)
-        .background(Color(uiColor: .tertiarySystemGroupedBackground))
+        .padding(12)
+        .background(
+            RoundedRectangle(cornerRadius: 8)
+                .fill(Color(uiColor: .secondarySystemBackground))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 8)
+                        .stroke(engine.isOfflineMode ? Color.orange.opacity(0.3) : Color.green.opacity(0.3), lineWidth: 1)
+                )
+        )
     }
 }
 
-// MARK: - Main Patch Projects View (Function Hub)
-
-private enum PatchPackagePickerPolicy {
-    static let payloadType = UTType(filenameExtension: "payload") ?? .data
-    static let packageType = UTType(filenameExtension: "3105") ?? .data
-    static let allowedContentTypes: [UTType] = [payloadType, packageType, .data]
-    static let copiesSelectedDocument = true
-}
+// MARK: - Main Patch Projects View (Clean Function Hub)
 
 struct PatchProjectsView: View {
     @Environment(\.appLanguage) private var language
-    @EnvironmentObject private var draftCoordinator: PatchDraftCoordinator
-    @StateObject private var store = PatchProjectStore()
-    @State private var showCreate = false
-    @State private var showImporter = false
-    @State private var searchText = ""
-    @State private var showServerConfig = false
-    @State private var syncStatusMessage: String?
-    @State private var isSyncing = false
-
-    // Free Fire On/Off States
+    @StateObject private var engine = FreeFirePatchEngine.shared
     @AppStorage("ff_th_enabled") private var freeFireEnabled = false
     @AppStorage("ff_max_enabled") private var freeFireMaxEnabled = false
     @AppStorage("admin_api_server_url") private var adminServerUrl = FreeFirePatchEngine.defaultApiServerUrl
-
-    private var filteredItems: [PatchLibraryItem] {
-        let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !query.isEmpty else { return store.items }
-        return store.items.filter { item in
-            if item.packageURL.lastPathComponent.localizedCaseInsensitiveContains(query) {
-                return true
-            }
-            guard let project = item.project else { return false }
-            return project.name.localizedCaseInsensitiveContains(query)
-                || project.allBundleIdentifiers.contains {
-                    $0.localizedCaseInsensitiveContains(query)
-                }
-                || project.directories.contains {
-                    $0.relativePath.localizedCaseInsensitiveContains(query)
-                }
-                || project.rules.contains {
-                    $0.relativePath.localizedCaseInsensitiveContains(query)
-                        || $0.replacementFilename.localizedCaseInsensitiveContains(query)
-                }
-        }
-    }
 
     var onToggleSidebar: (() -> Void)? = nil
 
     init(onToggleSidebar: (() -> Void)? = nil) {
         self.onToggleSidebar = onToggleSidebar
-#if targetEnvironment(simulator)
-        _showCreate = State(
-            initialValue: ProcessInfo.processInfo.arguments.contains("--simulate-patch-editor")
-        )
-#endif
     }
 
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(spacing: 12) {
-                    // Free Fire / Free Fire MAX Injection Panel (FFM & FFT)
+                VStack(spacing: 14) {
+                    // Free Fire / Free Fire MAX Injection Cards
                     freeFireHubSection
-
-                    // Admin Python Cloud Sync Section
-                    adminSyncSection
-
-                    // Search & Local Payload Packages (Payload MeoMeo.app)
-                    localPayloadSection
                 }
                 .padding(.horizontal, AppTheme.pageInset)
-                .padding(.top, 10)
+                .padding(.top, 14)
                 .padding(.bottom, 26)
             }
             .background(AppTheme.pageBackground.ignoresSafeArea())
@@ -717,109 +677,42 @@ struct PatchProjectsView: View {
                         }
                     }
                 }
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Menu {
-                        Button {
-                            showCreate = true
-                        } label: {
-                            Label("Tạo Payload mới", systemImage: "doc.badge.plus")
-                        }
-                        Button {
-                            showImporter = true
-                        } label: {
-                            Label("Nhập file .3105 / .payload", systemImage: "square.and.arrow.down")
-                        }
-                        Button {
-                            showServerConfig = true
-                        } label: {
-                            Label("Cấu hình Admin API Web", systemImage: "server.rack")
-                        }
-                    } label: {
-                        if store.isBusy || isSyncing {
-                            ProgressView()
-                        } else {
-                            Image(systemName: "plus")
-                                .font(.system(size: 14, weight: .bold))
-                                .frame(width: 32, height: 32)
-                                .background(Color(uiColor: .secondarySystemFill))
-                                .overlay(
-                                    Rectangle().stroke(AppTheme.cardBorder, lineWidth: 1)
-                                )
-                        }
-                    }
-                    .disabled(store.isBusy || isSyncing)
-                }
-            }
-            .sheet(isPresented: $showImporter) {
-                FileDocumentPicker(
-                    allowedContentTypes: PatchPackagePickerPolicy.allowedContentTypes,
-                    copiesSelectedDocument: PatchPackagePickerPolicy.copiesSelectedDocument,
-                    allowsMultipleSelection: false,
-                    onSelection: { result in
-                        showImporter = false
-                        switch result {
-                        case .success(let urls):
-                            if let url = urls.first {
-                                importFile(url)
-                            }
-                        case .failure(let error):
-                            log("patch picker error: \(error.localizedDescription)")
-                        }
-                    },
-                    onCancel: {
-                        showImporter = false
-                    }
-                )
-                .ignoresSafeArea()
-            }
-            .sheet(isPresented: $showCreate) {
-                PatchProjectEditorView(
-                    existingProject: nil,
-                    passwordIsProtected: false
-                ) { project, password in
-                    store.create(project: project, password: password)
-                }
-            }
-            .sheet(isPresented: $showServerConfig) {
-                adminServerConfigSheet
             }
         }
     }
 
-    // MARK: - Free Fire Game Injection Hub (FFM & FFT)
+    // MARK: - Free Fire Game Injection Hub (FFM & FFT ONLY)
     private var freeFireHubSection: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 10) {
             HStack {
-                Text("FREE FIRE INJECTION ENGINE")
+                Text("DANH SÁCH GAME HỖ TRỢ")
                     .font(.system(size: 11, weight: .bold, design: .monospaced))
                     .foregroundStyle(AppTheme.accent)
 
                 Spacer()
 
-                Text("FFM / FFT • .3105 NATIVE")
+                Text("CHỈ NẠP TỆP ADMIN")
                     .font(.system(size: 9, weight: .bold, design: .monospaced))
                     .foregroundStyle(.secondary)
             }
 
-            VStack(spacing: 8) {
-                // Free Fire MAX (FFM)
-                gameCard(
-                    title: "Free Fire MAX (FFM)",
-                    bundleID: "com.dts.freefiremax",
-                    badgeText: "FFM",
-                    icon: "bolt.fill",
-                    color: Color(red: 1.00, green: 0.18, blue: 0.25),
-                    isOn: $freeFireMaxEnabled
-                )
-
+            VStack(spacing: 10) {
                 // Free Fire Standard (FFT)
                 gameCard(
                     title: "Free Fire Standard (FFT)",
                     bundleID: "com.dts.freefireth",
                     badgeText: "FFT",
                     icon: "flame.fill",
-                    color: Color(red: 1.00, green: 0.42, blue: 0.15),
-                    isOn: $freeFireEnabled
+                    color: Color(red: 1.00, green: 0.42, blue: 0.15)
+                )
+
+                // Free Fire MAX (FFM)
+                gameCard(
+                    title: "Free Fire MAX (FFM)",
+                    bundleID: "com.dts.freefiremax",
+                    badgeText: "FFM",
+                    icon: "bolt.fill",
+                    color: Color(red: 1.00, green: 0.18, blue: 0.25)
                 )
             }
         }
@@ -830,286 +723,59 @@ struct PatchProjectsView: View {
         bundleID: String,
         badgeText: String,
         icon: String,
-        color: Color,
-        isOn: Binding<Bool>
+        color: Color
     ) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            NavigationLink(destination: FreeFireDetailView(gameTitle: title, bundleID: bundleID)) {
-                HStack(spacing: 10) {
-                    ZStack {
-                        RoundedRectangle(cornerRadius: 4, style: .continuous)
-                            .fill(color.opacity(0.18))
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 4, style: .continuous)
-                                    .stroke(color.opacity(0.4), lineWidth: 1)
-                            )
-                        Image(systemName: icon)
-                            .font(.system(size: 16, weight: .bold))
-                            .foregroundStyle(color)
-                    }
-                    .frame(width: 36, height: 36)
-
-                    VStack(alignment: .leading, spacing: 1) {
-                        HStack(spacing: 6) {
-                            Text(title)
-                                .font(.system(size: 14, weight: .bold))
-                                .foregroundStyle(.primary)
-
-                            Text(badgeText)
-                                .font(.system(size: 9, weight: .black, design: .monospaced))
-                                .foregroundStyle(color)
-                                .padding(.horizontal, 5)
-                                .padding(.vertical, 1.5)
-                                .background(color.opacity(0.15))
-                                .clipShape(RoundedRectangle(cornerRadius: 3))
-                        }
-
-                        Text(bundleID)
-                            .font(.system(size: 10, weight: .medium, design: .monospaced))
-                            .foregroundStyle(.secondary)
-                    }
-
-                    Spacer()
-
-                    Image(systemName: "chevron.right")
-                        .font(.system(size: 12, weight: .bold))
-                        .foregroundStyle(.secondary)
-                }
-            }
-            .buttonStyle(.plain)
-
-            Divider()
-
-            HStack {
-                HStack(spacing: 4) {
-                    Circle()
-                        .fill(isOn.wrappedValue ? Color.green : Color.secondary.opacity(0.5))
-                        .frame(width: 6, height: 6)
-                    Text(isOn.wrappedValue ? "ACTIVE • ĐÃ KÍCH HOẠT" : "OFF • CHƯA KÍCH HOẠT")
-                        .font(.system(size: 10, weight: .bold, design: .monospaced))
-                        .foregroundStyle(isOn.wrappedValue ? Color.green : Color.secondary)
-                }
-
-                Spacer()
-
-                NavigationLink(destination: FreeFireDetailView(gameTitle: title, bundleID: bundleID)) {
-                    HStack(spacing: 4) {
-                        Image(systemName: "bolt.fill")
-                            .font(.system(size: 10, weight: .bold))
-                        Text("MỞ MENU .3105")
-                            .font(.system(size: 10, weight: .bold, design: .monospaced))
-                    }
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 5)
-                    .background(color.opacity(0.15))
-                    .foregroundStyle(color)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 3, style: .continuous)
-                            .stroke(color.opacity(0.35), lineWidth: 1)
-                    )
-                }
-                .buttonStyle(.plain)
-            }
-        }
-        .padding(12)
-        .background(
-            RoundedRectangle(cornerRadius: AppTheme.cardCornerRadius, style: .continuous)
-                .fill(AppTheme.cardBackground)
-                .overlay(
-                    RoundedRectangle(cornerRadius: AppTheme.cardCornerRadius, style: .continuous)
-                        .stroke(isOn.wrappedValue ? AppTheme.accent.opacity(0.4) : AppTheme.cardBorder, lineWidth: 1)
-                )
-        )
-    }
-
-    // MARK: - Admin Python Server Sync Banner
-    private var adminSyncSection: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            HStack {
-                Image(systemName: "antenna.radiowaves.left.and.right")
-                    .font(.system(size: 12, weight: .bold))
-                    .foregroundStyle(AppTheme.accent)
-
-                Text("ADMIN WEB API: 103.238.234.204:5000")
-                    .font(.system(size: 11, weight: .bold, design: .monospaced))
-                    .foregroundStyle(.secondary)
-
-                Spacer()
-
-                Button {
-                    showServerConfig = true
-                } label: {
-                    Text("CẤU HÌNH")
-                        .font(.system(size: 10, weight: .bold, design: .monospaced))
-                        .foregroundStyle(AppTheme.accent)
-                }
-            }
-
-            if let msg = syncStatusMessage {
-                Text(msg)
-                    .font(.system(size: 11, design: .monospaced))
-                    .foregroundStyle(AppTheme.accent)
-                    .padding(.horizontal, 4)
-            }
-        }
-    }
-
-    // MARK: - Local Payload Packages (Payload MeoMeo.app)
-    private var localPayloadSection: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack {
-                Text("WORKSPACE: PAYLOAD MEOMEO.APP")
-                    .font(.system(size: 11, weight: .bold, design: .monospaced))
-                    .foregroundStyle(.secondary)
-
-                Spacer()
-
-                Text("\(store.items.count) GÓI")
-                    .font(.system(size: 10, weight: .bold, design: .monospaced))
-                    .foregroundStyle(.secondary)
-            }
-
-            AppSearchField(
-                text: $searchText,
-                prompt: "Tìm kiếm payload / patch .3105…",
-                clearLabel: "Xóa"
-            )
-
-            if store.items.isEmpty && !store.isBusy {
-                VStack(spacing: 8) {
-                    Image(systemName: "shippingbox")
-                        .font(.system(size: 28))
-                        .foregroundStyle(.secondary)
-                    Text("Chưa có gói Payload trong Payload MeoMeo.app")
-                        .font(.system(size: 13, weight: .bold))
-                    Text("Tạo mới hoặc kết nối Admin API để tải patch về máy.")
-                        .font(.system(size: 11))
-                        .foregroundStyle(.secondary)
-                        .multilineTextAlignment(.center)
-                }
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 24)
-                .background(
-                    RoundedRectangle(cornerRadius: AppTheme.cardCornerRadius, style: .continuous)
-                        .fill(AppTheme.cardBackground)
+        NavigationLink(destination: FreeFireDetailView(gameTitle: title, bundleID: bundleID)) {
+            HStack(spacing: 12) {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 6, style: .continuous)
+                        .fill(color.opacity(0.18))
                         .overlay(
-                            RoundedRectangle(cornerRadius: AppTheme.cardCornerRadius, style: .continuous)
-                                .stroke(AppTheme.cardBorder, lineWidth: 1)
+                            RoundedRectangle(cornerRadius: 6, style: .continuous)
+                                .stroke(color.opacity(0.4), lineWidth: 1)
                         )
-                )
-            } else {
-                VStack(spacing: 6) {
-                    ForEach(filteredItems) { item in
-                        payloadRow(item)
-                    }
+                    Image(systemName: icon)
+                        .font(.system(size: 18, weight: .bold))
+                        .foregroundStyle(color)
                 }
-            }
-        }
-    }
+                .frame(width: 44, height: 44)
 
-    private func payloadRow(_ item: PatchLibraryItem) -> some View {
-        HStack(spacing: 10) {
-            AppLogo(size: 30)
+                VStack(alignment: .leading, spacing: 3) {
+                    HStack(spacing: 6) {
+                        Text(title)
+                            .font(.system(size: 15, weight: .bold))
+                            .foregroundStyle(.primary)
 
-            VStack(alignment: .leading, spacing: 2) {
-                Text(item.project?.name ?? item.packageURL.deletingPathExtension().lastPathComponent)
-                    .font(.system(size: 13, weight: .bold))
-                    .foregroundStyle(.primary)
+                        Text(badgeText)
+                            .font(.system(size: 9, weight: .black, design: .monospaced))
+                            .foregroundStyle(color)
+                            .padding(.horizontal, 5)
+                            .padding(.vertical, 1.5)
+                            .background(color.opacity(0.15))
+                            .clipShape(RoundedRectangle(cornerRadius: 3))
+                    }
 
-                Text(item.packageURL.lastPathComponent)
-                    .font(.system(size: 11, design: .monospaced))
-                    .foregroundStyle(.secondary)
-            }
-
-            Spacer()
-
-            Button {
-                store.delete(item)
-            } label: {
-                Image(systemName: "trash")
-                    .font(.system(size: 12, weight: .bold))
-                    .foregroundStyle(.red.opacity(0.8))
-                    .frame(width: 28, height: 28)
-                    .background(Color(uiColor: .tertiarySystemFill))
-            }
-            .buttonStyle(.plain)
-        }
-        .padding(10)
-        .background(
-            RoundedRectangle(cornerRadius: AppTheme.cardCornerRadius, style: .continuous)
-                .fill(AppTheme.cardBackground)
-                .overlay(
-                    RoundedRectangle(cornerRadius: AppTheme.cardCornerRadius, style: .continuous)
-                        .stroke(AppTheme.cardBorder, lineWidth: 1)
-                )
-        )
-    }
-
-    // MARK: - Admin Server Config Sheet
-    private var adminServerConfigSheet: some View {
-        NavigationStack {
-            Form {
-                Section("Máy Chủ Admin API Python") {
-                    TextField("http://103.238.234.204:5000", text: $adminServerUrl)
-                        .textInputAutocapitalization(.never)
-                        .autocorrectionDisabled()
-                        .font(.system(size: 13, design: .monospaced))
-
-                    Text("Nhập URL của máy chủ Admin Web (Python Flask). Ứng dụng sẽ đồng bộ danh sách file patch On/Off trực tiếp từ đây.")
-                        .font(.system(size: 11))
+                    Text(bundleID)
+                        .font(.system(size: 11, weight: .medium, design: .monospaced))
                         .foregroundStyle(.secondary)
                 }
 
-                Section {
-                    Button {
-                        testAndSyncServer()
-                    } label: {
-                        HStack {
-                            Spacer()
-                            Text(isSyncing ? "ĐANG ĐỒNG BỘ…" : "KIỂM TRA & ĐỒNG BỘ NGAY")
-                                .font(.system(size: 13, weight: .bold, design: .monospaced))
-                                .foregroundStyle(AppTheme.accent)
-                            Spacer()
-                        }
-                    }
-                    .disabled(isSyncing)
-                }
+                Spacer()
+
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 14, weight: .bold))
+                    .foregroundStyle(.secondary)
             }
-            .navigationTitle("Admin API Server")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("Đóng") { showServerConfig = false }
-                }
-            }
+            .padding(14)
+            .background(
+                RoundedRectangle(cornerRadius: AppTheme.cardCornerRadius, style: .continuous)
+                    .fill(AppTheme.cardBackground)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: AppTheme.cardCornerRadius, style: .continuous)
+                            .stroke(AppTheme.cardBorder, lineWidth: 1)
+                    )
+            )
         }
-    }
-
-    private func importFile(_ url: URL) {
-        store.importPackage(at: url)
-        syncStatusMessage = "Đã nhập thành công: \(url.lastPathComponent)"
-    }
-
-    private func testAndSyncServer() {
-        isSyncing = true
-        syncStatusMessage = "Đang kiểm tra kết nối..."
-
-        guard let url = URL(string: "\(adminServerUrl)/api/status") else {
-            isSyncing = false
-            syncStatusMessage = "URL Server không hợp lệ"
-            return
-        }
-
-        URLSession.shared.dataTask(with: url) { data, response, error in
-            DispatchQueue.main.async {
-                isSyncing = false
-                if let error = error {
-                    syncStatusMessage = "Không thể kết nối tới server: \(error.localizedDescription)"
-                } else {
-                    syncStatusMessage = "Kết nối máy chủ Admin Python thành công (Online)!"
-                    showServerConfig = false
-                }
-            }
-        }.resume()
+        .buttonStyle(.plain)
     }
 }

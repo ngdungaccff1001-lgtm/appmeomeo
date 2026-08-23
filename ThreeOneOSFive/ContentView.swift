@@ -305,17 +305,13 @@ private struct DashboardView: View {
     @State private var showSettings = false
     @State private var showLogs = false
     @AppStorage("app.appearance") private var appearance = AppAppearance.system.rawValue
+    @AppStorage("appLanguage") private var selectedLanguage = "vi"
     let onToggleSidebar: () -> Void
     let onSelectSection: (AppSection) -> Void
 
     private var appVersion: String {
-        Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.1.1"
+        Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "2.0.0"
     }
-
-    private let quickActionColumns = [
-        GridItem(.flexible(), spacing: 10),
-        GridItem(.flexible(), spacing: 10)
-    ]
 
     var body: some View {
         NavigationStack {
@@ -324,17 +320,20 @@ private struct DashboardView: View {
                     // Cyber HUD Scanner Animation Effect
                     AppCyberPulseScanner()
 
-                    // Hero Inspector Card
-                    heroInspectorCard
+                    // Welcome to APIMeoMeo Card
+                    welcomeCard
 
-                    // Quick Actions
-                    quickActionsGrid
+                    // Language Switcher Card
+                    languageSwitcherCard
+
+                    // Direct Jump to Function (Free Fire Hub)
+                    functionBannerCard
+
+                    // Hardware & iOS Support Inspector Card
+                    heroInspectorCard
 
                     // Appearance Switcher
                     appearanceSection
-
-                    // System Hub
-                    systemHubSection
                 }
                 .padding(.horizontal, AppTheme.pageInset)
                 .padding(.top, 10)
@@ -372,7 +371,6 @@ private struct DashboardView: View {
                                     Rectangle().stroke(AppTheme.cardBorder, lineWidth: 1)
                                 )
                         }
-                        .accessibilityLabel(language.text("accessibility.open_logs"))
 
                         Button { showSettings = true } label: {
                             Image(systemName: "gearshape.fill")
@@ -383,13 +381,189 @@ private struct DashboardView: View {
                                     Rectangle().stroke(AppTheme.cardBorder, lineWidth: 1)
                                 )
                         }
-                        .accessibilityLabel(language.text("accessibility.open_settings"))
                     }
                 }
             }
             .sheet(isPresented: $showSettings) { SettingsView() }
             .sheet(isPresented: $showLogs) { LogView() }
         }
+    }
+
+    // MARK: - Welcome Card (APIMeoMeo & Support iOS)
+    private var welcomeCard: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 12) {
+                AppLogo(size: 38)
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("WELCOME TO MEOMEOPATH")
+                        .font(.system(size: 15, weight: .black, design: .monospaced))
+                        .foregroundStyle(AppTheme.accent)
+
+                    Text("Hệ thống Quản lý Patch & API MeoMeo")
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundStyle(.secondary)
+                }
+
+                Spacer()
+            }
+
+            Divider()
+
+            // Status Badges (Support iOS & API Online)
+            HStack(spacing: 6) {
+                // Support iOS Badge
+                HStack(spacing: 4) {
+                    Image(systemName: "applelogo")
+                        .font(.system(size: 11))
+                    Text("HỖ TRỢ iOS 15.0 - 18.x")
+                        .font(.system(size: 10, weight: .bold, design: .monospaced))
+                }
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
+                .background(Color(uiColor: .tertiarySystemFill))
+                .foregroundStyle(.primary)
+
+                Spacer()
+
+                // API Online Badge
+                HStack(spacing: 5) {
+                    Circle()
+                        .fill(Color.green)
+                        .frame(width: 7, height: 7)
+                    Text("ONLINE • ĐÃ KÍCH HOẠT")
+                        .font(.system(size: 10, weight: .black, design: .monospaced))
+                        .foregroundStyle(Color.green)
+                }
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
+                .background(Color.green.opacity(0.12))
+                .overlay(
+                    Rectangle().stroke(Color.green.opacity(0.35), lineWidth: 1)
+                )
+            }
+        }
+        .padding(14)
+        .background(
+            RoundedRectangle(cornerRadius: AppTheme.cardCornerRadius, style: .continuous)
+                .fill(AppTheme.cardBackground)
+                .overlay(
+                    RoundedRectangle(cornerRadius: AppTheme.cardCornerRadius, style: .continuous)
+                        .stroke(AppTheme.cardBorder, lineWidth: 1)
+                )
+        )
+    }
+
+    // MARK: - Language Switcher Card
+    private var languageSwitcherCard: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("NGÔN NGỮ / LANGUAGE")
+                .font(.system(size: 10, weight: .bold, design: .monospaced))
+                .foregroundStyle(.secondary)
+
+            HStack(spacing: 8) {
+                // Tiếng Việt
+                Button {
+                    withAnimation(.easeInOut(duration: 0.15)) {
+                        selectedLanguage = "vi"
+                    }
+                } label: {
+                    HStack(spacing: 6) {
+                        Text("🇻🇳")
+                        Text("Tiếng Việt")
+                            .font(.system(size: 12, weight: .bold))
+                    }
+                    .frame(maxWidth: .infinity, minHeight: 34)
+                    .background(
+                        selectedLanguage == "vi" ? AppTheme.accent : AppTheme.cardBackground
+                    )
+                    .foregroundStyle(selectedLanguage == "vi" ? Color.white : Color.primary)
+                    .overlay(
+                        Rectangle().stroke(selectedLanguage == "vi" ? Color.clear : AppTheme.cardBorder, lineWidth: 1)
+                    )
+                }
+                .buttonStyle(.plain)
+
+                // English
+                Button {
+                    withAnimation(.easeInOut(duration: 0.15)) {
+                        selectedLanguage = "en"
+                    }
+                } label: {
+                    HStack(spacing: 6) {
+                        Text("🇺🇸")
+                        Text("English")
+                            .font(.system(size: 12, weight: .bold))
+                    }
+                    .frame(maxWidth: .infinity, minHeight: 34)
+                    .background(
+                        selectedLanguage == "en" ? AppTheme.accent : AppTheme.cardBackground
+                    )
+                    .foregroundStyle(selectedLanguage == "en" ? Color.white : Color.primary)
+                    .overlay(
+                        Rectangle().stroke(selectedLanguage == "en" ? Color.clear : AppTheme.cardBorder, lineWidth: 1)
+                    )
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(12)
+        .background(
+            RoundedRectangle(cornerRadius: AppTheme.cardCornerRadius, style: .continuous)
+                .fill(AppTheme.cardBackground)
+                .overlay(
+                    RoundedRectangle(cornerRadius: AppTheme.cardCornerRadius, style: .continuous)
+                        .stroke(AppTheme.cardBorder, lineWidth: 1)
+                )
+        )
+    }
+
+    // MARK: - Function Banner Card (Direct Jump to Free Fire / FFM)
+    private var functionBannerCard: some View {
+        Button {
+            onSelectSection(.patches)
+        } label: {
+            HStack(spacing: 12) {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 6)
+                        .fill(AppTheme.accent.opacity(0.18))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 6)
+                                .stroke(AppTheme.accent.opacity(0.4), lineWidth: 1)
+                        )
+                    Image(systemName: "flame.fill")
+                        .font(.system(size: 20, weight: .bold))
+                        .foregroundStyle(AppTheme.accent)
+                }
+                .frame(width: 44, height: 44)
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("MENU FUNCTION (FFM / FFT)")
+                        .font(.system(size: 14, weight: .bold, design: .monospaced))
+                        .foregroundStyle(.primary)
+
+                    Text("Kích hoạt Aim Hack, Định Vị & ModSkin Free Fire")
+                        .font(.system(size: 11))
+                        .foregroundStyle(.secondary)
+                }
+
+                Spacer()
+
+                Image(systemName: "arrow.right.circle.fill")
+                    .font(.system(size: 18))
+                    .foregroundStyle(AppTheme.accent)
+            }
+            .padding(12)
+            .background(
+                RoundedRectangle(cornerRadius: AppTheme.cardCornerRadius, style: .continuous)
+                    .fill(AppTheme.cardBackground)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: AppTheme.cardCornerRadius, style: .continuous)
+                            .stroke(AppTheme.accent.opacity(0.4), lineWidth: 1)
+                    )
+            )
+        }
+        .buttonStyle(.plain)
     }
 
     // MARK: - Sharp Hero Inspector Card
@@ -413,61 +587,12 @@ private struct DashboardView: View {
                         .font(.system(size: 15, weight: .bold, design: .monospaced))
                         .foregroundStyle(.primary)
 
-                    Text("\(AppInfo.displayMachineName) • iOS \(AppInfo.osVersion) (\(AppInfo.osBuild))")
+                    Text("\(AppInfo.displayMachineName) • iOS \(AppInfo.osVersion)")
                         .font(.system(size: 12, weight: .regular, design: .monospaced))
                         .foregroundStyle(.secondary)
                 }
 
                 Spacer()
-            }
-
-            Divider()
-
-            // Status Badges Row
-            HStack(spacing: 6) {
-                if appState.isSupported {
-                    AppStatusBadge(
-                        title: language.text("settings.supported"),
-                        systemImage: "checkmark",
-                        type: .success
-                    )
-                } else {
-                    AppStatusBadge(
-                        title: language.text("settings.unsupported"),
-                        systemImage: "xmark",
-                        type: .error
-                    )
-                }
-
-                if appState.kernelExploitApplicable && AppInfo.versionTuple.major < 26 {
-                    if appState.kernelExploitRunning {
-                        AppStatusBadge(
-                            title: language.text("dashboard.kernel_running"),
-                            type: .running
-                        )
-                    } else if appState.exploitStatus.isSuccess {
-                        AppStatusBadge(
-                            title: language.text("dashboard.kernel_active"),
-                            systemImage: "bolt.fill",
-                            type: .success
-                        )
-                    } else {
-                        AppStatusBadge(
-                            title: language.text("dashboard.kernel_inactive"),
-                            systemImage: "bolt.slash",
-                            type: .neutral
-                        )
-                    }
-                }
-
-                Spacer()
-
-                Text("ENTERPRISE")
-                    .font(.system(size: 10, weight: .bold, design: .monospaced))
-                    .foregroundStyle(.secondary)
-                    .padding(.horizontal, 6)
-                    .padding(.vertical, 3)
-                    .background(Color(uiColor: .tertiarySystemFill))
             }
         }
         .padding(12)
@@ -480,33 +605,6 @@ private struct DashboardView: View {
                         .stroke(AppTheme.cardBorder, lineWidth: 1)
                 )
         )
-    }
-
-    // MARK: - Quick Actions Grid (Tệp & Function / Free Fire)
-    private var quickActionsGrid: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("THAO TÁC / QUICK ACTIONS")
-                .font(.system(size: 11, weight: .bold, design: .monospaced))
-                .foregroundStyle(.secondary)
-
-            LazyVGrid(columns: quickActionColumns, spacing: 8) {
-                AppQuickActionCard(
-                    title: language.text("tab.files"),
-                    subtitle: language.text("dashboard.quick_files_desc"),
-                    systemImage: "folder",
-                    tint: AppTheme.filesTint,
-                    action: { onSelectSection(.files) }
-                )
-
-                AppQuickActionCard(
-                    title: "Function",
-                    subtitle: "Payload & Free Fire Patch Hub",
-                    systemImage: "bolt.shield.fill",
-                    tint: AppTheme.patchesTint,
-                    action: { onSelectSection(.patches) }
-                )
-            }
-        }
     }
 
     // MARK: - Appearance Selector Section
