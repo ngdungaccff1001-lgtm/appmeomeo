@@ -3,8 +3,9 @@ import UIKit
 import UniformTypeIdentifiers
 
 private enum PatchPackagePickerPolicy {
+    static let payloadType = UTType(filenameExtension: "payload") ?? .data
     static let packageType = UTType(filenameExtension: "3105") ?? .data
-    static let allowedContentTypes: [UTType] = [packageType, .data]
+    static let allowedContentTypes: [UTType] = [payloadType, packageType, .data]
     static let copiesSelectedDocument = true
 }
 
@@ -38,7 +39,10 @@ struct PatchProjectsView: View {
         }
     }
 
-    init() {
+    var onToggleSidebar: (() -> Void)? = nil
+
+    init(onToggleSidebar: (() -> Void)? = nil) {
+        self.onToggleSidebar = onToggleSidebar
 #if targetEnvironment(simulator)
         _showCreate = State(
             initialValue: ProcessInfo.processInfo.arguments.contains("--simulate-patch-editor")
@@ -73,9 +77,22 @@ struct PatchProjectsView: View {
                 }
                 .listStyle(.insetGrouped)
             }
-            .navigationTitle(language.text("patch.title"))
+            .navigationTitle("MeoMeo.payload")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
+                if let onToggleSidebar {
+                    ToolbarItem(placement: .navigationBarLeading) {
+                        Button(action: onToggleSidebar) {
+                            Image(systemName: "line.3.horizontal")
+                                .font(.system(size: 15, weight: .bold))
+                                .frame(width: 32, height: 32)
+                                .background(Color(uiColor: .secondarySystemFill))
+                                .overlay(
+                                    Rectangle().stroke(AppTheme.cardBorder, lineWidth: 1)
+                                )
+                        }
+                    }
+                }
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Menu {
                         Button {

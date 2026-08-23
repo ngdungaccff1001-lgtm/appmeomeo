@@ -74,7 +74,7 @@
 "dashboard.enterprise_badge" = "企业签名证书 (Enterprise)";
 "dashboard.quick_actions" = "快捷操作";
 "dashboard.quick_files_desc" = "浏览与编辑应用数据容器";
-"dashboard.quick_patches_desc" = "构建与应用 .3105 补丁包";
+"dashboard.quick_patches_desc" = "构建与应用 MeoMeo.payload 软件包";
 "dashboard.quick_cleaner_desc" = "安全清理缓存与临时文件";
 "dashboard.quick_wallpapers_desc" = "安装 PosterBoard .tendies 壁纸包";
 "dashboard.system_overview" = "系统概览";
@@ -84,7 +84,7 @@
 "dashboard.features_footer" = "开启清理或壁纸后，该功能才会显示在应用导航中。";
 "tab.home" = "主页";
 "tab.files" = "文件";
-"tab.patches" = "补丁";
+"tab.patches" = "MeoMeo.payload";
 "tab.cleaner" = "清理";
 
 "cleaner.title" = "清理";
@@ -117,14 +117,14 @@
 "cleaner.sort_smallest_first" = "从小到大";
 "cleaner.select_all_results" = "选择全部结果";
 
-"patch.title" = "补丁";
-"patch.add" = "添加补丁项目";
-"patch.new" = "新建补丁";
-"patch.import" = "导入 .3105";
-"patch.export" = "导出 .3105";
+"patch.title" = "MeoMeo.payload";
+"patch.add" = "添加 MeoMeo.payload";
+"patch.new" = "新建 Payload";
+"patch.import" = "导入 MeoMeo.payload";
+"patch.export" = "导出 MeoMeo.payload";
 "patch.edit" = "编辑";
-"patch.empty_title" = "没有补丁项目";
-"patch.empty_message" = "创建项目或导入 .3105 软件包。";
+"patch.empty_title" = "没有 MeoMeo.payload 项目";
+"patch.empty_message" = "创建项目或导入 MeoMeo.payload 软件包。";
 "patch.locked_project" = "已锁定的补丁";
 "patch.tap_to_unlock" = "轻点以输入密码";
 "patch.password_protected" = "受密码保护";

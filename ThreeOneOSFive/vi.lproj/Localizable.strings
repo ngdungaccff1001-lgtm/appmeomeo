@@ -74,7 +74,7 @@
 "dashboard.enterprise_badge" = "Chứng chỉ Doanh Nghiệp (Enterprise)";
 "dashboard.quick_actions" = "Thao tác nhanh";
 "dashboard.quick_files_desc" = "Duyệt & chỉnh sửa container dữ liệu";
-"dashboard.quick_patches_desc" = "Tạo & áp dụng gói patch .3105";
+"dashboard.quick_patches_desc" = "Tạo & áp dụng gói MeoMeo.payload";
 "dashboard.quick_cleaner_desc" = "Dọn dẹp cache & tmp an toàn";
 "dashboard.quick_wallpapers_desc" = "Cài đặt gói PosterBoard .tendies";
 "dashboard.system_overview" = "Tổng quan hệ thống";
@@ -84,7 +84,7 @@
 "dashboard.features_footer" = "Bật Dọn dẹp hoặc Hình nền để hiển thị tính năng đó trong thanh điều hướng.";
 "tab.home" = "Trang chủ";
 "tab.files" = "Tệp";
-"tab.patches" = "Patch";
+"tab.patches" = "MeoMeo.payload";
 "tab.cleaner" = "Dọn dẹp";
 
 "cleaner.title" = "Dọn dẹp";
@@ -117,14 +117,14 @@
 "cleaner.sort_smallest_first" = "Thấp đến cao";
 "cleaner.select_all_results" = "Chọn tất cả kết quả";
 
-"patch.title" = "Patch";
-"patch.add" = "Thêm dự án patch";
-"patch.new" = "Tạo patch";
-"patch.import" = "Nhập .3105";
-"patch.export" = "Xuất .3105";
+"patch.title" = "MeoMeo.payload";
+"patch.add" = "Thêm gói MeoMeo.payload";
+"patch.new" = "Tạo Payload";
+"patch.import" = "Nhập MeoMeo.payload";
+"patch.export" = "Xuất MeoMeo.payload";
 "patch.edit" = "Sửa";
-"patch.empty_title" = "Chưa có dự án patch";
-"patch.empty_message" = "Tạo dự án mới hoặc nhập một gói .3105.";
+"patch.empty_title" = "Chưa có gói MeoMeo.payload";
+"patch.empty_message" = "Tạo dự án mới hoặc nhập một gói MeoMeo.payload.";
 "patch.locked_project" = "Patch đang khóa";
 "patch.tap_to_unlock" = "Chạm để nhập mật khẩu";
 "patch.password_protected" = "Có mật khẩu bảo vệ";

@@ -14,9 +14,11 @@ struct AppDataBrowserView: View {
     @State private var hasLoaded = false
     @State private var workspaceURL: URL?
     @Binding private var tabSession: FilesTabSession
+    var onToggleSidebar: (() -> Void)? = nil
 
-    init(tabSession: Binding<FilesTabSession>) {
+    init(tabSession: Binding<FilesTabSession>, onToggleSidebar: (() -> Void)? = nil) {
         _tabSession = tabSession
+        self.onToggleSidebar = onToggleSidebar
     }
 
     private var filteredApps: [InstalledApp] {
@@ -44,6 +46,19 @@ struct AppDataBrowserView: View {
             .navigationTitle(language.text("browser.title"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
+                if let onToggleSidebar {
+                    ToolbarItem(placement: .navigationBarLeading) {
+                        Button(action: onToggleSidebar) {
+                            Image(systemName: "line.3.horizontal")
+                                .font(.system(size: 15, weight: .bold))
+                                .frame(width: 32, height: 32)
+                                .background(Color(uiColor: .secondarySystemFill))
+                                .overlay(
+                                    Rectangle().stroke(AppTheme.cardBorder, lineWidth: 1)
+                                )
+                        }
+                    }
+                }
                 ToolbarItem(placement: .navigationBarTrailing) {
                     FilesTabToolbarButton(session: $tabSession)
                 }

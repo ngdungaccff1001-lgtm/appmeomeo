@@ -8,8 +8,6 @@ struct ContentView: View {
     @State private var tabNavigation: AppTabNavigationState
     @State private var isSidebarOpen = false
     @AppStorage("app.appearance") private var appearance = AppAppearance.system.rawValue
-    @AppStorage(FeatureVisibility.cleanerStorageKey) private var cleanerEnabled = true
-    @AppStorage(FeatureVisibility.wallpapersStorageKey) private var wallpapersEnabled = true
 
     init() {
 #if targetEnvironment(simulator)
@@ -19,10 +17,6 @@ struct ContentView: View {
             initialTab = 1
         } else if arguments.contains("--simulate-patch-tab") {
             initialTab = 2
-        } else if arguments.contains("--simulate-cleaner-tab") {
-            initialTab = 3
-        } else if arguments.contains("--simulate-wallpaper-tab") {
-            initialTab = 4
         } else {
             initialTab = 0
         }
@@ -34,24 +28,18 @@ struct ContentView: View {
 
     var body: some View {
         ZStack(alignment: .leading) {
-            // Main Content Layout
-            Group {
-                if horizontalSizeClass == .regular {
-                    regularLayout
-                } else {
-                    compactLayout
-                }
-            }
-            .tint(AppTheme.accent)
-            .imageScale(.small)
-            .disabled(isSidebarOpen)
+            // Main Content Area (Full screen, NO Bottom TabBar)
+            mainContent
+                .tint(AppTheme.accent)
+                .imageScale(.small)
+                .disabled(isSidebarOpen)
 
-            // Dimmed Overlay when Sidebar is open
+            // Dimmed Overlay when Sidebar is active
             if isSidebarOpen {
-                Color.black.opacity(0.4)
+                Color.black.opacity(0.45)
                     .ignoresSafeArea()
                     .onTapGesture {
-                        withAnimation(.easeInOut(duration: 0.22)) {
+                        withAnimation(.easeInOut(duration: 0.2)) {
                             isSidebarOpen = false
                         }
                     }
@@ -59,7 +47,7 @@ struct ContentView: View {
                     .zIndex(10)
             }
 
-            // Collapsible Sidebar Drawer
+            // Collapsible Sidebar Drawer Navigation
             if isSidebarOpen {
                 sidebarDrawer
                     .transition(.move(edge: .leading))
@@ -72,76 +60,27 @@ struct ContentView: View {
         .onChange(of: patchDraftCoordinator.importRequest?.id) { requestID in
             if requestID != nil { tabNavigation.select(AppSection.patches.rawValue) }
         }
-        .onChange(of: cleanerEnabled) { _ in
-            tabNavigation.reconcileSelection(with: featureVisibility)
-        }
-        .onChange(of: wallpapersEnabled) { _ in
-            tabNavigation.reconcileSelection(with: featureVisibility)
-        }
-        .onAppear {
-            tabNavigation.reconcileSelection(with: featureVisibility)
-        }
     }
 
-    // MARK: - Compact (iPhone) Layout
-    private var compactLayout: some View {
-        TabView(selection: tabSelection) {
-            ForEach(featureVisibility.visibleSections) { section in
-                sectionContent(section)
-                    .tabItem {
-                        CompactTabLabel(
-                            title: language.text(section.titleKey),
-                            systemImage: section.systemImage
-                        )
-                    }
-                    .tag(section.rawValue)
-            }
-        }
-    }
-
-    // MARK: - Regular (iPad) Layout
-    private var regularLayout: some View {
-        NavigationSplitView {
-            List {
-                ForEach(featureVisibility.visibleSections) { section in
-                    Button {
-                        withAnimation(.easeInOut(duration: 0.16)) {
-                            tabNavigation.select(section.rawValue)
-                        }
-                    } label: {
-                        Label(language.text(section.titleKey), systemImage: section.systemImage)
-                            .fontWeight(section.rawValue == tabNavigation.selectedTab ? .bold : .regular)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .contentShape(Rectangle())
-                    }
-                    .buttonStyle(.plain)
-                    .listRowBackground(
-                        section.rawValue == tabNavigation.selectedTab
-                            ? AppTheme.accent.opacity(0.15)
-                            : Color.clear
-                    )
-                }
-            }
-            .navigationTitle("3105")
-            .navigationSplitViewColumnWidth(min: 220, ideal: 250, max: 320)
-        } detail: {
-            sectionContent(selectedVisibleSection)
-                .id(selectedVisibleSection.rawValue)
-        }
-        .navigationSplitViewStyle(.balanced)
+    // MARK: - Main Content View (Without bottom tab bar)
+    @ViewBuilder
+    private var mainContent: some View {
+        sectionContent(selectedVisibleSection)
+            .id(selectedVisibleSection.rawValue)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     // MARK: - Collapsible Sidebar Drawer
     private var sidebarDrawer: some View {
         VStack(alignment: .leading, spacing: 0) {
-            // Sidebar Header
+            // Header
             HStack(spacing: 10) {
                 AppLogo(size: 34)
                 VStack(alignment: .leading, spacing: 1) {
-                    Text("3105")
-                        .font(.system(size: 17, weight: .bold, design: .monospaced))
+                    Text("MeoMeo.payload")
+                        .font(.system(size: 15, weight: .bold, design: .monospaced))
                     Text("DEVICE MANAGER")
-                        .font(.system(size: 10, weight: .bold, design: .monospaced))
+                        .font(.system(size: 9, weight: .bold, design: .monospaced))
                         .foregroundStyle(AppTheme.accent)
                 }
                 Spacer()
@@ -164,10 +103,10 @@ struct ContentView: View {
 
             Divider()
 
-            // Appearance / Theme Switcher Section
+            // Appearance Switcher
             VStack(alignment: .leading, spacing: 8) {
                 Text("GIAO DIỆN / THEME")
-                    .font(.system(size: 11, weight: .bold, design: .monospaced))
+                    .font(.system(size: 10, weight: .bold, design: .monospaced))
                     .foregroundStyle(.secondary)
                     .padding(.horizontal, 16)
                     .padding(.top, 14)
@@ -206,11 +145,11 @@ struct ContentView: View {
             Divider()
                 .padding(.top, 14)
 
-            // Navigation Items List
+            // Sidebar Navigation Items
             ScrollView {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("ĐIỀU HƯỚNG / MODULES")
-                        .font(.system(size: 11, weight: .bold, design: .monospaced))
+                        .font(.system(size: 10, weight: .bold, design: .monospaced))
                         .foregroundStyle(.secondary)
                         .padding(.horizontal, 16)
                         .padding(.top, 12)
@@ -276,7 +215,7 @@ struct ContentView: View {
             .padding(.vertical, 12)
             .background(Color(uiColor: .secondarySystemBackground))
         }
-        .frame(width: 290)
+        .frame(width: 280)
         .frame(maxHeight: .infinity)
         .background(Color(uiColor: .systemBackground))
         .overlay(
@@ -291,11 +230,8 @@ struct ContentView: View {
         switch section {
         case .home:
             DashboardView(
-                cleanerEnabled: $cleanerEnabled,
-                wallpapersEnabled: $wallpapersEnabled,
-                wallpapersSupported: wallpapersSupported,
                 onToggleSidebar: {
-                    withAnimation(.easeInOut(duration: 0.22)) {
+                    withAnimation(.easeInOut(duration: 0.2)) {
                         isSidebarOpen.toggle()
                     }
                 },
@@ -307,22 +243,22 @@ struct ContentView: View {
             )
         case .files:
             AppDataBrowserView(
-                tabSession: filesTabSession
+                tabSession: filesTabSession,
+                onToggleSidebar: {
+                    withAnimation(.easeInOut(duration: 0.2)) {
+                        isSidebarOpen.toggle()
+                    }
+                }
             )
         case .patches:
-            PatchProjectsView()
-        case .cleaner:
-            CleanerView()
-        case .wallpapers:
-            WallpaperLabView()
+            PatchProjectsView(
+                onToggleSidebar: {
+                    withAnimation(.easeInOut(duration: 0.2)) {
+                        isSidebarOpen.toggle()
+                    }
+                }
+            )
         }
-    }
-
-    private var tabSelection: Binding<Int> {
-        Binding(
-            get: { tabNavigation.selectedTab },
-            set: { tabNavigation.select($0) }
-        )
     }
 
     private var filesTabSession: Binding<FilesTabSession> {
@@ -333,42 +269,14 @@ struct ContentView: View {
     }
 
     private var featureVisibility: FeatureVisibility {
-        FeatureVisibility(
-            cleanerEnabled: cleanerEnabled,
-            wallpapersEnabled: wallpapersEnabled,
-            wallpapersSupported: wallpapersSupported
-        )
-    }
-
-    private var wallpapersSupported: Bool {
-        WallpaperFeatureSupportPolicy.isSupported(major: AppInfo.versionTuple.major)
+        FeatureVisibility()
     }
 
     private var selectedVisibleSection: AppSection {
-        guard let section = AppSection(rawValue: tabNavigation.selectedTab),
-              featureVisibility.isVisible(section) else {
+        guard let section = AppSection(rawValue: tabNavigation.selectedTab) else {
             return .home
         }
         return section
-    }
-}
-
-private struct CompactTabLabel: View {
-    let title: String
-    let systemImage: String
-
-    @ViewBuilder
-    var body: some View {
-        if let image = UIImage(
-            systemName: systemImage,
-            withConfiguration: UIImage.SymbolConfiguration(pointSize: 15, weight: .semibold)
-        )?.withRenderingMode(.alwaysTemplate) {
-            Image(uiImage: image)
-        } else {
-            Image(systemName: systemImage)
-                .font(.system(size: 15, weight: .semibold))
-        }
-        Text(title)
     }
 }
 
@@ -378,8 +286,6 @@ private extension AppSection {
         case .home: return "tab.home"
         case .files: return "tab.files"
         case .patches: return "tab.patches"
-        case .cleaner: return "tab.cleaner"
-        case .wallpapers: return "tab.wallpapers"
         }
     }
 
@@ -388,22 +294,17 @@ private extension AppSection {
         case .home: return "terminal"
         case .files: return "folder"
         case .patches: return "shippingbox"
-        case .cleaner: return "sparkles"
-        case .wallpapers: return "photo.on.rectangle"
         }
     }
 }
 
-// MARK: - Sharp Industrial Dashboard
+// MARK: - Sharp Industrial Dashboard (Clean, No Cleaner/Wallpapers)
 private struct DashboardView: View {
     @Environment(\.appLanguage) private var language
     @EnvironmentObject private var appState: AppState
     @State private var showSettings = false
     @State private var showLogs = false
     @AppStorage("app.appearance") private var appearance = AppAppearance.system.rawValue
-    @Binding var cleanerEnabled: Bool
-    @Binding var wallpapersEnabled: Bool
-    let wallpapersSupported: Bool
     let onToggleSidebar: () -> Void
     let onSelectSection: (AppSection) -> Void
 
@@ -423,7 +324,6 @@ private struct DashboardView: View {
                     heroInspectorCard
                     quickActionsGrid
                     appearanceSection
-                    featureManagementSection
                     systemHubSection
                 }
                 .padding(.horizontal, AppTheme.pageInset)
@@ -445,8 +345,8 @@ private struct DashboardView: View {
                                     Rectangle().stroke(AppTheme.cardBorder, lineWidth: 1)
                                 )
 
-                            Text("3105")
-                                .font(.system(size: 16, weight: .bold, design: .monospaced))
+                            Text("MeoMeo.payload")
+                                .font(.system(size: 15, weight: .bold, design: .monospaced))
                                 .foregroundStyle(.primary)
                         }
                     }
@@ -572,7 +472,7 @@ private struct DashboardView: View {
         )
     }
 
-    // MARK: - Quick Actions Grid
+    // MARK: - Quick Actions Grid (2 tiles only: Tệp & MeoMeo.payload)
     private var quickActionsGrid: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("THAO TÁC / QUICK ACTIONS")
@@ -589,36 +489,12 @@ private struct DashboardView: View {
                 )
 
                 AppQuickActionCard(
-                    title: language.text("tab.patches"),
-                    subtitle: language.text("dashboard.quick_patches_desc"),
+                    title: "MeoMeo.payload",
+                    subtitle: "Tạo & áp dụng gói MeoMeo.payload",
                     systemImage: "shippingbox",
                     tint: AppTheme.patchesTint,
                     action: { onSelectSection(.patches) }
                 )
-
-                AppQuickActionCard(
-                    title: language.text("tab.cleaner"),
-                    subtitle: language.text("dashboard.quick_cleaner_desc"),
-                    systemImage: "sparkles",
-                    tint: AppTheme.cleanerTint,
-                    action: {
-                        if !cleanerEnabled { cleanerEnabled = true }
-                        onSelectSection(.cleaner)
-                    }
-                )
-
-                if wallpapersSupported {
-                    AppQuickActionCard(
-                        title: language.text("tab.wallpapers"),
-                        subtitle: language.text("dashboard.quick_wallpapers_desc"),
-                        systemImage: "photo.on.rectangle",
-                        tint: AppTheme.wallpapersTint,
-                        action: {
-                            if !wallpapersEnabled { wallpapersEnabled = true }
-                            onSelectSection(.wallpapers)
-                        }
-                    )
-                }
             }
         }
     }
@@ -656,35 +532,6 @@ private struct DashboardView: View {
                         )
                     }
                     .buttonStyle(.plain)
-                }
-            }
-        }
-    }
-
-    // MARK: - Feature Management Section
-    private var featureManagementSection: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("TÍNH NĂNG / MODULES")
-                .font(.system(size: 11, weight: .bold, design: .monospaced))
-                .foregroundStyle(.secondary)
-
-            VStack(spacing: 6) {
-                AppFeatureToggleCard(
-                    title: language.text("tab.cleaner"),
-                    subtitle: language.text("dashboard.quick_cleaner_desc"),
-                    systemImage: "sparkles",
-                    tint: AppTheme.cleanerTint,
-                    isOn: $cleanerEnabled
-                )
-
-                if wallpapersSupported {
-                    AppFeatureToggleCard(
-                        title: language.text("tab.wallpapers"),
-                        subtitle: language.text("dashboard.quick_wallpapers_desc"),
-                        systemImage: "photo.on.rectangle",
-                        tint: AppTheme.wallpapersTint,
-                        isOn: $wallpapersEnabled
-                    )
                 }
             }
         }
