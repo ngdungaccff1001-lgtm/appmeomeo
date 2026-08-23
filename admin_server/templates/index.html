@@ -78,14 +78,14 @@
         .form-group { margin-bottom: 14px; }
         label { display: block; font-size: 12px; font-weight: 600; margin-bottom: 6px; color: var(--text-dim); }
 
-        input[type="text"], select {
+        input[type="text"], input[type="password"], select {
             width: 100%; padding: 10px 12px;
             background: #080a0f; border: 1px solid var(--card-border);
             border-radius: 4px; color: var(--text); font-size: 13px; outline: none;
             transition: border 0.15s;
         }
 
-        input[type="text"]:focus, select:focus {
+        input[type="text"]:focus, input[type="password"]:focus, select:focus {
             border-color: var(--accent);
             box-shadow: 0 0 8px var(--accent-glow);
         }
@@ -118,18 +118,17 @@
             display: flex; align-items: center; justify-content: space-between; gap: 10px;
         }
 
-        .patch-name { font-size: 14px; font-weight: 700; margin-bottom: 3px; }
+        .patch-name { font-size: 14px; font-weight: 700; margin-bottom: 3px; display: flex; align-items: center; gap: 6px; }
         .patch-meta {
             font-size: 11px; font-family: 'JetBrains Mono', monospace;
             color: var(--text-dim); display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
         }
 
-        .badge-cat {
-            padding: 2px 6px; border-radius: 2px; font-size: 10px; font-weight: 700;
-        }
+        .badge-cat { padding: 2px 6px; border-radius: 2px; font-size: 10px; font-weight: 700; }
         .badge-aim { background: rgba(255, 94, 30, 0.18); color: var(--ff-orange); }
         .badge-esp { background: rgba(0, 210, 211, 0.18); color: var(--cyan); }
         .badge-skin { background: rgba(155, 89, 182, 0.18); color: var(--purple); }
+        .badge-lock { background: rgba(241, 196, 15, 0.18); color: #f1c40f; padding: 2px 6px; border-radius: 2px; font-size: 10px; font-weight: 700; }
 
         /* Switch */
         .switch { position: relative; display: inline-block; width: 44px; height: 22px; }
@@ -159,8 +158,8 @@
         <div class="brand">
             <div class="logo-box">⚡</div>
             <div>
-                <h1>MeoMeoPath <span class="tag">ADMIN API</span></h1>
-                <p style="font-size: 12px; color: var(--text-dim); margin-top: 2px;">Hệ thống Server Quản lý Patch Free Fire / Free Fire MAX</p>
+                <h1>MeoMeoPath <span class="tag">.3105 ADMIN API</span></h1>
+                <p style="font-size: 12px; color: var(--text-dim); margin-top: 2px;">Hệ thống Đóng gói .3105 & Mật khẩu Admin cho FFM / FFT</p>
             </div>
         </div>
         <div style="font-size: 12px; font-family: 'JetBrains Mono', monospace; color: var(--green);">
@@ -172,16 +171,16 @@
         <!-- Form Upload -->
         <div class="card">
             <div class="card-header">
-                <span>THÊM CHỨC NĂNG / PATCH MỚI</span>
-                <span>ADMIN UPLOAD</span>
+                <span>ĐÓNG GÓI & UPLOAD FILE .3105</span>
+                <span>ADMIN PANEL</span>
             </div>
 
             <form id="uploadForm">
                 <div class="form-group">
                     <label>Áp dụng cho Game</label>
                     <select id="targetGame">
-                        <option value="com.dts.freefiremax">⚡ Free Fire MAX (com.dts.freefiremax)</option>
-                        <option value="com.dts.freefireth">🔥 Free Fire Standard (com.dts.freefireth)</option>
+                        <option value="com.dts.freefiremax">⚡ Free Fire MAX (FFM)</option>
+                        <option value="com.dts.freefireth">🔥 Free Fire Standard (FFT)</option>
                         <option value="all">🌐 Cả hai Game (All)</option>
                     </select>
                 </div>
@@ -208,35 +207,48 @@
                     <input type="text" id="patchName" placeholder="VD: Aim Alex Free Fire Max">
                 </div>
 
+                <div class="form-group">
+                    <label>Mật khẩu Admin cho gói .3105 (Tùy chọn - Bỏ trống nếu không đặt)</label>
+                    <input type="password" id="patchPassword" placeholder="Nhập mật khẩu Admin để khóa patch...">
+                </div>
+
                 <div class="upload-dropzone" onclick="document.getElementById('fileInput').click()">
                     <input type="file" id="fileInput" style="display: none;" onchange="updateFileName(this)">
                     <div style="font-size: 26px; margin-bottom: 6px;">📦</div>
-                    <div id="dropzoneText" style="font-size: 13px; font-weight: 600;">Chọn file data patch để upload</div>
-                    <div style="font-size: 11px; color: var(--text-dim); margin-top: 4px;">File sẽ tự động hiển thị trong menu app khi Admin thêm</div>
+                    <div id="dropzoneText" style="font-size: 13px; font-weight: 600;">Chọn file data patch để upload (.3105, .payload, .dat)</div>
+                    <div style="font-size: 11px; color: var(--text-dim); margin-top: 4px;">Hệ thống sẽ đóng gói chuẩn .3105 và đồng bộ tới iOS App</div>
                 </div>
 
-                <button type="button" class="btn" onclick="uploadPatch()">THÊM VÀO MENU PATCH NGAY</button>
+                <button type="button" class="btn" onclick="uploadPatch()">ĐÓNG GÓI VÀ THÊM VÀO MENU NGAY</button>
             </form>
         </div>
 
         <!-- Danh sách Patch -->
         <div class="card">
             <div class="card-header">
-                <span>DANH SÁCH PATCH TRONG MENU</span>
-                <span id="patchCount">{{ patches|length }} CHỨC NĂNG</span>
+                <span>DANH SÁCH GÓI .3105 TRÊN SERVER</span>
+                <span id="patchCount">{{ patches|length }} GÓI</span>
             </div>
 
             <div class="patch-list" id="patchList">
                 {% for p in patches %}
                 <div class="patch-item" id="item-{{ p.id }}">
                     <div style="flex: 1;">
-                        <div class="patch-name">{{ p.name }}</div>
+                        <div class="patch-name">
+                            {{ p.name }}
+                            {% if p.is_password_protected %}
+                            <span class="badge-lock">🔒 ĐÃ KHÓA MK</span>
+                            {% endif %}
+                        </div>
                         <div class="patch-meta">
                             <span class="badge-cat {% if p.category == 'Aim File' %}badge-aim{% elif p.category == 'Định Vị' %}badge-esp{% else %}badge-skin{% endif %}">
                                 {{ p.category }}
                             </span>
-                            <span>{{ 'FF MAX' if p.target_game == 'com.dts.freefiremax' else 'FF TH' }}</span>
-                            <span>{{ p.size }}</span>
+                            <span>{{ 'FFM' if p.target_game == 'com.dts.freefiremax' else 'FFT' }}</span>
+                            <span>.3105 ({{ p.size }})</span>
+                            {% if p.is_password_protected %}
+                            <span style="color: #f1c40f;">MK: {{ p.password }}</span>
+                            {% endif %}
                         </div>
                     </div>
 
@@ -250,7 +262,7 @@
                 </div>
                 {% else %}
                 <div style="text-align: center; padding: 40px 10px; color: var(--text-dim); font-size: 13px;">
-                    Chưa có chức năng patch nào.<br>Hãy upload file ở bảng bên trái để xuất hiện trong app!
+                    Chưa có gói .3105 nào.<br>Hãy upload file ở bảng bên trái để xuất hiện trong app!
                 </div>
                 {% endfor %}
             </div>
@@ -281,6 +293,7 @@
         formData.append('category', document.getElementById('category').value);
         formData.append('target_path_type', document.getElementById('targetPathType').value);
         formData.append('name', document.getElementById('patchName').value);
+        formData.append('password', document.getElementById('patchPassword').value);
 
         try {
             const res = await fetch('/api/upload', {
@@ -307,7 +320,7 @@
     }
 
     async function deletePatch(id) {
-        if (!confirm('Bạn có chắc muốn xóa chức năng này khỏi Menu Patch?')) return;
+        if (!confirm('Bạn có chắc muốn xóa gói .3105 này khỏi Server?')) return;
         try {
             const res = await fetch(`/api/patches/${id}`, { method: 'DELETE' });
             const data = await res.json();

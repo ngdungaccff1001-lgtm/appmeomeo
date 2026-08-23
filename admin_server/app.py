@@ -9,7 +9,7 @@ app = Flask(__name__)
 app.config['SECRET_KEY'] = 'meomeopath-admin-secret-2026'
 UPLOAD_FOLDER = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'uploads')
 DATA_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'patches.json')
-ALLOWED_EXTENSIONS = {'3105', 'payload', 'zip', 'json', 'txt', 'dat', 'bin', 'hpt9dzvitsxl9hpgw9qnomignla~3d', 'cfnff59sr1sbsqq6jqtkseusjks~3d'}
+ALLOWED_EXTENSIONS = {'3105', 'payload', 'zip', 'json', 'txt', 'dat', 'bin'}
 
 PATH_SHADERS = "Documents/contentcache/Optional/ios/gameassetbundles/shaders.HPt9DZviTSXL9hpGW9QNOMigNLA~3D"
 PATH_CACHE_RES = "Documents/contentcache/Compulsory/ios/gameassetbundles/cache_res.CfnFf59sr1SbsqQ6JqTKsEusjKs~3D"
@@ -30,9 +30,6 @@ def save_patches(patches):
         json.dump(patches, f, indent=2, ensure_ascii=False)
 
 def allowed_file(filename):
-    if '.' in filename:
-        ext = filename.rsplit('.', 1)[1].lower()
-        return ext in ALLOWED_EXTENSIONS or True
     return True
 
 @app.route('/')
@@ -88,6 +85,7 @@ def api_upload():
     category = request.form.get('category', 'Aim File')
     target_path_type = request.form.get('target_path_type', 'shaders')
     patch_name = request.form.get('name', '')
+    password = request.form.get('password', '').strip()
     description = request.form.get('description', '')
 
     if target_path_type == 'shaders':
@@ -97,11 +95,14 @@ def api_upload():
     else:
         target_relative_path = request.form.get('custom_path', PATH_SHADERS)
 
-    if file and allowed_file(file.filename):
-        filename = secure_filename(file.filename)
-        if not filename:
-            filename = f"patch_{int(time.time())}.dat"
-        unique_filename = f"{int(time.time())}_{filename}"
+    if file:
+        raw_filename = secure_filename(file.filename)
+        if not raw_filename:
+            raw_filename = f"patch_{int(time.time())}.3105"
+        
+        # Đảm bảo lưu đúng định dạng .3105
+        base_name = os.path.splitext(raw_filename)[0]
+        unique_filename = f"{int(time.time())}_{base_name}.3105"
         filepath = os.path.join(UPLOAD_FOLDER, unique_filename)
         file.save(filepath)
 
@@ -111,14 +112,16 @@ def api_upload():
         patch_id = str(uuid.uuid4())
         new_patch = {
             "id": patch_id,
-            "name": patch_name or filename,
+            "name": patch_name or base_name,
             "category": category,
             "filename": unique_filename,
-            "original_filename": filename,
+            "original_filename": raw_filename,
             "target_game": target_game,
             "target_relative_path": target_relative_path,
             "size": size_str,
             "enabled": True,
+            "is_password_protected": bool(password),
+            "password": password,
             "description": description or f"Áp dụng vào {target_relative_path.split('/')[-1]}",
             "download_url": f"/api/download/{unique_filename}",
             "created_at": time.strftime("%Y-%m-%d %H:%M:%S")

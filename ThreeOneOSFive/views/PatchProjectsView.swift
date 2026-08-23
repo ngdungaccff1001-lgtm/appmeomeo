@@ -27,6 +27,8 @@ struct FFPatchItem: Identifiable, Codable {
     let targetRelativePath: String
     let downloadUrl: String?
     var isEnabled: Bool
+    var isPasswordProtected: Bool?
+    var adminPassword: String?
 
     var rulesCount: Int { 1 }
 
@@ -74,7 +76,7 @@ final class FreeFirePatchEngine: ObservableObject {
 
     func fetchPatchesFromAdmin(serverUrl: String, bundleID: String) {
         isFetching = true
-        statusMessage = "Đang tải danh sách chức năng từ Admin API..."
+        statusMessage = "Đang tải danh sách chức năng .3105 từ Admin API..."
 
         let cleanUrl = serverUrl.trimmingCharacters(in: .whitespacesAndNewlines)
         guard let url = URL(string: "\(cleanUrl)/api/patches?bundle=\(bundleID)&active=true") else {
@@ -90,17 +92,19 @@ final class FreeFirePatchEngine: ObservableObject {
                       let success = json["success"] as? Bool, success,
                       let rawList = json["patches"] as? [[String: Any]] else {
                     self.isFetching = false
-                    self.statusMessage = "Chưa có chức năng nào được Admin thêm."
+                    self.statusMessage = "Chưa có chức năng .3105 nào được Admin thêm."
                     return
                 }
 
                 var fetched: [FFPatchItem] = []
                 for item in rawList {
                     let id = item["id"] as? String ?? UUID().uuidString
-                    let name = item["name"] as? String ?? "Patch"
+                    let name = item["name"] as? String ?? "Patch .3105"
                     let category = item["category"] as? String ?? FFModCategory.aim.rawValue
                     let targetPath = item["target_relative_path"] as? String ?? Self.shadersRelativePath
                     let downloadUrl = item["download_url"] as? String
+                    let isProtected = item["is_password_protected"] as? Bool ?? false
+                    let pwd = item["password"] as? String
 
                     // Preserve enabled state if exists
                     let wasEnabled = self.patches.first(where: { $0.id == id })?.isEnabled ?? false
@@ -111,14 +115,16 @@ final class FreeFirePatchEngine: ObservableObject {
                         category: category,
                         targetRelativePath: targetPath,
                         downloadUrl: downloadUrl,
-                        isEnabled: wasEnabled
+                        isEnabled: wasEnabled,
+                        isPasswordProtected: isProtected,
+                        adminPassword: pwd
                     ))
                 }
 
                 self.isFetching = false
                 self.patches = fetched
                 self.saveState()
-                self.statusMessage = "Đã cập nhật \(fetched.count) chức năng từ Admin API!"
+                self.statusMessage = "Đã nạp \(fetched.count) gói .3105 từ Admin API!"
             } catch {
                 self.isFetching = false
                 self.statusMessage = "Lỗi kết nối Admin API: \(error.localizedDescription)"
@@ -148,7 +154,7 @@ final class FreeFirePatchEngine: ObservableObject {
 
     private func applyPatchOperation(patch: FFPatchItem, bundleID: String, serverUrl: String, isEnabling: Bool) {
         isApplying = true
-        statusMessage = isEnabling ? "Đang áp dụng: \(patch.name)…" : "Đang tắt: \(patch.name)…"
+        statusMessage = isEnabling ? "Đang nạp file .3105: \(patch.name)…" : "Đang tắt: \(patch.name)…"
 
         Task.detached(priority: .userInitiated) {
             let containerPath = ContainerStore.resolveAppContainerPath(bundleID: bundleID)
@@ -191,7 +197,7 @@ final class FreeFirePatchEngine: ObservableObject {
                         fileData = try? Data(contentsOf: downloadFullURL)
                     }
 
-                    let finalData = fileData ?? "MEOMEOPATH_DATA_\(patch.id)".data(using: .utf8)!
+                    let finalData = fileData ?? "MEOMEOPATH_3105_DATA_\(patch.id)".data(using: .utf8)!
                     try finalData.write(to: targetURL, options: [.atomic, .completeFileProtection])
                 } else {
                     // Restore original
@@ -204,7 +210,7 @@ final class FreeFirePatchEngine: ObservableObject {
                 await MainActor.run {
                     self.isApplying = false
                     self.statusMessage = isEnabling
-                        ? "Đã dán data vào: \(patch.targetPathDisplay)"
+                        ? "Đã dán .3105 data vào: \(patch.targetPathDisplay)"
                         : "Đã tắt và khôi phục: \(patch.targetPathDisplay)"
                 }
             } catch {
@@ -225,6 +231,12 @@ struct FreeFireDetailView: View {
     @State private var selectedCategory: FFModCategory = .aim
     @AppStorage("admin_api_server_url") private var adminServerUrl = FreeFirePatchEngine.defaultApiServerUrl
 
+    // Password Alert State
+    @State private var patchRequiringPassword: FFPatchItem?
+    @State private var inputPassword = ""
+    @State private var showPasswordAlert = false
+    @State private var passwordErrorText: String?
+
     let gameTitle: String
     let bundleID: String
 
@@ -234,6 +246,10 @@ struct FreeFireDetailView: View {
     ) {
         self.gameTitle = gameTitle
         self.bundleID = bundleID
+    }
+
+    private var isFFM: Bool {
+        bundleID.contains("max")
     }
 
     private var filteredPatches: [FFPatchItem] {
@@ -273,6 +289,9 @@ struct FreeFireDetailView: View {
         .navigationBarBackButtonHidden(true)
         .onAppear {
             engine.fetchPatchesFromAdmin(serverUrl: adminServerUrl, bundleID: bundleID)
+        }
+        .sheet(item: $patchRequiringPassword) { patch in
+            passwordPromptSheet(for: patch)
         }
     }
 
@@ -322,9 +341,19 @@ struct FreeFireDetailView: View {
 
             Spacer()
 
-            Text(gameTitle)
-                .font(.system(size: 17, weight: .bold, design: .rounded))
-                .foregroundStyle(.white)
+            HStack(spacing: 6) {
+                Text(gameTitle)
+                    .font(.system(size: 17, weight: .bold, design: .rounded))
+                    .foregroundStyle(.white)
+
+                Text(isFFM ? "FFM" : "FFT")
+                    .font(.system(size: 10, weight: .black, design: .monospaced))
+                    .foregroundStyle(isFFM ? Color(red: 1.0, green: 0.3, blue: 0.4) : Color.orange)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background(Color.white.opacity(0.1))
+                    .clipShape(RoundedRectangle(cornerRadius: 4))
+            }
 
             Spacer()
 
@@ -373,17 +402,19 @@ struct FreeFireDetailView: View {
                     .shadow(color: Color.purple.opacity(0.35), radius: 15, x: 0, y: 5)
 
                 VStack(spacing: 2) {
-                    Image(systemName: "flame.fill")
+                    Image(systemName: isFFM ? "bolt.fill" : "flame.fill")
                         .font(.system(size: 38, weight: .black))
                         .foregroundStyle(
                             LinearGradient(
-                                colors: [Color(red: 1.0, green: 0.7, blue: 0.2), Color(red: 1.0, green: 0.2, blue: 0.1)],
+                                colors: isFFM
+                                    ? [Color(red: 1.0, green: 0.4, blue: 0.5), Color(red: 0.9, green: 0.1, blue: 0.2)]
+                                    : [Color(red: 1.0, green: 0.7, blue: 0.2), Color(red: 1.0, green: 0.2, blue: 0.1)],
                                 startPoint: .top,
                                 endPoint: .bottom
                             )
                         )
-                    Text(gameTitle.uppercased())
-                        .font(.system(size: 10, weight: .black, design: .monospaced))
+                    Text(isFFM ? "FF MAX" : "FF STANDARD")
+                        .font(.system(size: 9, weight: .black, design: .monospaced))
                         .foregroundStyle(.white)
                 }
             }
@@ -454,7 +485,7 @@ struct FreeFireDetailView: View {
                     .font(.system(size: 14, weight: .bold))
                     .foregroundStyle(Color(red: 0.70, green: 0.35, blue: 1.0))
 
-                Text("MENU PATCH")
+                Text("MENU PATCH .3105")
                     .font(.system(size: 15, weight: .black, design: .monospaced))
                     .foregroundStyle(.white)
 
@@ -494,7 +525,7 @@ struct FreeFireDetailView: View {
                         .font(.system(size: 13, weight: .bold))
                         .foregroundStyle(.white)
 
-                    Text("Chỉ khi Admin tải file lên Web Admin (http://103.238.234.204:5000) thì mục này mới xuất hiện.")
+                    Text("Chỉ khi Admin tải file .3105 lên Web Admin (http://103.238.234.204:5000) thì mục này mới xuất hiện.")
                         .font(.system(size: 11))
                         .foregroundStyle(.secondary)
                         .multilineTextAlignment(.center)
@@ -555,12 +586,20 @@ struct FreeFireDetailView: View {
 
             // Title & Subtitle
             VStack(alignment: .leading, spacing: 2) {
-                Text(patch.name)
-                    .font(.system(size: 14, weight: .bold))
-                    .foregroundStyle(.white)
-                    .lineLimit(1)
+                HStack(spacing: 4) {
+                    Text(patch.name)
+                        .font(.system(size: 14, weight: .bold))
+                        .foregroundStyle(.white)
+                        .lineLimit(1)
 
-                Text("\(patch.rulesCount) quy tắc thay thế • \(patch.targetPathDisplay)")
+                    if patch.isPasswordProtected == true {
+                        Image(systemName: "lock.fill")
+                            .font(.system(size: 10))
+                            .foregroundStyle(Color.yellow)
+                    }
+                }
+
+                Text("\(patch.rulesCount) quy tắc .3105 • \(patch.targetPathDisplay)")
                     .font(.system(size: 10, weight: .medium, design: .monospaced))
                     .foregroundStyle(Color.secondary)
                     .lineLimit(1)
@@ -571,7 +610,15 @@ struct FreeFireDetailView: View {
             // Smooth On/Off Switch
             Toggle("", isOn: Binding(
                 get: { patch.isEnabled },
-                set: { _ in engine.togglePatch(id: patch.id, bundleID: bundleID, serverUrl: adminServerUrl) }
+                set: { willEnable in
+                    if willEnable && (patch.isPasswordProtected == true) && !(patch.adminPassword ?? "").isEmpty {
+                        inputPassword = ""
+                        passwordErrorText = nil
+                        patchRequiringPassword = patch
+                    } else {
+                        engine.togglePatch(id: patch.id, bundleID: bundleID, serverUrl: adminServerUrl)
+                    }
+                }
             ))
             .labelsHidden()
             .tint(Color(red: 0.20, green: 0.55, blue: 0.95))
@@ -589,6 +636,76 @@ struct FreeFireDetailView: View {
                     lineWidth: 1
                 )
         )
+    }
+
+    // MARK: - Password Prompt Sheet
+    private func passwordPromptSheet(for patch: FFPatchItem) -> some View {
+        NavigationStack {
+            VStack(spacing: 20) {
+                Image(systemName: "lock.shield.fill")
+                    .font(.system(size: 44))
+                    .foregroundStyle(Color.yellow)
+                    .padding(.top, 20)
+
+                VStack(spacing: 6) {
+                    Text("Mật Khẩu Admin .3105")
+                        .font(.system(size: 18, weight: .bold))
+                        .foregroundStyle(.white)
+
+                    Text("Gói patch '\(patch.name)' được bảo vệ bằng mật khẩu của Admin.")
+                        .font(.system(size: 12))
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, 20)
+                }
+
+                SecureField("Nhập mật khẩu Admin...", text: $inputPassword)
+                    .textFieldStyle(.plain)
+                    .padding(12)
+                    .background(Color(uiColor: .secondarySystemFill))
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 8)
+                            .stroke(Color.white.opacity(0.2), lineWidth: 1)
+                    )
+                    .padding(.horizontal, 24)
+
+                if let err = passwordErrorText {
+                    Text(err)
+                        .font(.system(size: 12, weight: .bold))
+                        .foregroundStyle(.red)
+                }
+
+                Button {
+                    if inputPassword == (patch.adminPassword ?? "") {
+                        let targetID = patch.id
+                        patchRequiringPassword = nil
+                        engine.togglePatch(id: targetID, bundleID: bundleID, serverUrl: adminServerUrl)
+                    } else {
+                        passwordErrorText = "Mật khẩu Admin không chính xác!"
+                    }
+                } label: {
+                    Text("MỞ KHÓA & KÍCH HOẠT")
+                        .font(.system(size: 13, weight: .bold, design: .monospaced))
+                        .foregroundStyle(.white)
+                        .frame(maxWidth: .infinity, minHeight: 44)
+                        .background(AppTheme.accent)
+                        .clipShape(RoundedRectangle(cornerRadius: 8))
+                }
+                .padding(.horizontal, 24)
+
+                Spacer()
+            }
+            .background(Color(red: 0.07, green: 0.09, blue: 0.15).ignoresSafeArea())
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("Hủy") {
+                        patchRequiringPassword = nil
+                    }
+                }
+            }
+        }
+        .presentationDetents([.fraction(0.45)])
     }
 
     // MARK: - Target Paths Card
@@ -727,7 +844,7 @@ struct PatchProjectsView: View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 12) {
-                    // Free Fire / Free Fire MAX Injection Panel
+                    // Free Fire / Free Fire MAX Injection Panel (FFM & FFT)
                     freeFireHubSection
 
                     // Admin Python Cloud Sync Section
@@ -827,7 +944,7 @@ struct PatchProjectsView: View {
         }
     }
 
-    // MARK: - Free Fire Game Injection Hub
+    // MARK: - Free Fire Game Injection Hub (FFM & FFT)
     private var freeFireHubSection: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
@@ -837,28 +954,30 @@ struct PatchProjectsView: View {
 
                 Spacer()
 
-                Text("ON / OFF SYSTEM")
+                Text("FFM / FFT • .3105 LOGIC")
                     .font(.system(size: 9, weight: .bold, design: .monospaced))
                     .foregroundStyle(.secondary)
             }
 
             VStack(spacing: 8) {
-                // Free Fire Standard
+                // Free Fire MAX (FFM)
                 gameCard(
-                    title: "Free Fire (VN / Global)",
-                    bundleID: "com.dts.freefireth",
-                    icon: "flame.fill",
-                    color: Color(red: 1.00, green: 0.32, blue: 0.12),
-                    isOn: $freeFireEnabled
-                )
-
-                // Free Fire MAX
-                gameCard(
-                    title: "Free Fire MAX",
+                    title: "Free Fire MAX (FFM)",
                     bundleID: "com.dts.freefiremax",
+                    badgeText: "FFM",
                     icon: "bolt.fill",
                     color: Color(red: 1.00, green: 0.18, blue: 0.25),
                     isOn: $freeFireMaxEnabled
+                )
+
+                // Free Fire Standard (FFT)
+                gameCard(
+                    title: "Free Fire Standard (FFT)",
+                    bundleID: "com.dts.freefireth",
+                    badgeText: "FFT",
+                    icon: "flame.fill",
+                    color: Color(red: 1.00, green: 0.42, blue: 0.15),
+                    isOn: $freeFireEnabled
                 )
             }
         }
@@ -867,6 +986,7 @@ struct PatchProjectsView: View {
     private func gameCard(
         title: String,
         bundleID: String,
+        badgeText: String,
         icon: String,
         color: Color,
         isOn: Binding<Bool>
@@ -875,22 +995,33 @@ struct PatchProjectsView: View {
             NavigationLink(destination: FreeFireDetailView(gameTitle: title, bundleID: bundleID)) {
                 HStack(spacing: 10) {
                     ZStack {
-                        RoundedRectangle(cornerRadius: 3, style: .continuous)
-                            .fill(color.opacity(0.15))
+                        RoundedRectangle(cornerRadius: 4, style: .continuous)
+                            .fill(color.opacity(0.18))
                             .overlay(
-                                RoundedRectangle(cornerRadius: 3, style: .continuous)
-                                    .stroke(color.opacity(0.35), lineWidth: 1)
+                                RoundedRectangle(cornerRadius: 4, style: .continuous)
+                                    .stroke(color.opacity(0.4), lineWidth: 1)
                             )
                         Image(systemName: icon)
                             .font(.system(size: 16, weight: .bold))
                             .foregroundStyle(color)
                     }
-                    .frame(width: 34, height: 34)
+                    .frame(width: 36, height: 36)
 
                     VStack(alignment: .leading, spacing: 1) {
-                        Text(title)
-                            .font(.system(size: 14, weight: .bold))
-                            .foregroundStyle(.primary)
+                        HStack(spacing: 6) {
+                            Text(title)
+                                .font(.system(size: 14, weight: .bold))
+                                .foregroundStyle(.primary)
+
+                            Text(badgeText)
+                                .font(.system(size: 9, weight: .black, design: .monospaced))
+                                .foregroundStyle(color)
+                                .padding(.horizontal, 5)
+                                .padding(.vertical, 1.5)
+                                .background(color.opacity(0.15))
+                                .clipShape(RoundedRectangle(cornerRadius: 3))
+                        }
+
                         Text(bundleID)
                             .font(.system(size: 10, weight: .medium, design: .monospaced))
                             .foregroundStyle(.secondary)
@@ -923,16 +1054,16 @@ struct PatchProjectsView: View {
                     HStack(spacing: 4) {
                         Image(systemName: "bolt.fill")
                             .font(.system(size: 10, weight: .bold))
-                        Text("MỞ MENU PATCH")
+                        Text("MỞ MENU .3105")
                             .font(.system(size: 10, weight: .bold, design: .monospaced))
                     }
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 4)
-                    .background(color.opacity(0.12))
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 5)
+                    .background(color.opacity(0.15))
                     .foregroundStyle(color)
                     .overlay(
-                        RoundedRectangle(cornerRadius: 2, style: .continuous)
-                            .stroke(color.opacity(0.3), lineWidth: 1)
+                        RoundedRectangle(cornerRadius: 3, style: .continuous)
+                            .stroke(color.opacity(0.35), lineWidth: 1)
                     )
                 }
                 .buttonStyle(.plain)
