@@ -130,3 +130,17 @@ struct OnboardingView: View {
         )
     }
 }
+
+// MARK: - Onboarding Store (Completion Persistence)
+
+enum OnboardingStore {
+    private static let key = "meomeopath.onboarding.completed"
+
+    static func shouldShow() -> Bool {
+        !UserDefaults.standard.bool(forKey: key)
+    }
+
+    static func markCompleted() {
+        UserDefaults.standard.set(true, forKey: key)
+    }
+}
