@@ -84,7 +84,7 @@
 "dashboard.features_footer" = "开启清理或壁纸后，该功能才会显示在应用导航中。";
 "tab.home" = "主页";
 "tab.files" = "文件";
-"tab.patches" = "MeoMeo.payload";
+"tab.patches" = "Function";
 "tab.cleaner" = "清理";
 
 "cleaner.title" = "清理";

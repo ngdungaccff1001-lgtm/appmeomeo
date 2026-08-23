@@ -36,7 +36,7 @@ struct ContentView: View {
 
             // Dimmed Overlay when Sidebar is active
             if isSidebarOpen {
-                Color.black.opacity(0.45)
+                Color.black.opacity(0.5)
                     .ignoresSafeArea()
                     .onTapGesture {
                         withAnimation(.easeInOut(duration: 0.2)) {
@@ -77,10 +77,10 @@ struct ContentView: View {
             HStack(spacing: 10) {
                 AppLogo(size: 34)
                 VStack(alignment: .leading, spacing: 1) {
-                    Text("MeoMeo.payload")
-                        .font(.system(size: 15, weight: .bold, design: .monospaced))
-                    Text("DEVICE MANAGER")
-                        .font(.system(size: 9, weight: .bold, design: .monospaced))
+                    Text("MeoMeoPath")
+                        .font(.system(size: 16, weight: .bold, design: .monospaced))
+                    Text("PAYLOAD MEOMEO.APP")
+                        .font(.system(size: 8, weight: .bold, design: .monospaced))
                         .foregroundStyle(AppTheme.accent)
                 }
                 Spacer()
@@ -172,7 +172,7 @@ struct ContentView: View {
                                             : Color.secondary
                                     )
 
-                                Text(language.text(section.titleKey))
+                                Text(section == .patches ? "Function" : language.text(section.titleKey))
                                     .font(.system(size: 14, weight: section.rawValue == tabNavigation.selectedTab ? .bold : .medium))
                                     .foregroundStyle(
                                         section.rawValue == tabNavigation.selectedTab
@@ -293,12 +293,12 @@ private extension AppSection {
         switch self {
         case .home: return "terminal"
         case .files: return "folder"
-        case .patches: return "shippingbox"
+        case .patches: return "bolt.shield.fill"
         }
     }
 }
 
-// MARK: - Sharp Industrial Dashboard (Clean, No Cleaner/Wallpapers)
+// MARK: - Sharp Industrial Dashboard (MeoMeoPath Red Edition)
 private struct DashboardView: View {
     @Environment(\.appLanguage) private var language
     @EnvironmentObject private var appState: AppState
@@ -309,7 +309,7 @@ private struct DashboardView: View {
     let onSelectSection: (AppSection) -> Void
 
     private var appVersion: String {
-        Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0.1"
+        Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.1.1"
     }
 
     private let quickActionColumns = [
@@ -321,9 +321,19 @@ private struct DashboardView: View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 14) {
+                    // Cyber HUD Scanner Animation Effect
+                    AppCyberPulseScanner()
+
+                    // Hero Inspector Card
                     heroInspectorCard
+
+                    // Quick Actions
                     quickActionsGrid
+
+                    // Appearance Switcher
                     appearanceSection
+
+                    // System Hub
                     systemHubSection
                 }
                 .padding(.horizontal, AppTheme.pageInset)
@@ -345,8 +355,8 @@ private struct DashboardView: View {
                                     Rectangle().stroke(AppTheme.cardBorder, lineWidth: 1)
                                 )
 
-                            Text("MeoMeo.payload")
-                                .font(.system(size: 15, weight: .bold, design: .monospaced))
+                            Text("MeoMeoPath")
+                                .font(.system(size: 16, weight: .bold, design: .monospaced))
                                 .foregroundStyle(.primary)
                         }
                     }
@@ -472,7 +482,7 @@ private struct DashboardView: View {
         )
     }
 
-    // MARK: - Quick Actions Grid (2 tiles only: Tệp & MeoMeo.payload)
+    // MARK: - Quick Actions Grid (Tệp & Function / Free Fire)
     private var quickActionsGrid: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("THAO TÁC / QUICK ACTIONS")
@@ -489,9 +499,9 @@ private struct DashboardView: View {
                 )
 
                 AppQuickActionCard(
-                    title: "MeoMeo.payload",
-                    subtitle: "Tạo & áp dụng gói MeoMeo.payload",
-                    systemImage: "shippingbox",
+                    title: "Function",
+                    subtitle: "Payload & Free Fire Patch Hub",
+                    systemImage: "bolt.shield.fill",
                     tint: AppTheme.patchesTint,
                     action: { onSelectSection(.patches) }
                 )

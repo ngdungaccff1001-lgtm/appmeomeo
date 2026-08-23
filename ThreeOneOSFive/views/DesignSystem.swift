@@ -26,18 +26,25 @@ enum AppAppearance: String, CaseIterable, Identifiable {
 }
 
 enum AppTheme {
+    // Đổi màu chủ đạo sang Màu Đỏ (Cyber Crimson Red)
     static let accent = Color(
         uiColor: UIColor { traits in
             traits.userInterfaceStyle == .dark
-                ? UIColor(red: 1.00, green: 0.52, blue: 0.28, alpha: 1.00)
-                : UIColor(red: 0.90, green: 0.40, blue: 0.16, alpha: 1.00)
+                ? UIColor(red: 1.00, green: 0.20, blue: 0.26, alpha: 1.00)
+                : UIColor(red: 0.88, green: 0.10, blue: 0.18, alpha: 1.00)
         }
     )
 
+    static let redGradient = LinearGradient(
+        colors: [Color(red: 1.00, green: 0.22, blue: 0.28), Color(red: 0.82, green: 0.08, blue: 0.16)],
+        startPoint: .topLeading,
+        endPoint: .bottomTrailing
+    )
+
     static let filesTint = Color(red: 0.20, green: 0.60, blue: 0.95)
-    static let patchesTint = Color(red: 0.62, green: 0.38, blue: 0.96)
-    static let cleanerTint = Color(red: 0.22, green: 0.82, blue: 0.55)
-    static let wallpapersTint = Color(red: 1.00, green: 0.55, blue: 0.25)
+    static let patchesTint = Color(red: 1.00, green: 0.22, blue: 0.28)
+    static let freeFireTint = Color(red: 1.00, green: 0.30, blue: 0.10)
+    static let successTint = Color(red: 0.18, green: 0.82, blue: 0.45)
 
     static let pageBackground = Color(uiColor: .systemGroupedBackground)
     static let consoleBackground = Color(uiColor: .secondarySystemBackground)
@@ -54,6 +61,50 @@ enum AppTheme {
     static let appIconSize: CGFloat = 30
     static let emptyIconSize: CGFloat = 28
     static let selectionIconSize: CGFloat = 16
+}
+
+// MARK: - Cyber Pulse Scanner Effect (Hiệu ứng logic công nghệ cao lúc vào app)
+struct AppCyberPulseScanner: View {
+    @State private var isAnimating = false
+
+    var body: some View {
+        HStack(spacing: 8) {
+            ZStack {
+                Circle()
+                    .fill(AppTheme.accent.opacity(0.2))
+                    .frame(width: 14, height: 14)
+                    .scaleEffect(isAnimating ? 1.5 : 0.8)
+                    .opacity(isAnimating ? 0 : 1)
+                    .animation(.easeInOut(duration: 1.2).repeatForever(autoreverses: false), value: isAnimating)
+
+                Circle()
+                    .fill(AppTheme.accent)
+                    .frame(width: 7, height: 7)
+            }
+
+            Text("SYSTEM LOGIC ONLINE • MEOMEOPATH CORE")
+                .font(.system(size: 10, weight: .bold, design: .monospaced))
+                .foregroundStyle(AppTheme.accent)
+
+            Spacer()
+
+            Text("v1.1.1")
+                .font(.system(size: 10, weight: .bold, design: .monospaced))
+                .foregroundStyle(.secondary)
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 6)
+        .background(
+            Rectangle()
+                .fill(AppTheme.accent.opacity(0.08))
+                .overlay(
+                    Rectangle().stroke(AppTheme.accent.opacity(0.25), lineWidth: 1)
+                )
+        )
+        .onAppear {
+            isAnimating = true
+        }
+    }
 }
 
 // MARK: - Sharp Industrial Card Container
@@ -194,58 +245,6 @@ struct AppQuickActionCard: View {
     }
 }
 
-// MARK: - Sharp Feature Toggle Card
-struct AppFeatureToggleCard: View {
-    let title: String
-    let subtitle: String
-    let systemImage: String
-    let tint: Color
-    @Binding var isOn: Bool
-
-    var body: some View {
-        HStack(spacing: 12) {
-            ZStack {
-                RoundedRectangle(cornerRadius: 3, style: .continuous)
-                    .fill(tint.opacity(0.15))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 3, style: .continuous)
-                            .stroke(tint.opacity(0.35), lineWidth: 1)
-                    )
-                Image(systemName: systemImage)
-                    .font(.system(size: 14, weight: .bold))
-                    .foregroundStyle(tint)
-            }
-            .frame(width: 30, height: 30)
-
-            VStack(alignment: .leading, spacing: 2) {
-                Text(title)
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(.primary)
-
-                Text(subtitle)
-                    .font(.system(size: 11))
-                    .foregroundStyle(.secondary)
-            }
-
-            Spacer()
-
-            Toggle("", isOn: $isOn)
-                .labelsHidden()
-                .tint(AppTheme.accent)
-        }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 10)
-        .background(
-            RoundedRectangle(cornerRadius: AppTheme.cardCornerRadius, style: .continuous)
-                .fill(AppTheme.cardBackground)
-                .overlay(
-                    RoundedRectangle(cornerRadius: AppTheme.cardCornerRadius, style: .continuous)
-                        .stroke(AppTheme.cardBorder, lineWidth: 1)
-                )
-        )
-    }
-}
-
 // MARK: - Scale Button Style
 struct AppScaleButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
@@ -340,18 +339,18 @@ struct AppLogo: View {
                     .resizable()
                     .scaledToFill()
             } else {
-                Image(systemName: "terminal.fill")
+                Image(systemName: "bolt.shield.fill")
                     .font(.system(size: size * 0.45, weight: .bold))
                     .foregroundStyle(.white)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .background(AppTheme.accent)
+                    .background(AppTheme.redGradient)
             }
         }
         .frame(width: size, height: size)
         .clipShape(RoundedRectangle(cornerRadius: 3, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: 3, style: .continuous)
-                .stroke(Color.primary.opacity(0.15), lineWidth: 1)
+                .stroke(AppTheme.accent.opacity(0.4), lineWidth: 1)
         )
         .accessibilityHidden(true)
     }

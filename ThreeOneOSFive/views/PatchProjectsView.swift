@@ -16,6 +16,14 @@ struct PatchProjectsView: View {
     @State private var showCreate = false
     @State private var showImporter = false
     @State private var searchText = ""
+    @State private var showServerConfig = false
+    @State private var syncStatusMessage: String?
+    @State private var isSyncing = false
+
+    // Free Fire On/Off States
+    @AppStorage("ff_th_enabled") private var freeFireEnabled = false
+    @AppStorage("ff_max_enabled") private var freeFireMaxEnabled = false
+    @AppStorage("admin_api_server_url") private var adminServerUrl = "http://127.0.0.1:5000"
 
     private var filteredItems: [PatchLibraryItem] {
         let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -52,33 +60,25 @@ struct PatchProjectsView: View {
 
     var body: some View {
         NavigationStack {
-            VStack(spacing: 0) {
-                AppSearchField(
-                    text: $searchText,
-                    prompt: language.text("patch.search"),
-                    clearLabel: language.text("common.clear")
-                )
-                Divider()
-                List {
-                    if store.items.isEmpty && !store.isBusy {
-                        emptyState
-                            .listRowSeparator(.hidden)
-                    } else if filteredItems.isEmpty && !store.isBusy {
-                        searchEmptyState
-                            .listRowSeparator(.hidden)
-                    } else {
-                        ForEach(filteredItems) { item in
-                            itemRow(item)
-                        }
-                        .onDelete { offsets in
-                            offsets.map { filteredItems[$0] }.forEach(store.delete)
-                        }
-                    }
+            ScrollView {
+                VStack(spacing: 12) {
+                    // Free Fire / Free Fire MAX Injection Panel
+                    freeFireHubSection
+
+                    // Admin Python Cloud Sync Section
+                    adminSyncSection
+
+                    // Search & Local Payload Packages (Payload MeoMeo.app)
+                    localPayloadSection
                 }
-                .listStyle(.insetGrouped)
+                .padding(.horizontal, AppTheme.pageInset)
+                .padding(.top, 10)
+                .padding(.bottom, 26)
             }
-            .navigationTitle("MeoMeo.payload")
+            .background(AppTheme.pageBackground.ignoresSafeArea())
+            .navigationTitle("Function")
             .navigationBarTitleDisplayMode(.inline)
+            .tint(AppTheme.accent)
             .toolbar {
                 if let onToggleSidebar {
                     ToolbarItem(placement: .navigationBarLeading) {
@@ -98,551 +98,399 @@ struct PatchProjectsView: View {
                         Button {
                             showCreate = true
                         } label: {
-                            Label(language.text("patch.new"), systemImage: "doc.badge.plus")
+                            Label("Tạo Payload mới", systemImage: "doc.badge.plus")
                         }
                         Button {
                             showImporter = true
                         } label: {
-                            Label(language.text("patch.import"), systemImage: "square.and.arrow.down")
+                            Label("Nhập file .3105 / .payload", systemImage: "square.and.arrow.down")
+                        }
+                        Button {
+                            showServerConfig = true
+                        } label: {
+                            Label("Cấu hình Admin API Web", systemImage: "server.rack")
                         }
                     } label: {
-                        if store.isBusy {
+                        if store.isBusy || isSyncing {
                             ProgressView()
                         } else {
                             Image(systemName: "plus")
+                                .font(.system(size: 14, weight: .bold))
+                                .frame(width: 32, height: 32)
+                                .background(Color(uiColor: .secondarySystemFill))
+                                .overlay(
+                                    Rectangle().stroke(AppTheme.cardBorder, lineWidth: 1)
+                                )
                         }
                     }
-                    .disabled(store.isBusy)
-                    .accessibilityLabel(language.text("patch.add"))
+                    .disabled(store.isBusy || isSyncing)
                 }
             }
             .sheet(isPresented: $showImporter) {
                 FileDocumentPicker(
                     allowedContentTypes: PatchPackagePickerPolicy.allowedContentTypes,
-                    copiesSelectedDocument: PatchPackagePickerPolicy.copiesSelectedDocument,
-                    allowsMultipleSelection: false,
-                    onSelection: { result in
-                        showImporter = false
-                        if case .success(let urls) = result, let url = urls.first {
-                            store.importPackage(at: url)
-                        }
-                    },
-                    onCancel: {
-                        showImporter = false
+                    asCopy: PatchPackagePickerPolicy.copiesSelectedDocument
+                ) { result in
+                    switch result {
+                    case .success(let url):
+                        importFile(url)
+                    case .failure(let error):
+                        log("patch picker error: \(error.localizedDescription)")
                     }
-                )
-                .ignoresSafeArea()
+                }
             }
             .sheet(isPresented: $showCreate) {
                 PatchProjectEditorView(
                     existingProject: nil,
                     passwordIsProtected: false
                 ) { project, password in
-                    store.create(project: project, password: password)
+                    store.save(project: project, password: password)
                 }
             }
-            .sheet(item: $draftCoordinator.request) { request in
-                PatchProjectEditorView(
-                    existingProject: nil,
-                    passwordIsProtected: false,
-                    initialDraft: request.draft
-                ) { project, password in
-                    store.create(project: project, password: password)
-                    draftCoordinator.clear()
-                }
+            .sheet(isPresented: $showServerConfig) {
+                adminServerConfigSheet
             }
-            .sheet(item: $store.passwordRequest, onDismiss: store.cancelUnlock) { _ in
-                PatchUnlockView(store: store)
+        }
+    }
+
+    // MARK: - Free Fire Game Injection Hub
+    private var freeFireHubSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Text("FREE FIRE INJECTION ENGINE")
+                    .font(.system(size: 11, weight: .bold, design: .monospaced))
+                    .foregroundStyle(AppTheme.accent)
+
+                Spacer()
+
+                Text("ON / OFF SYSTEM")
+                    .font(.system(size: 9, weight: .bold, design: .monospaced))
+                    .foregroundStyle(.secondary)
             }
-            .alert(item: $store.alert) { alert in
-                Alert(
-                    title: Text(language.text(alert.titleKey)),
-                    message: Text(alert.message(language: language)),
-                    dismissButton: .default(Text(language.text("common.ok")))
+
+            VStack(spacing: 8) {
+                // Free Fire Standard
+                gameCard(
+                    title: "Free Fire (VN / Global)",
+                    bundleID: "com.dts.freefireth",
+                    icon: "flame.fill",
+                    color: Color(red: 1.00, green: 0.32, blue: 0.12),
+                    isOn: $freeFireEnabled,
+                    onSync: { syncPatchesForGame(bundleID: "com.dts.freefireth") }
+                )
+
+                // Free Fire MAX
+                gameCard(
+                    title: "Free Fire MAX",
+                    bundleID: "com.dts.freefiremax",
+                    icon: "bolt.fill",
+                    color: Color(red: 1.00, green: 0.18, blue: 0.25),
+                    isOn: $freeFireMaxEnabled,
+                    onSync: { syncPatchesForGame(bundleID: "com.dts.freefiremax") }
                 )
             }
-            .onAppear(perform: consumeExternalImport)
-            .onChange(of: draftCoordinator.importRequest?.id) { _ in
-                consumeExternalImport()
+        }
+    }
+
+    private func gameCard(
+        title: String,
+        bundleID: String,
+        icon: String,
+        color: Color,
+        isOn: Binding<Bool>,
+        onSync: @escaping () -> Void
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 10) {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 3, style: .continuous)
+                        .fill(color.opacity(0.15))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 3, style: .continuous)
+                                .stroke(color.opacity(0.35), lineWidth: 1)
+                        )
+                    Image(systemName: icon)
+                        .font(.system(size: 16, weight: .bold))
+                        .foregroundStyle(color)
+                }
+                .frame(width: 34, height: 34)
+
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(title)
+                        .font(.system(size: 14, weight: .bold))
+                        .foregroundStyle(.primary)
+                    Text(bundleID)
+                        .font(.system(size: 10, weight: .medium, design: .monospaced))
+                        .foregroundStyle(.secondary)
+                }
+
+                Spacer()
+
+                Toggle("", isOn: isOn)
+                    .labelsHidden()
+                    .tint(AppTheme.accent)
+            }
+
+            Divider()
+
+            HStack {
+                HStack(spacing: 4) {
+                    Circle()
+                        .fill(isOn.wrappedValue ? Color.green : Color.secondary.opacity(0.5))
+                        .frame(width: 6, height: 6)
+                    Text(isOn.wrappedValue ? "ACTIVE • ĐÃ KÍCH HOẠT" : "OFF • CHƯA KÍCH HOẠT")
+                        .font(.system(size: 10, weight: .bold, design: .monospaced))
+                        .foregroundStyle(isOn.wrappedValue ? Color.green : Color.secondary)
+                }
+
+                Spacer()
+
+                Button(action: onSync) {
+                    HStack(spacing: 4) {
+                        Image(systemName: "arrow.triangle.2.circlepath")
+                            .font(.system(size: 10, weight: .bold))
+                        Text("SYNC ADMIN API")
+                            .font(.system(size: 10, weight: .bold, design: .monospaced))
+                    }
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(color.opacity(0.12))
+                    .foregroundStyle(color)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 2, style: .continuous)
+                            .stroke(color.opacity(0.3), lineWidth: 1)
+                    )
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(12)
+        .background(
+            RoundedRectangle(cornerRadius: AppTheme.cardCornerRadius, style: .continuous)
+                .fill(AppTheme.cardBackground)
+                .overlay(
+                    RoundedRectangle(cornerRadius: AppTheme.cardCornerRadius, style: .continuous)
+                        .stroke(isOn.wrappedValue ? AppTheme.accent.opacity(0.4) : AppTheme.cardBorder, lineWidth: 1)
+                )
+        )
+    }
+
+    // MARK: - Admin Python Server Sync Banner
+    private var adminSyncSection: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack {
+                Image(systemName: "antenna.radiowaves.left.and.right")
+                    .font(.system(size: 12, weight: .bold))
+                    .foregroundStyle(AppTheme.accent)
+
+                Text("ADMIN WEB API CLOUD")
+                    .font(.system(size: 11, weight: .bold, design: .monospaced))
+                    .foregroundStyle(.secondary)
+
+                Spacer()
+
+                Button {
+                    showServerConfig = true
+                } label: {
+                    Text("CẤU HÌNH")
+                        .font(.system(size: 10, weight: .bold, design: .monospaced))
+                        .foregroundStyle(AppTheme.accent)
+                }
+            }
+
+            if let msg = syncStatusMessage {
+                Text(msg)
+                    .font(.system(size: 11, design: .monospaced))
+                    .foregroundStyle(AppTheme.accent)
+                    .padding(.horizontal, 4)
             }
         }
     }
 
-    private func consumeExternalImport() {
-        guard let request = draftCoordinator.importRequest else { return }
-        draftCoordinator.clearImport()
-        store.importPackage(from: request.source)
+    // MARK: - Local Payload Packages (Payload MeoMeo.app)
+    private var localPayloadSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Text("WORKSPACE: PAYLOAD MEOMEO.APP")
+                    .font(.system(size: 11, weight: .bold, design: .monospaced))
+                    .foregroundStyle(.secondary)
+
+                Spacer()
+
+                Text("\(store.items.count) GÓI")
+                    .font(.system(size: 10, weight: .bold, design: .monospaced))
+                    .foregroundStyle(.secondary)
+            }
+
+            AppSearchField(
+                text: $searchText,
+                prompt: "Tìm kiếm payload / patch .3105…",
+                clearLabel: "Xóa"
+            )
+
+            if store.items.isEmpty && !store.isBusy {
+                VStack(spacing: 8) {
+                    Image(systemName: "shippingbox")
+                        .font(.system(size: 28))
+                        .foregroundStyle(.secondary)
+                    Text("Chưa có gói Payload trong Payload MeoMeo.app")
+                        .font(.system(size: 13, weight: .bold))
+                    Text("Tạo mới hoặc kết nối Admin API để tải patch về máy.")
+                        .font(.system(size: 11))
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 24)
+                .background(
+                    RoundedRectangle(cornerRadius: AppTheme.cardCornerRadius, style: .continuous)
+                        .fill(AppTheme.cardBackground)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: AppTheme.cardCornerRadius, style: .continuous)
+                                .stroke(AppTheme.cardBorder, lineWidth: 1)
+                        )
+                )
+            } else {
+                VStack(spacing: 6) {
+                    ForEach(filteredItems) { item in
+                        payloadRow(item)
+                    }
+                }
+            }
+        }
     }
 
-    @ViewBuilder
-    private func itemRow(_ item: PatchLibraryItem) -> some View {
-        if item.isLocked {
-            Button { store.requestUnlock(for: item) } label: {
-                PatchProjectRow(item: item, language: language)
+    private func payloadRow(_ item: PatchLibraryItem) -> some View {
+        HStack(spacing: 10) {
+            AppLogo(size: 30)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(item.project?.name ?? item.packageURL.deletingPathExtension().lastPathComponent)
+                    .font(.system(size: 13, weight: .bold))
+                    .foregroundStyle(.primary)
+
+                Text(item.packageURL.lastPathComponent)
+                    .font(.system(size: 11, design: .monospaced))
+                    .foregroundStyle(.secondary)
+            }
+
+            Spacer()
+
+            Button {
+                store.delete(item)
+            } label: {
+                Image(systemName: "trash")
+                    .font(.system(size: 12, weight: .bold))
+                    .foregroundStyle(.red.opacity(0.8))
+                    .frame(width: 28, height: 28)
+                    .background(Color(uiColor: .tertiarySystemFill))
             }
             .buttonStyle(.plain)
-        } else {
-            NavigationLink {
-                PatchProjectDetailView(store: store, projectID: item.id)
-            } label: {
-                PatchProjectRow(item: item, language: language)
-            }
         }
+        .padding(10)
+        .background(
+            RoundedRectangle(cornerRadius: AppTheme.cardCornerRadius, style: .continuous)
+                .fill(AppTheme.cardBackground)
+                .overlay(
+                    RoundedRectangle(cornerRadius: AppTheme.cardCornerRadius, style: .continuous)
+                        .stroke(AppTheme.cardBorder, lineWidth: 1)
+                )
+        )
     }
 
-    private var emptyState: some View {
-        VStack(spacing: 12) {
-            Image(systemName: "shippingbox")
-                .font(.system(size: AppTheme.emptyIconSize, weight: .light))
-                .foregroundStyle(AppTheme.accent)
-            Text(language.text("patch.empty_title"))
-                .font(.headline)
-            Text(language.text("patch.empty_message"))
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-                .multilineTextAlignment(.center)
-            Button(language.text("patch.new")) { showCreate = true }
-                .buttonStyle(.bordered)
-                .controlSize(.large)
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 64)
-    }
-
-    private var searchEmptyState: some View {
-        VStack(spacing: 10) {
-            Image(systemName: "magnifyingglass")
-                .font(.system(size: AppTheme.emptyIconSize, weight: .light))
-                .foregroundStyle(.secondary)
-            Text(language.text("patch.search_empty"))
-                .font(.headline)
-            Text(language.text("patch.search_empty_message"))
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-                .multilineTextAlignment(.center)
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 64)
-    }
-}
-
-private struct PatchProjectRow: View {
-    let item: PatchLibraryItem
-    let language: AppLanguage
-
-    var body: some View {
-        HStack(spacing: 12) {
-            AppRowIcon(systemName: item.isLocked ? "lock.doc.fill" : "shippingbox.fill")
-            VStack(alignment: .leading, spacing: 3) {
-                Text(item.project?.name ?? language.text("patch.locked_project"))
-                    .font(.body.weight(.semibold))
-                    .foregroundStyle(.primary)
-                Text(item.isLocked
-                     ? language.text("patch.tap_to_unlock")
-                     : language.text(
-                        item.summary.schemaVersion >= 2 ? "patch.workspace_items_count" : "patch.rules_count",
-                        Int64((item.project?.rules.count ?? 0) + (item.project?.directories.count ?? 0))
-                     ))
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-            Spacer()
-            if item.summary.isPasswordProtected {
-                Image(systemName: "key.fill")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .accessibilityLabel(language.text("patch.password_protected"))
-            }
-        }
-        .padding(.vertical, 4)
-    }
-}
-
-private struct PatchUnlockView: View {
-    @Environment(\.appLanguage) private var language
-    @Environment(\.dismiss) private var dismiss
-    @ObservedObject var store: PatchProjectStore
-    @State private var password = ""
-
-    var body: some View {
+    // MARK: - Admin Server Config Sheet
+    private var adminServerConfigSheet: some View {
         NavigationStack {
             Form {
-                Section {
-                    SecureField(language.text("patch.password"), text: $password)
-                        .textContentType(.password)
-                        .submitLabel(.done)
-                        .onSubmit(unlock)
-                        .onChange(of: password) { _ in
-                            store.clearUnlockError()
-                        }
-                    if let errorKey = store.unlockErrorKey {
-                        Text(language.text(errorKey))
-                            .font(.footnote)
-                            .foregroundStyle(.red)
-                    }
-                } footer: {
-                    Text(language.text("patch.password_once_message"))
-                }
-            }
-            .navigationTitle(language.text("patch.unlock"))
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button(language.text("common.cancel")) { dismiss() }
-                }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button(language.text("patch.unlock"), action: unlock)
-                        .disabled(password.isEmpty || store.isBusy)
-                }
-            }
-        }
-    }
+                Section("Máy Chủ Admin API Python") {
+                    TextField("http://your-server-ip:5000", text: $adminServerUrl)
+                        .textInputAutocapitalization(.never)
+                        .autocorrectionDisabled()
+                        .font(.system(size: 13, design: .monospaced))
 
-    private func unlock() {
-        guard !password.isEmpty else { return }
-        store.unlock(password: password)
-    }
-}
-
-private struct PatchProjectDetailView: View {
-    @Environment(\.appLanguage) private var language
-    @ObservedObject var store: PatchProjectStore
-    let projectID: UUID
-    @State private var showEditor = false
-    @State private var editingRule: PatchRule?
-    @State private var showApplyConfirmation = false
-    @State private var showRestoreConfirmation = false
-    @State private var isWorking = false
-    @State private var actionAlert: PatchStoreAlert?
-    @State private var shareRequest: PatchShareRequest?
-
-    private var item: PatchLibraryItem? {
-        store.items.first(where: { $0.id == projectID })
-    }
-
-    private var receipt: PatchTransactionReceipt? {
-        DevicePatchService.latestReceipt(projectID: projectID)
-    }
-
-    private var isWorkspaceProject: Bool {
-        (item?.summary.schemaVersion ?? 1) >= 2
-    }
-
-    var body: some View {
-        List {
-            if let item, let project = item.project {
-                if isWorkspaceProject {
-                    Section {
-                        ForEach(project.allBundleIdentifiers, id: \.self) { bundleID in
-                            Label {
-                                Text(bundleID)
-                                    .font(.subheadline.monospaced())
-                            } icon: {
-                                Image(systemName: "app.dashed")
-                                    .foregroundStyle(AppTheme.accent)
-                            }
-                        }
-                        LabeledContent(language.text("patch.files")) {
-                            Text("\(project.rules.count)")
-                        }
-                        LabeledContent(language.text("patch.folders")) {
-                            Text("\(project.directories.count)")
-                        }
-                        if let workspaceURL = item.workspaceURL {
-                            NavigationLink {
-                                FileBrowserView(
-                                    containerPath: workspaceURL.path,
-                                    title: project.name,
-                                    bundleID: nil
-                                )
-                            } label: {
-                                Label(
-                                    language.text("patch.open_workspace"),
-                                    systemImage: "folder"
-                                )
-                            }
-                        }
-                    } header: {
-                        Text(language.text("patch.workspace"))
-                    } footer: {
-                        Text(language.text("patch.workspace_detail_footer"))
-                    }
-                } else {
-                    Section {
-                        ForEach(project.rules) { rule in
-                            Button {
-                                editingRule = rule
-                            } label: {
-                                HStack(spacing: 10) {
-                                    ruleSummary(rule)
-                                    Spacer(minLength: 8)
-                                    Image(systemName: "chevron.right")
-                                        .font(.caption.weight(.semibold))
-                                        .foregroundStyle(.tertiary)
-                                }
-                                .contentShape(Rectangle())
-                            }
-                            .buttonStyle(.plain)
-                            .accessibilityHint(language.text("patch.edit_rule_hint"))
-                        }
-                    } header: {
-                        Text(language.text("patch.rules"))
-                    } footer: {
-                        Text(language.text("patch.legacy_footer"))
-                    }
-                }
-
-                Section(language.text("patch.password")) {
-                    HStack(spacing: 12) {
-                        Image(systemName: item.summary.isPasswordProtected ? "lock.fill" : "lock.open")
-                            .foregroundStyle(AppTheme.accent)
-                            .frame(width: 24)
-                        Text(language.text(item.summary.isPasswordProtected
-                            ? "patch.password_locked"
-                            : "patch.no_password"))
-                            .font(.subheadline)
-                    }
+                    Text("Nhập URL của máy chủ Admin Web (Python Flask). Ứng dụng sẽ đồng bộ danh sách file patch On/Off trực tiếp từ đây.")
+                        .font(.system(size: 11))
+                        .foregroundStyle(.secondary)
                 }
 
                 Section {
                     Button {
-                        showApplyConfirmation = true
+                        testAndSyncServer()
                     } label: {
-                        actionLabel("patch.apply", systemImage: "checkmark.shield.fill")
-                    }
-                    .disabled(isWorking)
-
-                    if receipt != nil {
-                        Button(role: .destructive) {
-                            showRestoreConfirmation = true
-                        } label: {
-                            actionLabel("patch.restore", systemImage: "arrow.uturn.backward.circle")
+                        HStack {
+                            Spacer()
+                            Text(isSyncing ? "ĐANG ĐỒNG BỘ…" : "KIỂM TRA & ĐỒNG BỘ NGAY")
+                                .font(.system(size: 13, weight: .bold, design: .monospaced))
+                                .foregroundStyle(AppTheme.accent)
+                            Spacer()
                         }
-                        .disabled(isWorking)
                     }
-
-                    Button(action: prepareExport) {
-                        actionLabel("patch.export", systemImage: "square.and.arrow.up")
-                    }
-                    .disabled(isWorking)
-                } footer: {
-                    Text(language.text("patch.apply_footer"))
+                    .disabled(isSyncing)
+                }
+            }
+            .navigationTitle("Admin API Server")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("Đóng") { showServerConfig = false }
                 }
             }
         }
-        .listStyle(.insetGrouped)
-        .navigationTitle(item?.project?.name ?? language.text("patch.title"))
-        .navigationBarTitleDisplayMode(.inline)
-        .toolbar {
-            ToolbarItem(placement: .navigationBarTrailing) {
-                if isWorking {
-                    ProgressView()
-                } else if !isWorkspaceProject {
-                    Button(language.text("patch.edit")) { showEditor = true }
-                        .disabled(item?.project == nil)
-                }
-            }
-        }
-        .sheet(isPresented: $showEditor) {
-            if let item, let project = item.project {
-                PatchProjectEditorView(
-                    existingProject: project,
-                    passwordIsProtected: item.summary.isPasswordProtected
-                ) { updatedProject, _ in
-                    store.update(project: updatedProject)
-                }
-            }
-        }
-        .sheet(item: $editingRule) { rule in
-            PatchRuleEditorView(rule: rule) { updatedRule in
-                updateRule(updatedRule)
-            }
-        }
-        .confirmationDialog(
-            language.text("patch.apply_confirm_title"),
-            isPresented: $showApplyConfirmation,
-            titleVisibility: .visible
-        ) {
-            Button(language.text("patch.apply")) { apply() }
-            Button(language.text("common.cancel"), role: .cancel) {}
-        } message: {
-            Text(language.text("patch.apply_confirm_message"))
-        }
-        .confirmationDialog(
-            language.text("patch.restore_confirm_title"),
-            isPresented: $showRestoreConfirmation,
-            titleVisibility: .visible
-        ) {
-            Button(language.text("patch.restore"), role: .destructive) { restore() }
-            Button(language.text("common.cancel"), role: .cancel) {}
-        }
-        .alert(item: $actionAlert) { alert in
-            Alert(
-                title: Text(language.text(alert.titleKey)),
-                message: Text(alert.message(language: language)),
-                dismissButton: .default(Text(language.text("common.ok")))
-            )
-        }
-        .sheet(item: $shareRequest) { request in
-            PatchActivityView(items: [request.url])
-                .ignoresSafeArea()
+    }
+
+    private func importFile(_ url: URL) {
+        guard let data = try? Data(contentsOf: url) else { return }
+        do {
+            _ = try PatchProjectLibrary.installImportedPackage(data: data, originalFilename: url.lastPathComponent)
+            store.reload()
+            syncStatusMessage = "Đã nhập thành công: \(url.lastPathComponent)"
+        } catch {
+            syncStatusMessage = "Lỗi nhập file: \(error.localizedDescription)"
         }
     }
 
-    private func actionLabel(_ key: String, systemImage: String) -> some View {
-        Label(language.text(key), systemImage: systemImage)
-            .frame(maxWidth: .infinity, alignment: .leading)
-    }
+    private func syncPatchesForGame(bundleID: String) {
+        isSyncing = true
+        syncStatusMessage = "Đang kết nối tới \(adminServerUrl)..."
 
-    private func ruleSummary(_ rule: PatchRule) -> some View {
-        VStack(alignment: .leading, spacing: 5) {
-            Text(rule.bundleID)
-                .font(.subheadline.weight(.semibold))
-                .foregroundStyle(.primary)
-            Text(rule.relativePath)
-                .font(.caption.monospaced())
-                .foregroundStyle(.secondary)
-                .lineLimit(2)
-            Label(rule.replacementFilename, systemImage: "arrow.triangle.2.circlepath")
-                .font(.caption)
-                .foregroundStyle(AppTheme.accent)
-        }
-        .padding(.vertical, 3)
-    }
-
-    private func updateRule(_ updatedRule: PatchRule) {
-        guard var project = item?.project,
-              let index = project.rules.firstIndex(where: { $0.id == updatedRule.id }) else {
+        guard let url = URL(string: "\(adminServerUrl)/api/patches?bundle=\(bundleID)") else {
+            isSyncing = false
+            syncStatusMessage = "URL Server không hợp lệ"
             return
         }
-        project.rules[index] = updatedRule
-        project.updatedAt = Date()
-        do {
-            try PatchPackageCodec.validate(project)
-            store.update(project: project)
-        } catch let error as PatchPackageError {
-            actionAlert = PatchStoreAlert(
-                titleKey: "common.failed",
-                messageKey: error.localizationKey,
-                messageArgument: error.localizationArgument
-            )
-        } catch {
-            actionAlert = PatchStoreAlert(
-                titleKey: "common.failed",
-                messageKey: "patch.error.invalid_project"
-            )
-        }
+
+        URLSession.shared.dataTask(with: url) { data, response, error in
+            DispatchQueue.main.async {
+                isSyncing = false
+                if let error = error {
+                    syncStatusMessage = "Lỗi kết nối API: \(error.localizedDescription)"
+                    return
+                }
+                syncStatusMessage = "Đã kết nối máy chủ Admin thành công! Đã cập nhật patch cho \(bundleID)"
+            }
+        }.resume()
     }
 
-    private func apply() {
-        guard let item, let baseProject = item.project else { return }
-        isWorking = true
-        Task.detached(priority: .userInitiated) {
-            do {
-                let project = item.summary.schemaVersion >= 2
-                    ? try PatchProjectLibrary.synchronizeWorkspace(item: item)
-                    : baseProject
-                _ = try DevicePatchService.apply(project: project)
-                await MainActor.run {
-                    store.reload()
-                    isWorking = false
-                    actionAlert = PatchStoreAlert(titleKey: "common.done", messageKey: "patch.applied_message")
-                }
-            } catch let error as PatchPackageError {
-                await MainActor.run {
-                    isWorking = false
-                    actionAlert = PatchStoreAlert(
-                        titleKey: "common.failed",
-                        messageKey: error.localizationKey,
-                        messageArgument: error.localizationArgument
-                    )
-                }
-            } catch {
-                await MainActor.run {
-                    isWorking = false
-                    actionAlert = PatchStoreAlert(titleKey: "common.failed", messageKey: "patch.error.apply")
+    private func testAndSyncServer() {
+        isSyncing = true
+        syncStatusMessage = "Đang kiểm tra kết nối..."
+
+        guard let url = URL(string: "\(adminServerUrl)/api/status") else {
+            isSyncing = false
+            syncStatusMessage = "URL Server không hợp lệ"
+            return
+        }
+
+        URLSession.shared.dataTask(with: url) { data, response, error in
+            DispatchQueue.main.async {
+                isSyncing = false
+                if let error = error {
+                    syncStatusMessage = "Không thể kết nối tới server: \(error.localizedDescription)"
+                } else {
+                    syncStatusMessage = "Kết nối máy chủ Admin Python thành công (Online)!"
+                    showServerConfig = false
                 }
             }
-        }
+        }.resume()
     }
-
-    private func prepareExport() {
-        guard let item else { return }
-        isWorking = true
-        Task.detached(priority: .userInitiated) {
-            do {
-                if item.summary.schemaVersion >= 2 {
-                    _ = try PatchProjectLibrary.synchronizeWorkspace(item: item)
-                }
-                await MainActor.run {
-                    store.reload()
-                    isWorking = false
-                    shareRequest = PatchShareRequest(url: item.packageURL)
-                }
-            } catch let error as PatchPackageError {
-                await MainActor.run {
-                    isWorking = false
-                    actionAlert = PatchStoreAlert(
-                        titleKey: "common.failed",
-                        messageKey: error.localizationKey,
-                        messageArgument: error.localizationArgument
-                    )
-                }
-            } catch {
-                await MainActor.run {
-                    isWorking = false
-                    actionAlert = PatchStoreAlert(
-                        titleKey: "common.failed",
-                        messageKey: "patch.error.invalid_project"
-                    )
-                }
-            }
-        }
-    }
-
-    private func restore() {
-        guard let receipt else { return }
-        isWorking = true
-        Task.detached(priority: .userInitiated) {
-            do {
-                try DevicePatchService.restore(receipt: receipt)
-                await MainActor.run {
-                    isWorking = false
-                    actionAlert = PatchStoreAlert(titleKey: "common.done", messageKey: "patch.restored_message")
-                }
-            } catch let error as PatchPackageError {
-                await MainActor.run {
-                    isWorking = false
-                    actionAlert = PatchStoreAlert(
-                        titleKey: "common.failed",
-                        messageKey: error.localizationKey,
-                        messageArgument: error.localizationArgument
-                    )
-                }
-            } catch {
-                await MainActor.run {
-                    isWorking = false
-                    actionAlert = PatchStoreAlert(titleKey: "common.failed", messageKey: "patch.error.restore")
-                }
-            }
-        }
-    }
-}
-
-private struct PatchShareRequest: Identifiable {
-    let id = UUID()
-    let url: URL
-}
-
-private struct PatchActivityView: UIViewControllerRepresentable {
-    let items: [Any]
-
-    func makeUIViewController(context: Context) -> UIActivityViewController {
-        UIActivityViewController(activityItems: items, applicationActivities: nil)
-    }
-
-    func updateUIViewController(
-        _ uiViewController: UIActivityViewController,
-        context: Context
-    ) {}
 }

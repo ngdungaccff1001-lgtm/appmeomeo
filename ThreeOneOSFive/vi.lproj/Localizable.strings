@@ -84,7 +84,7 @@
 "dashboard.features_footer" = "Bật Dọn dẹp hoặc Hình nền để hiển thị tính năng đó trong thanh điều hướng.";
 "tab.home" = "Trang chủ";
 "tab.files" = "Tệp";
-"tab.patches" = "MeoMeo.payload";
+"tab.patches" = "Function";
 "tab.cleaner" = "Dọn dẹp";
 
 "cleaner.title" = "Dọn dẹp";

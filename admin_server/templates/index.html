@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MeoMeoPath Admin Panel • Free Fire Patch Hub</title>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;800&family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #0d0f12;
+            --card-bg: #15181e;
+            --card-border: #232732;
+            --accent: #ff2a42;
+            --accent-glow: rgba(255, 42, 66, 0.25);
+            --ff-orange: #ff5e1e;
+            --text: #f0f2f5;
+            --text-dim: #8b949e;
+            --green: #2ecc71;
+            --red: #e74c3c;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background-color: var(--bg);
+            color: var(--text);
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            min-height: 100vh;
+            padding: 24px;
+        }
+
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+
+        header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding-bottom: 20px;
+            border-bottom: 1px solid var(--card-border);
+            margin-bottom: 24px;
+        }
+
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .logo-box {
+            width: 40px;
+            height: 40px;
+            background: linear-gradient(135deg, #ff2a42, #b30018);
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 800;
+            font-family: 'JetBrains Mono', monospace;
+            box-shadow: 0 0 15px var(--accent-glow);
+        }
+
+        h1 {
+            font-size: 20px;
+            font-family: 'JetBrains Mono', monospace;
+            font-weight: 800;
+            letter-spacing: -0.5px;
+        }
+
+        .tag {
+            font-size: 11px;
+            font-family: 'JetBrains Mono', monospace;
+            background: rgba(255, 42, 66, 0.15);
+            color: var(--accent);
+            padding: 3px 8px;
+            border-radius: 2px;
+            border: 1px solid rgba(255, 42, 66, 0.3);
+            margin-left: 8px;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr 1.6fr;
+            gap: 20px;
+        }
+
+        @media (max-width: 768px) {
+            .grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .card {
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 4px;
+            padding: 20px;
+        }
+
+        .card-header {
+            font-size: 13px;
+            font-weight: 700;
+            font-family: 'JetBrains Mono', monospace;
+            color: var(--text-dim);
+            text-transform: uppercase;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .form-group {
+            margin-bottom: 14px;
+        }
+
+        label {
+            display: block;
+            font-size: 12px;
+            font-weight: 600;
+            margin-bottom: 6px;
+            color: var(--text-dim);
+        }
+
+        input[type="text"], select, textarea {
+            width: 100%;
+            padding: 10px 12px;
+            background: #0d0f12;
+            border: 1px solid var(--card-border);
+            border-radius: 3px;
+            color: var(--text);
+            font-size: 13px;
+            font-family: inherit;
+            outline: none;
+            transition: border 0.15s;
+        }
+
+        input[type="text"]:focus, select:focus, textarea:focus {
+            border-color: var(--accent);
+            box-shadow: 0 0 8px var(--accent-glow);
+        }
+
+        .upload-dropzone {
+            border: 2px dashed var(--card-border);
+            border-radius: 4px;
+            padding: 24px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s;
+            background: #090a0d;
+            margin-bottom: 14px;
+        }
+
+        .upload-dropzone:hover {
+            border-color: var(--accent);
+            background: rgba(255, 42, 66, 0.04);
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            background: var(--accent);
+            color: white;
+            border: none;
+            border-radius: 3px;
+            padding: 10px 16px;
+            font-size: 13px;
+            font-weight: 700;
+            font-family: 'JetBrains Mono', monospace;
+            cursor: pointer;
+            width: 100%;
+            transition: opacity 0.15s;
+        }
+
+        .btn:hover {
+            opacity: 0.9;
+        }
+
+        /* Patch Item Row */
+        .patch-list {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .patch-item {
+            background: #0d0f12;
+            border: 1px solid var(--card-border);
+            border-radius: 3px;
+            padding: 12px 14px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+        }
+
+        .patch-info {
+            flex: 1;
+        }
+
+        .patch-name {
+            font-size: 14px;
+            font-weight: 700;
+            margin-bottom: 2px;
+        }
+
+        .patch-meta {
+            font-size: 11px;
+            font-family: 'JetBrains Mono', monospace;
+            color: var(--text-dim);
+            display: flex;
+            gap: 10px;
+        }
+
+        .game-badge {
+            background: rgba(255, 94, 30, 0.15);
+            color: var(--ff-orange);
+            padding: 1px 6px;
+            border-radius: 2px;
+            font-size: 10px;
+            font-weight: 700;
+        }
+
+        .game-badge.max {
+            background: rgba(255, 42, 66, 0.15);
+            color: var(--accent);
+        }
+
+        /* Toggle Switch */
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 44px;
+            height: 22px;
+        }
+
+        .switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background-color: #232732;
+            transition: .2s;
+            border-radius: 2px;
+        }
+
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 16px;
+            width: 18px;
+            left: 3px;
+            bottom: 3px;
+            background-color: white;
+            transition: .2s;
+            border-radius: 1px;
+        }
+
+        input:checked + .slider {
+            background-color: var(--green);
+        }
+
+        input:checked + .slider:before {
+            transform: translateX(20px);
+        }
+
+        .btn-delete {
+            background: none;
+            border: 1px solid #331518;
+            color: #e74c3c;
+            padding: 4px 8px;
+            border-radius: 2px;
+            font-size: 11px;
+            cursor: pointer;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .btn-delete:hover {
+            background: rgba(231, 76, 60, 0.15);
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 40px 10px;
+            color: var(--text-dim);
+            font-size: 13px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <header>
+        <div class="brand">
+            <div class="logo-box">⚡</div>
+            <div>
+                <h1>MeoMeoPath <span class="tag">ADMIN API</span></h1>
+                <p style="font-size: 12px; color: var(--text-dim); margin-top: 2px;">Bảng điều khiển Patch & Mod Game Free Fire / Free Fire MAX</p>
+            </div>
+        </div>
+        <div style="font-size: 12px; font-family: 'JetBrains Mono', monospace; color: var(--green);">
+            ● SERVER ONLINE (Port 5000)
+        </div>
+    </header>
+
+    <div class="grid">
+        <!-- Upload Form -->
+        <div class="card">
+            <div class="card-header">
+                <span>TẢI LÊN FILE PATCH MỚI</span>
+                <span>.3105 / .PAYLOAD</span>
+            </div>
+
+            <form id="uploadForm">
+                <div class="form-group">
+                    <label>Áp dụng cho Game</label>
+                    <select id="targetGame">
+                        <option value="com.dts.freefireth">🔥 Free Fire Standard (com.dts.freefireth)</option>
+                        <option value="com.dts.freefiremax">⚡ Free Fire MAX (com.dts.freefiremax)</option>
+                        <option value="all">🌐 Cả hai Game (All)</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>Tên Patch / Mô tả</label>
+                    <input type="text" id="patchName" placeholder="VD: Mod Skin MeoMeo v1.0">
+                </div>
+
+                <div class="upload-dropzone" onclick="document.getElementById('fileInput').click()">
+                    <input type="file" id="fileInput" style="display: none;" onchange="updateFileName(this)">
+                    <div style="font-size: 24px; margin-bottom: 6px;">📦</div>
+                    <div id="dropzoneText" style="font-size: 13px; font-weight: 600;">Chạm để chọn file patch (.3105, .payload, .zip)</div>
+                    <div style="font-size: 11px; color: var(--text-dim); margin-top: 4px;">File sẽ được tự động đồng bộ vào iOS App</div>
+                </div>
+
+                <button type="button" class="btn" onclick="uploadPatch()">TẢI LÊN VÀ KÍCH HOẠT</button>
+            </form>
+        </div>
+
+        <!-- Patch Library List -->
+        <div class="card">
+            <div class="card-header">
+                <span>DANH SÁCH FILE PATCH REAL-TIME</span>
+                <span id="patchCount">{{ patches|length }} FILE</span>
+            </div>
+
+            <div class="patch-list" id="patchList">
+                {% for p in patches %}
+                <div class="patch-item" id="item-{{ p.id }}">
+                    <div class="patch-info">
+                        <div class="patch-name">{{ p.name }}</div>
+                        <div class="patch-meta">
+                            <span class="game-badge {% if p.target_game == 'com.dts.freefiremax' %}max{% endif %}">
+                                {{ 'FREE FIRE MAX' if p.target_game == 'com.dts.freefiremax' else 'FREE FIRE' }}
+                            </span>
+                            <span>{{ p.size }}</span>
+                            <span>{{ p.created_at }}</span>
+                        </div>
+                    </div>
+
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <label class="switch">
+                            <input type="checkbox" {% if p.enabled %}checked{% endif %} onchange="togglePatch('{{ p.id }}')">
+                            <span class="slider"></span>
+                        </label>
+                        <button class="btn-delete" onclick="deletePatch('{{ p.id }}')">XÓA</button>
+                    </div>
+                </div>
+                {% else %}
+                <div class="empty-state" id="emptyState">
+                    Chưa có file patch nào được tải lên.<br>
+                    Hãy tải lên file .3105 hoặc .payload ở bảng bên trái.
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    function updateFileName(input) {
+        if (input.files && input.files[0]) {
+            document.getElementById('dropzoneText').innerText = "Đã chọn: " + input.files[0].name;
+        }
+    }
+
+    async function uploadPatch() {
+        const fileInput = document.getElementById('fileInput');
+        if (!fileInput.files || !fileInput.files[0]) {
+            alert('Vui lòng chọn một file trước khi tải lên!');
+            return;
+        }
+
+        const formData = new FormData();
+        formData.append('file', fileInput.files[0]);
+        formData.append('target_game', document.getElementById('targetGame').value);
+        formData.append('name', document.getElementById('patchName').value);
+
+        try {
+            const res = await fetch('/api/upload', {
+                method: 'POST',
+                body: formData
+            });
+            const data = await res.json();
+            if (data.success) {
+                location.reload();
+            } else {
+                alert('Lỗi: ' + data.error);
+            }
+        } catch (e) {
+            alert('Lỗi kết nối máy chủ: ' + e.message);
+        }
+    }
+
+    async function togglePatch(id) {
+        try {
+            await fetch(`/api/patches/${id}/toggle`, { method: 'POST' });
+        } catch (e) {
+            alert('Lỗi bật/tắt: ' + e.message);
+        }
+    }
+
+    async function deletePatch(id) {
+        if (!confirm('Bạn có chắc muốn xóa file patch này khỏi hệ thống?')) return;
+        try {
+            const res = await fetch(`/api/patches/${id}`, { method: 'DELETE' });
+            const data = await res.json();
+            if (data.success) {
+                const el = document.getElementById(`item-${id}`);
+                if (el) el.remove();
+            }
+        } catch (e) {
+            alert('Lỗi xóa file: ' + e.message);
+        }
+    }
+</script>
+
+</body>
+</html>

@@ -84,7 +84,7 @@
 "dashboard.features_footer" = "Turn on Cleaner or Wallpapers to show it in the app navigation.";
 "tab.home" = "Home";
 "tab.files" = "Files";
-"tab.patches" = "MeoMeo.payload";
+"tab.patches" = "Function";
 "tab.cleaner" = "Cleaner";
 
 "cleaner.title" = "Cleaner";
