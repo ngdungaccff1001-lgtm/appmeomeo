@@ -5,6 +5,7 @@ struct SettingsView: View {
     @Environment(\.appLanguage) private var language
     @EnvironmentObject private var appState: AppState
     @AppStorage(AppLanguage.storageKey) private var languageCode = AppLanguage.english.rawValue
+    @AppStorage("app.appearance") private var appearance = AppAppearance.system.rawValue
 
     var body: some View {
         NavigationStack {
@@ -21,6 +22,16 @@ struct SettingsView: View {
                         }
                     }
                     .padding(.vertical, 4)
+                }
+
+                Section("Theme / Chế độ hiển thị") {
+                    Picker("Theme", selection: $appearance) {
+                        ForEach(AppAppearance.allCases) { item in
+                            Text(item.displayName).tag(item.rawValue)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+                    .labelsHidden()
                 }
 
                 Section(language.text("settings.language")) {

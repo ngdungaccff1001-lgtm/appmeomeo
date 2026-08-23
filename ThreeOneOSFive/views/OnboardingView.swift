@@ -10,7 +10,6 @@ private enum OnboardingStep: Int, CaseIterable {
 struct OnboardingView: View {
     @AppStorage(AppLanguage.storageKey) private var languageCode = AppLanguage.english.rawValue
     @State private var step: OnboardingStep = .language
-    @State private var dragOffset: CGFloat = 0
     var onComplete: () -> Void
 
     private var language: AppLanguage { AppLanguage(rawValue: languageCode) ?? .english }
@@ -27,26 +26,25 @@ struct OnboardingView: View {
             }
         }
         .tint(AppTheme.accent)
-        .animation(.spring(response: 0.38, dampingFraction: 0.84), value: step)
-        .animation(.spring(response: 0.38, dampingFraction: 0.84), value: languageCode)
+        .animation(.easeInOut(duration: 0.2), value: step)
+        .animation(.easeInOut(duration: 0.2), value: languageCode)
     }
 
     private var header: some View {
-        VStack(spacing: 10) {
-            HStack(spacing: 6) {
+        VStack(spacing: 8) {
+            HStack(spacing: 4) {
                 ForEach(OnboardingStep.allCases, id: \.rawValue) { s in
-                    Capsule()
-                        .fill(s.rawValue <= step.rawValue ? AppTheme.accent : Color.secondary.opacity(0.22))
-                        .frame(height: 4)
-                        .frame(maxWidth: s == step ? 28 : 18)
-                        .animation(.spring(response: 0.35, dampingFraction: 0.8), value: step)
+                    Rectangle()
+                        .fill(s.rawValue <= step.rawValue ? AppTheme.accent : Color.secondary.opacity(0.2))
+                        .frame(height: 3)
+                        .frame(maxWidth: s == step ? 30 : 16)
                 }
             }
             .padding(.horizontal, AppTheme.pageInset)
-            .padding(.top, 18)
+            .padding(.top, 16)
 
-            Text(language.text("onboarding.step", "\(step.rawValue + 1)", "\(OnboardingStep.allCases.count)"))
-                .font(.caption.weight(.medium))
+            Text(language.text("onboarding.step", "\(step.rawValue + 1)", "\(OnboardingStep.allCases.count)").uppercased())
+                .font(.system(size: 11, weight: .bold, design: .monospaced))
                 .foregroundStyle(.secondary)
         }
     }
@@ -57,10 +55,6 @@ struct OnboardingView: View {
             ForEach(OnboardingStep.allCases, id: \.rawValue) { s in
                 if s == step {
                     page(for: s)
-                        .transition(.asymmetric(
-                            insertion: .move(edge: .trailing).combined(with: .opacity),
-                            removal: .move(edge: .leading).combined(with: .opacity)
-                        ))
                         .id("page-\(s.rawValue)-\(languageCode)")
                 }
             }
@@ -79,272 +73,301 @@ struct OnboardingView: View {
     }
 
     private var languagePage: some View {
-        VStack(spacing: 20) {
-            Spacer(minLength: 12)
-            AppLogo(size: 72)
-            VStack(spacing: 8) {
+        VStack(spacing: 16) {
+            Spacer(minLength: 8)
+            AppLogo(size: 54)
+
+            VStack(spacing: 4) {
                 Text(language.text("onboarding.language_title"))
-                    .font(.title2.weight(.bold))
+                    .font(.system(size: 18, weight: .bold))
                     .multilineTextAlignment(.center)
                 Text(language.text("onboarding.language_subtitle"))
-                    .font(.subheadline)
+                    .font(.system(size: 12))
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
-                    .padding(.horizontal, 24)
             }
-            VStack(spacing: 10) {
+
+            VStack(spacing: 8) {
                 ForEach(AppLanguage.allCases) { option in
                     Button {
-                        withAnimation(.spring(response: 0.3, dampingFraction: 0.82)) {
-                            languageCode = option.rawValue
-                        }
+                        languageCode = option.rawValue
                     } label: {
                         HStack {
-                            VStack(alignment: .leading, spacing: 2) {
+                            VStack(alignment: .leading, spacing: 1) {
                                 Text(option.displayName)
-                                    .font(.body.weight(.semibold))
+                                    .font(.system(size: 14, weight: .bold))
                                     .foregroundStyle(.primary)
                                 Text(option.rawValue == "en" ? "English" : option.rawValue == "vi" ? "Tiếng Việt" : "简体中文")
-                                    .font(.caption)
+                                    .font(.system(size: 11))
                                     .foregroundStyle(.secondary)
                             }
                             Spacer()
                             if languageCode == option.rawValue {
-                                Image(systemName: "checkmark.circle.fill")
+                                Image(systemName: "checkmark")
                                     .foregroundStyle(AppTheme.accent)
-                                    .font(.title3)
-                                    .transition(.scale.combined(with: .opacity))
-                            } else {
-                                Image(systemName: "circle")
-                                    .foregroundStyle(.secondary.opacity(0.5))
+                                    .font(.system(size: 13, weight: .bold))
                             }
                         }
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 14)
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 12)
                         .background(
-                            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                            RoundedRectangle(cornerRadius: AppTheme.cardCornerRadius, style: .continuous)
                                 .fill(Color(uiColor: .secondarySystemBackground))
                                 .overlay(
-                                    RoundedRectangle(cornerRadius: 10, style: .continuous)
-                                        .stroke(languageCode == option.rawValue ? AppTheme.accent : Color.clear, lineWidth: 1)
+                                    RoundedRectangle(cornerRadius: AppTheme.cardCornerRadius, style: .continuous)
+                                        .stroke(languageCode == option.rawValue ? AppTheme.accent : AppTheme.cardBorder, lineWidth: 1)
                                 )
                         )
                     }
                     .buttonStyle(.plain)
                 }
             }
-            .padding(.horizontal, 20)
-            Spacer(minLength: 12)
+            .padding(.horizontal, 16)
+            Spacer(minLength: 8)
         }
     }
 
     private var welcomePage: some View {
-        VStack(spacing: 18) {
-            Spacer(minLength: 10)
-             ZStack {
-                 RoundedRectangle(cornerRadius: 10, style: .continuous)
-                     .fill(Color(uiColor: .secondarySystemBackground))
-                     .overlay(
-                         RoundedRectangle(cornerRadius: 10, style: .continuous)
-                             .stroke(AppTheme.accent.opacity(0.3), lineWidth: 1)
-                     )
-                     .frame(width: 72, height: 72)
-                 Image(systemName: "sparkles")
-                     .font(.system(size: 30, weight: .medium))
-                     .foregroundStyle(AppTheme.accent)
-             }
-            VStack(spacing: 10) {
+        VStack(spacing: 16) {
+            Spacer(minLength: 8)
+
+            ZStack {
+                Rectangle()
+                    .fill(AppTheme.accent.opacity(0.12))
+                    .overlay(
+                        Rectangle().stroke(AppTheme.accent.opacity(0.35), lineWidth: 1)
+                    )
+                    .frame(width: 56, height: 56)
+                Image(systemName: "terminal")
+                    .font(.system(size: 24, weight: .bold))
+                    .foregroundStyle(AppTheme.accent)
+            }
+
+            VStack(spacing: 6) {
                 Text(language.text("onboarding.welcome_title"))
-                    .font(.title2.weight(.bold))
+                    .font(.system(size: 18, weight: .bold))
                     .multilineTextAlignment(.center)
                 Text(language.text("onboarding.welcome_message"))
-                    .font(.body)
+                    .font(.system(size: 13))
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
-                    .padding(.horizontal, 24)
+                    .padding(.horizontal, 20)
             }
-            Label(language.text("onboarding.welcome_badge"), systemImage: "checkmark.seal.fill")
-                 .font(.footnote.weight(.semibold))
-                 .foregroundStyle(AppTheme.accent)
-                 .padding(.horizontal, 14)
-                 .padding(.vertical, 8)
-                 .background(Color(uiColor: .secondarySystemBackground), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
-            Spacer(minLength: 10)
+
+            Text(language.text("onboarding.welcome_badge").uppercased())
+                .font(.system(size: 10, weight: .bold, design: .monospaced))
+                .foregroundStyle(AppTheme.accent)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 5)
+                .background(
+                    Rectangle()
+                        .fill(AppTheme.accent.opacity(0.12))
+                        .overlay(
+                            Rectangle().stroke(AppTheme.accent.opacity(0.3), lineWidth: 1)
+                        )
+                )
+
+            Spacer(minLength: 8)
         }
     }
 
     private var versionsPage: some View {
-        VStack(spacing: 16) {
-            Spacer(minLength: 8)
-             ZStack {
-                 RoundedRectangle(cornerRadius: 18, style: .continuous)
-                     .fill(Color(uiColor: .secondarySystemBackground))
-                     .overlay(
-                         RoundedRectangle(cornerRadius: 10, style: .continuous)
-                             .stroke(AppTheme.accent.opacity(0.3), lineWidth: 1)
-                     )
-                     .frame(width: 72, height: 72)
-                 Image(systemName: "iphone.gen2")
-                     .font(.system(size: 30, weight: .medium))
-                    .foregroundStyle(AppTheme.accent)
-            }
-            VStack(spacing: 8) {
+        VStack(spacing: 12) {
+            Spacer(minLength: 6)
+
+            VStack(spacing: 3) {
                 Text(language.text("onboarding.versions_title"))
-                    .font(.title3.weight(.bold))
+                    .font(.system(size: 16, weight: .bold))
                     .multilineTextAlignment(.center)
                 Text(language.text("onboarding.versions_subtitle"))
-                    .font(.subheadline)
+                    .font(.system(size: 12))
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
-                    .padding(.horizontal, 22)
+                    .padding(.horizontal, 16)
             }
-            VStack(alignment: .leading, spacing: 10) {
-                versionRow(icon: "checkmark.circle.fill", title: "iOS 17", value: ExploitSupportPolicy.verifiedIOS17Range, color: .green)
-                versionRow(icon: "checkmark.circle.fill", title: "iOS 18", value: ExploitSupportPolicy.verifiedIOS18Range, color: .green)
-                versionRow(icon: "checkmark.circle.fill", title: "iOS 26", value: ExploitSupportPolicy.verifiedIOS26Range, color: .green)
-                VStack(alignment: .leading, spacing: 6) {
-                    HStack(spacing: 8) {
-                        Image(systemName: "checkmark.circle.fill").foregroundStyle(.green)
-                        Text("iOS 27.0").font(.subheadline.weight(.semibold))
+
+            VStack(alignment: .leading, spacing: 6) {
+                versionRow(icon: "checkmark", title: "iOS 17", value: ExploitSupportPolicy.verifiedIOS17Range, color: .green)
+                versionRow(icon: "checkmark", title: "iOS 18", value: ExploitSupportPolicy.verifiedIOS18Range, color: .green)
+                versionRow(icon: "checkmark", title: "iOS 26", value: ExploitSupportPolicy.verifiedIOS26Range, color: .green)
+
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack(spacing: 6) {
+                        Image(systemName: "checkmark").font(.system(size: 11, weight: .bold)).foregroundStyle(.green)
+                        Text("iOS 27.0").font(.system(size: 12, weight: .bold, design: .monospaced))
                         Spacer()
-                        Text(language.text("onboarding.beta")).font(.caption.weight(.semibold)).foregroundStyle(.secondary)
+                        Text(language.text("onboarding.beta")).font(.system(size: 10, weight: .bold, design: .monospaced)).foregroundStyle(.secondary)
                     }
                     ForEach(ExploitSupportPolicy.verifiedIOS27Builds, id: \.build) { v in
                         HStack {
                             Text("Beta \(v.beta)" + (v.publicBeta.map { " / Public \($0)" } ?? ""))
-                                .font(.caption.weight(.medium)).foregroundStyle(.secondary)
+                                .font(.system(size: 11)).foregroundStyle(.secondary)
                             Spacer()
-                            Text(v.build).font(.caption.monospaced()).foregroundStyle(.secondary)
+                            Text(v.build).font(.system(size: 11, design: .monospaced)).foregroundStyle(.secondary)
                         }
-                        .padding(.leading, 24)
+                        .padding(.leading, 18)
                     }
                 }
-                .padding(12)
-                 .background(Color(uiColor: .secondarySystemBackground), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+                .padding(10)
+                .background(
+                    RoundedRectangle(cornerRadius: AppTheme.cardCornerRadius, style: .continuous)
+                        .fill(Color(uiColor: .secondarySystemBackground))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: AppTheme.cardCornerRadius, style: .continuous)
+                                .stroke(AppTheme.cardBorder, lineWidth: 1)
+                        )
+                )
             }
-            .padding(.horizontal, 20)
+            .padding(.horizontal, 16)
+
             Text(language.text("onboarding.versions_footer", AppInfo.osVersion, AppInfo.osBuild))
-                .font(.caption)
+                .font(.system(size: 11, design: .monospaced))
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
-                .padding(.horizontal, 24)
-            Spacer(minLength: 8)
+                .padding(.horizontal, 16)
+
+            Spacer(minLength: 6)
         }
     }
 
     private var installPage: some View {
-        VStack(spacing: 16) {
-            Spacer(minLength: 8)
-             ZStack {
-                 RoundedRectangle(cornerRadius: 10, style: .continuous)
-                     .fill(Color(uiColor: .secondarySystemBackground))
-                     .overlay(
-                         RoundedRectangle(cornerRadius: 10, style: .continuous)
-                             .stroke(Color.orange.opacity(0.4), lineWidth: 1)
-                     )
-                     .frame(width: 72, height: 72)
-                 Image(systemName: "exclamationmark.shield.fill")
-                     .font(.system(size: 30, weight: .medium))
-                    .foregroundStyle(.orange)
-            }
-            VStack(spacing: 8) {
+        VStack(spacing: 12) {
+            Spacer(minLength: 6)
+
+            VStack(spacing: 3) {
                 Text(language.text("onboarding.install_title"))
-                    .font(.title3.weight(.bold))
+                    .font(.system(size: 16, weight: .bold))
                     .multilineTextAlignment(.center)
                 Text(language.text("onboarding.install_message"))
-                    .font(.body)
+                    .font(.system(size: 12))
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
-                    .padding(.horizontal, 22)
+                    .padding(.horizontal, 16)
             }
-            VStack(alignment: .leading, spacing: 10) {
-                installBullet(icon: "checkmark.seal.fill", text: language.text("onboarding.install_ok"), color: .green)
-                installBullet(icon: "xmark.octagon.fill", text: language.text("onboarding.install_bad"), color: .red)
-                installBullet(icon: "exclamationmark.triangle.fill", text: language.text("onboarding.install_jailbreak"), color: .orange)
+
+            VStack(alignment: .leading, spacing: 8) {
+                HStack(alignment: .top, spacing: 10) {
+                    Image(systemName: "checkmark")
+                        .font(.system(size: 12, weight: .bold))
+                        .foregroundStyle(.green)
+                        .padding(.top, 2)
+                    Text(language.text("onboarding.install_ok"))
+                        .font(.system(size: 12))
+                        .foregroundStyle(.primary)
+                }
+                .padding(10)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(
+                    RoundedRectangle(cornerRadius: AppTheme.cardCornerRadius, style: .continuous)
+                        .fill(Color(uiColor: .secondarySystemBackground))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: AppTheme.cardCornerRadius, style: .continuous)
+                                .stroke(Color.green.opacity(0.3), lineWidth: 1)
+                        )
+                )
+
+                HStack(alignment: .top, spacing: 10) {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 12, weight: .bold))
+                        .foregroundStyle(.red)
+                        .padding(.top, 2)
+                    Text(language.text("onboarding.install_bad"))
+                        .font(.system(size: 12))
+                        .foregroundStyle(.secondary)
+                }
+                .padding(10)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(
+                    RoundedRectangle(cornerRadius: AppTheme.cardCornerRadius, style: .continuous)
+                        .fill(Color(uiColor: .secondarySystemBackground))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: AppTheme.cardCornerRadius, style: .continuous)
+                                .stroke(Color.red.opacity(0.2), lineWidth: 1)
+                        )
+                )
             }
-            .padding(14)
-             .background(Color(uiColor: .secondarySystemBackground), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
-            .padding(.horizontal, 20)
+            .padding(.horizontal, 16)
+
             Text(language.text("onboarding.install_footer"))
-                .font(.caption)
+                .font(.system(size: 11))
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
-                .padding(.horizontal, 24)
-            Spacer(minLength: 8)
+                .padding(.horizontal, 16)
+
+            Spacer(minLength: 6)
         }
     }
 
     private func versionRow(icon: String, title: String, value: String, color: Color) -> some View {
-        HStack {
-            Image(systemName: icon).foregroundStyle(color)
-            Text(title).font(.subheadline.weight(.semibold))
-            Spacer()
-            Text(value).font(.subheadline.monospaced()).foregroundStyle(.secondary)
-        }
-        .padding(12)
-        .background(Color(uiColor: .secondarySystemBackground), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
-    }
-
-    private func installBullet(icon: String, text: String, color: Color) -> some View {
-        HStack(alignment: .top, spacing: 10) {
+        HStack(spacing: 8) {
             Image(systemName: icon)
+                .font(.system(size: 11, weight: .bold))
                 .foregroundStyle(color)
-                .font(.body.weight(.semibold))
-            Text(text)
-                .font(.subheadline)
-                .foregroundStyle(.primary)
-                .fixedSize(horizontal: false, vertical: true)
+            Text(title)
+                .font(.system(size: 13, weight: .bold, design: .monospaced))
+            Spacer()
+            Text(value)
+                .font(.system(size: 12, design: .monospaced))
+                .foregroundStyle(.secondary)
         }
+        .padding(10)
+        .background(
+            RoundedRectangle(cornerRadius: AppTheme.cardCornerRadius, style: .continuous)
+                .fill(Color(uiColor: .secondarySystemBackground))
+                .overlay(
+                    RoundedRectangle(cornerRadius: AppTheme.cardCornerRadius, style: .continuous)
+                        .stroke(AppTheme.cardBorder, lineWidth: 1)
+                )
+        )
     }
 
     private var controls: some View {
-        VStack(spacing: 12) {
-            HStack(spacing: 12) {
+        VStack(spacing: 8) {
+            HStack(spacing: 10) {
                 if step != .language {
                     Button {
-                        withAnimation(.spring(response: 0.35, dampingFraction: 0.82)) {
-                            if let prev = step.prev { step = prev }
-                        }
+                        if let prev = step.prev { step = prev }
                     } label: {
-                        Label(language.text("common.back"), systemImage: "chevron.left")
-                            .frame(maxWidth: .infinity)
+                        Text(language.text("common.back").uppercased())
+                            .font(.system(size: 12, weight: .bold, design: .monospaced))
+                            .frame(maxWidth: .infinity, minHeight: 38)
+                            .background(Color(uiColor: .secondarySystemBackground))
+                            .foregroundStyle(.primary)
+                            .overlay(
+                                Rectangle().stroke(AppTheme.cardBorder, lineWidth: 1)
+                            )
                     }
-                    .buttonStyle(.bordered)
-                    .controlSize(.large)
+                    .buttonStyle(.plain)
                 }
 
                 Button {
                     if let next = step.next {
-                        withAnimation(.spring(response: 0.35, dampingFraction: 0.82)) {
-                            step = next
-                        }
+                        step = next
                     } else {
-                        withAnimation(.spring(response: 0.32, dampingFraction: 0.86)) {
-                            onComplete()
-                        }
+                        onComplete()
                     }
                 } label: {
-                    HStack(spacing: 6) {
-                        Text(language.text(step == .install ? "common.finish" : "common.next"))
-                        if step != .install {
-                            Image(systemName: "chevron.right").font(.caption.weight(.semibold))
-                        }
-                    }
-                    .frame(maxWidth: .infinity)
+                    Text(language.text(step == .install ? "common.finish" : "common.next").uppercased())
+                        .font(.system(size: 12, weight: .bold, design: .monospaced))
+                        .frame(maxWidth: .infinity, minHeight: 38)
+                        .background(AppTheme.accent)
+                        .foregroundStyle(.white)
                 }
-                .buttonStyle(.borderedProminent)
-                .controlSize(.large)
+                .buttonStyle(.plain)
             }
-            .padding(.horizontal, 20)
+            .padding(.horizontal, 16)
 
             if step == .language {
                 Text(language.text("onboarding.language_hint"))
-                    .font(.caption)
+                    .font(.system(size: 11))
                     .foregroundStyle(.secondary)
             }
         }
-        .padding(.vertical, 16)
-        .background(.bar)
+        .padding(.vertical, 12)
+        .background(Color(uiColor: .secondarySystemBackground))
+        .overlay(
+            Rectangle().stroke(AppTheme.cardBorder, lineWidth: 1)
+        )
     }
 }
 
@@ -358,7 +381,6 @@ enum OnboardingStore {
         return "\(v) (\(b))"
     }
 
-    /// Per-install token: executable mtime changes on every overwrite even if version stays the same.
     static var bundleToken: String {
         if let exe = Bundle.main.executablePath,
            let attrs = try? FileManager.default.attributesOfItem(atPath: exe),
@@ -391,10 +413,8 @@ enum OnboardingStore {
         if let stored = completedFingerprint, !stored.isEmpty {
             return stored != fp
         }
-        // Migration: old installs only have completedVersion
         if let completed = completedVersion, !completed.isEmpty {
             if completed == currentVersion {
-                // Same version, migrate silently — next overwrite will be detected via fingerprint
                 UserDefaults.standard.set(fp, forKey: completedFingerprintKey)
                 return false
             }

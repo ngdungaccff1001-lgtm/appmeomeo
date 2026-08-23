@@ -7,10 +7,19 @@ struct ThreeOneOSFiveApp: App {
     @StateObject private var patchDraftCoordinator = PatchDraftCoordinator()
     @StateObject private var fileOperationCoordinator = FileOperationCoordinator()
     @AppStorage(AppLanguage.storageKey) private var languageCode = AppLanguage.english.rawValue
+    @AppStorage("app.appearance") private var appearance = AppAppearance.system.rawValue
     @State private var showOnboarding = OnboardingStore.shouldShow()
     @State private var showAttribution = false
     @State private var updateOffer: AppUpdateChecker.Offer?
     @Environment(\.scenePhase) private var scenePhase
+
+    private var colorScheme: ColorScheme? {
+        switch appearance {
+        case AppAppearance.light.rawValue: return .light
+        case AppAppearance.dark.rawValue: return .dark
+        default: return nil
+        }
+    }
 
     init() {
         setupLogCapture()
@@ -37,6 +46,7 @@ struct ThreeOneOSFiveApp: App {
                     .environmentObject(fileOperationCoordinator)
                     .environment(\.appLanguage, language)
                     .environment(\.locale, language.locale)
+                    .preferredColorScheme(colorScheme)
                     .opacity(showOnboarding ? 0 : 1)
                     .allowsHitTesting(!showOnboarding)
 

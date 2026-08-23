@@ -6,6 +6,8 @@ struct ContentView: View {
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @EnvironmentObject private var patchDraftCoordinator: PatchDraftCoordinator
     @State private var tabNavigation: AppTabNavigationState
+    @State private var isSidebarOpen = false
+    @AppStorage("app.appearance") private var appearance = AppAppearance.system.rawValue
     @AppStorage(FeatureVisibility.cleanerStorageKey) private var cleanerEnabled = true
     @AppStorage(FeatureVisibility.wallpapersStorageKey) private var wallpapersEnabled = true
 
@@ -31,15 +33,39 @@ struct ContentView: View {
     }
 
     var body: some View {
-        Group {
-            if horizontalSizeClass == .regular {
-                regularLayout
-            } else {
-                compactLayout
+        ZStack(alignment: .leading) {
+            // Main Content Layout
+            Group {
+                if horizontalSizeClass == .regular {
+                    regularLayout
+                } else {
+                    compactLayout
+                }
+            }
+            .tint(AppTheme.accent)
+            .imageScale(.small)
+            .disabled(isSidebarOpen)
+
+            // Dimmed Overlay when Sidebar is open
+            if isSidebarOpen {
+                Color.black.opacity(0.4)
+                    .ignoresSafeArea()
+                    .onTapGesture {
+                        withAnimation(.easeInOut(duration: 0.22)) {
+                            isSidebarOpen = false
+                        }
+                    }
+                    .transition(.opacity)
+                    .zIndex(10)
+            }
+
+            // Collapsible Sidebar Drawer
+            if isSidebarOpen {
+                sidebarDrawer
+                    .transition(.move(edge: .leading))
+                    .zIndex(11)
             }
         }
-        .tint(AppTheme.accent)
-        .imageScale(.small)
         .onChange(of: patchDraftCoordinator.request?.id) { requestID in
             if requestID != nil { tabNavigation.select(AppSection.patches.rawValue) }
         }
@@ -57,6 +83,7 @@ struct ContentView: View {
         }
     }
 
+    // MARK: - Compact (iPhone) Layout
     private var compactLayout: some View {
         TabView(selection: tabSelection) {
             ForEach(featureVisibility.visibleSections) { section in
@@ -72,38 +99,191 @@ struct ContentView: View {
         }
     }
 
+    // MARK: - Regular (iPad) Layout
     private var regularLayout: some View {
         NavigationSplitView {
             List {
                 ForEach(featureVisibility.visibleSections) { section in
                     Button {
-                        withAnimation(.easeInOut(duration: 0.18)) {
+                        withAnimation(.easeInOut(duration: 0.16)) {
                             tabNavigation.select(section.rawValue)
                         }
                     } label: {
                         Label(language.text(section.titleKey), systemImage: section.systemImage)
-                            .fontWeight(section.rawValue == tabNavigation.selectedTab ? .semibold : .regular)
+                            .fontWeight(section.rawValue == tabNavigation.selectedTab ? .bold : .regular)
                             .frame(maxWidth: .infinity, alignment: .leading)
                             .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
                     .listRowBackground(
                         section.rawValue == tabNavigation.selectedTab
-                            ? AppTheme.accent.opacity(0.14)
+                            ? AppTheme.accent.opacity(0.15)
                             : Color.clear
-                    )
-                    .accessibilityAddTraits(
-                        section.rawValue == tabNavigation.selectedTab ? .isSelected : []
                     )
                 }
             }
             .navigationTitle("3105")
-            .navigationSplitViewColumnWidth(min: 210, ideal: 240, max: 300)
+            .navigationSplitViewColumnWidth(min: 220, ideal: 250, max: 320)
         } detail: {
             sectionContent(selectedVisibleSection)
                 .id(selectedVisibleSection.rawValue)
         }
         .navigationSplitViewStyle(.balanced)
+    }
+
+    // MARK: - Collapsible Sidebar Drawer
+    private var sidebarDrawer: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            // Sidebar Header
+            HStack(spacing: 10) {
+                AppLogo(size: 34)
+                VStack(alignment: .leading, spacing: 1) {
+                    Text("3105")
+                        .font(.system(size: 17, weight: .bold, design: .monospaced))
+                    Text("DEVICE MANAGER")
+                        .font(.system(size: 10, weight: .bold, design: .monospaced))
+                        .foregroundStyle(AppTheme.accent)
+                }
+                Spacer()
+                Button {
+                    withAnimation(.easeInOut(duration: 0.2)) {
+                        isSidebarOpen = false
+                    }
+                } label: {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 13, weight: .bold))
+                        .foregroundStyle(.secondary)
+                        .frame(width: 30, height: 30)
+                        .background(Color(uiColor: .tertiarySystemFill), in: Rectangle())
+                }
+            }
+            .padding(.horizontal, 16)
+            .padding(.top, 50)
+            .padding(.bottom, 16)
+            .background(Color(uiColor: .secondarySystemBackground))
+
+            Divider()
+
+            // Appearance / Theme Switcher Section
+            VStack(alignment: .leading, spacing: 8) {
+                Text("GIAO DIỆN / THEME")
+                    .font(.system(size: 11, weight: .bold, design: .monospaced))
+                    .foregroundStyle(.secondary)
+                    .padding(.horizontal, 16)
+                    .padding(.top, 14)
+
+                HStack(spacing: 6) {
+                    ForEach(AppAppearance.allCases) { item in
+                        Button {
+                            withAnimation(.easeInOut(duration: 0.15)) {
+                                appearance = item.rawValue
+                            }
+                        } label: {
+                            HStack(spacing: 4) {
+                                Image(systemName: item.iconName)
+                                    .font(.system(size: 11, weight: .bold))
+                                Text(item.displayName)
+                                    .font(.system(size: 11, weight: .bold))
+                            }
+                            .frame(maxWidth: .infinity, minHeight: 32)
+                            .background(
+                                appearance == item.rawValue
+                                    ? AppTheme.accent
+                                    : Color(uiColor: .tertiarySystemFill)
+                            )
+                            .foregroundStyle(appearance == item.rawValue ? Color.white : Color.primary)
+                            .overlay(
+                                Rectangle()
+                                    .stroke(appearance == item.rawValue ? Color.clear : AppTheme.cardBorder, lineWidth: 1)
+                            )
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                .padding(.horizontal, 16)
+            }
+
+            Divider()
+                .padding(.top, 14)
+
+            // Navigation Items List
+            ScrollView {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("ĐIỀU HƯỚNG / MODULES")
+                        .font(.system(size: 11, weight: .bold, design: .monospaced))
+                        .foregroundStyle(.secondary)
+                        .padding(.horizontal, 16)
+                        .padding(.top, 12)
+                        .padding(.bottom, 4)
+
+                    ForEach(featureVisibility.visibleSections) { section in
+                        Button {
+                            withAnimation(.easeInOut(duration: 0.18)) {
+                                tabNavigation.select(section.rawValue)
+                                isSidebarOpen = false
+                            }
+                        } label: {
+                            HStack(spacing: 12) {
+                                Image(systemName: section.systemImage)
+                                    .font(.system(size: 15, weight: .bold))
+                                    .frame(width: 24)
+                                    .foregroundStyle(
+                                        section.rawValue == tabNavigation.selectedTab
+                                            ? AppTheme.accent
+                                            : Color.secondary
+                                    )
+
+                                Text(language.text(section.titleKey))
+                                    .font(.system(size: 14, weight: section.rawValue == tabNavigation.selectedTab ? .bold : .medium))
+                                    .foregroundStyle(
+                                        section.rawValue == tabNavigation.selectedTab
+                                            ? Color.primary
+                                            : Color.secondary
+                                    )
+
+                                Spacer()
+
+                                if section.rawValue == tabNavigation.selectedTab {
+                                    Rectangle()
+                                        .fill(AppTheme.accent)
+                                        .frame(width: 3, height: 18)
+                                }
+                            }
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 10)
+                            .background(
+                                section.rawValue == tabNavigation.selectedTab
+                                    ? AppTheme.accent.opacity(0.12)
+                                    : Color.clear
+                            )
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                .padding(.bottom, 20)
+            }
+
+            Divider()
+
+            // Footer
+            HStack {
+                Text("\(AppInfo.displayMachineName) • iOS \(AppInfo.osVersion)")
+                    .font(.system(size: 11, weight: .regular, design: .monospaced))
+                    .foregroundStyle(.secondary)
+                Spacer()
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12)
+            .background(Color(uiColor: .secondarySystemBackground))
+        }
+        .frame(width: 290)
+        .frame(maxHeight: .infinity)
+        .background(Color(uiColor: .systemBackground))
+        .overlay(
+            Rectangle()
+                .stroke(AppTheme.cardBorder, lineWidth: 1)
+        )
+        .ignoresSafeArea()
     }
 
     @ViewBuilder
@@ -114,8 +294,13 @@ struct ContentView: View {
                 cleanerEnabled: $cleanerEnabled,
                 wallpapersEnabled: $wallpapersEnabled,
                 wallpapersSupported: wallpapersSupported,
+                onToggleSidebar: {
+                    withAnimation(.easeInOut(duration: 0.22)) {
+                        isSidebarOpen.toggle()
+                    }
+                },
                 onSelectSection: { targetSection in
-                    withAnimation(.spring(response: 0.32, dampingFraction: 0.8)) {
+                    withAnimation(.easeInOut(duration: 0.18)) {
                         tabNavigation.select(targetSection.rawValue)
                     }
                 }
@@ -176,12 +361,12 @@ private struct CompactTabLabel: View {
     var body: some View {
         if let image = UIImage(
             systemName: systemImage,
-            withConfiguration: UIImage.SymbolConfiguration(pointSize: 17, weight: .medium)
+            withConfiguration: UIImage.SymbolConfiguration(pointSize: 15, weight: .semibold)
         )?.withRenderingMode(.alwaysTemplate) {
             Image(uiImage: image)
         } else {
             Image(systemName: systemImage)
-                .font(.system(size: 17, weight: .medium))
+                .font(.system(size: 15, weight: .semibold))
         }
         Text(title)
     }
@@ -200,24 +385,26 @@ private extension AppSection {
 
     var systemImage: String {
         switch self {
-        case .home: return "house.fill"
-        case .files: return "folder.fill"
-        case .patches: return "shippingbox.fill"
+        case .home: return "terminal"
+        case .files: return "folder"
+        case .patches: return "shippingbox"
         case .cleaner: return "sparkles"
-        case .wallpapers: return "photo.on.rectangle.angled"
+        case .wallpapers: return "photo.on.rectangle"
         }
     }
 }
 
-// MARK: - Redesigned Modern Dashboard
+// MARK: - Sharp Industrial Dashboard
 private struct DashboardView: View {
     @Environment(\.appLanguage) private var language
     @EnvironmentObject private var appState: AppState
     @State private var showSettings = false
     @State private var showLogs = false
+    @AppStorage("app.appearance") private var appearance = AppAppearance.system.rawValue
     @Binding var cleanerEnabled: Bool
     @Binding var wallpapersEnabled: Bool
     let wallpapersSupported: Bool
+    let onToggleSidebar: () -> Void
     let onSelectSection: (AppSection) -> Void
 
     private var appVersion: String {
@@ -225,66 +412,66 @@ private struct DashboardView: View {
     }
 
     private let quickActionColumns = [
-        GridItem(.flexible(), spacing: 12),
-        GridItem(.flexible(), spacing: 12)
+        GridItem(.flexible(), spacing: 10),
+        GridItem(.flexible(), spacing: 10)
     ]
 
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(spacing: 20) {
-                    heroDeviceCard
+                VStack(spacing: 14) {
+                    heroInspectorCard
                     quickActionsGrid
+                    appearanceSection
                     featureManagementSection
                     systemHubSection
                 }
                 .padding(.horizontal, AppTheme.pageInset)
                 .padding(.top, 10)
-                .padding(.bottom, 32)
+                .padding(.bottom, 26)
             }
             .background(AppTheme.pageBackground.ignoresSafeArea())
             .navigationBarTitleDisplayMode(.inline)
             .tint(AppTheme.accent)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
-                    HStack(spacing: 8) {
-                        AppLogo(size: 28)
-                        Text("3105")
-                            .font(.system(size: 18, weight: .bold, design: .rounded))
-                        Text("v\(appVersion)")
-                            .font(.system(size: 11, weight: .bold, design: .rounded))
-                            .foregroundStyle(AppTheme.accent)
-                            .padding(.horizontal, 7)
-                            .padding(.vertical, 3)
-                            .background(
-                                Capsule()
-                                    .fill(AppTheme.accent.opacity(0.14))
-                            )
+                    Button(action: onToggleSidebar) {
+                        HStack(spacing: 6) {
+                            Image(systemName: "line.3.horizontal")
+                                .font(.system(size: 15, weight: .bold))
+                                .frame(width: 32, height: 32)
+                                .background(Color(uiColor: .secondarySystemFill))
+                                .overlay(
+                                    Rectangle().stroke(AppTheme.cardBorder, lineWidth: 1)
+                                )
+
+                            Text("3105")
+                                .font(.system(size: 16, weight: .bold, design: .monospaced))
+                                .foregroundStyle(.primary)
+                        }
                     }
                 }
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    HStack(spacing: 8) {
+                    HStack(spacing: 6) {
                         Button { showLogs = true } label: {
-                            ZStack {
-                                Circle()
-                                    .fill(Color(uiColor: .secondarySystemFill))
-                                    .frame(width: 32, height: 32)
-                                Image(systemName: "apple.terminal")
-                                    .font(.system(size: 13, weight: .semibold))
-                                    .foregroundStyle(.primary)
-                            }
+                            Image(systemName: "apple.terminal")
+                                .font(.system(size: 13, weight: .bold))
+                                .frame(width: 32, height: 32)
+                                .background(Color(uiColor: .secondarySystemFill))
+                                .overlay(
+                                    Rectangle().stroke(AppTheme.cardBorder, lineWidth: 1)
+                                )
                         }
                         .accessibilityLabel(language.text("accessibility.open_logs"))
 
                         Button { showSettings = true } label: {
-                            ZStack {
-                                Circle()
-                                    .fill(Color(uiColor: .secondarySystemFill))
-                                    .frame(width: 32, height: 32)
-                                Image(systemName: "gearshape.fill")
-                                    .font(.system(size: 13, weight: .semibold))
-                                    .foregroundStyle(.primary)
-                            }
+                            Image(systemName: "gearshape.fill")
+                                .font(.system(size: 13, weight: .bold))
+                                .frame(width: 32, height: 32)
+                                .background(Color(uiColor: .secondarySystemFill))
+                                .overlay(
+                                    Rectangle().stroke(AppTheme.cardBorder, lineWidth: 1)
+                                )
                         }
                         .accessibilityLabel(language.text("accessibility.open_settings"))
                     }
@@ -295,28 +482,29 @@ private struct DashboardView: View {
         }
     }
 
-    // MARK: - Hero Device Card
-    private var heroDeviceCard: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            HStack(alignment: .top, spacing: 14) {
+    // MARK: - Sharp Hero Inspector Card
+    private var heroInspectorCard: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(alignment: .center, spacing: 10) {
                 ZStack {
-                    RoundedRectangle(cornerRadius: 14, style: .continuous)
-                        .fill(AppTheme.accentGradient)
-                        .shadow(color: AppTheme.accent.opacity(0.3), radius: 8, x: 0, y: 3)
-
-                    Image(systemName: UIDevice.current.userInterfaceIdiom == .pad ? "ipad.gen2" : "iphone.gen3")
-                        .font(.system(size: 24, weight: .semibold))
-                        .foregroundStyle(.white)
-                }
-                .frame(width: 48, height: 48)
-
-                VStack(alignment: .leading, spacing: 3) {
-                    Text(AppInfo.hardwareDisplayName)
+                    Rectangle()
+                        .fill(AppTheme.accent.opacity(0.15))
+                        .overlay(
+                            Rectangle().stroke(AppTheme.accent.opacity(0.4), lineWidth: 1)
+                        )
+                    Image(systemName: "cpu")
                         .font(.system(size: 18, weight: .bold))
+                        .foregroundStyle(AppTheme.accent)
+                }
+                .frame(width: 36, height: 36)
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(AppInfo.hardwareDisplayName.uppercased())
+                        .font(.system(size: 15, weight: .bold, design: .monospaced))
                         .foregroundStyle(.primary)
 
                     Text("\(AppInfo.displayMachineName) • iOS \(AppInfo.osVersion) (\(AppInfo.osBuild))")
-                        .font(.system(size: 13, weight: .regular, design: .monospaced))
+                        .font(.system(size: 12, weight: .regular, design: .monospaced))
                         .foregroundStyle(.secondary)
                 }
 
@@ -324,25 +512,23 @@ private struct DashboardView: View {
             }
 
             Divider()
-                .opacity(0.6)
 
-            HStack(spacing: 8) {
-                // Compatibility Status
+            // Status Badges Row
+            HStack(spacing: 6) {
                 if appState.isSupported {
                     AppStatusBadge(
                         title: language.text("settings.supported"),
-                        systemImage: "checkmark.circle.fill",
+                        systemImage: "checkmark",
                         type: .success
                     )
                 } else {
                     AppStatusBadge(
                         title: language.text("settings.unsupported"),
-                        systemImage: "exclamationmark.triangle.fill",
+                        systemImage: "xmark",
                         type: .error
                     )
                 }
 
-                // Kernel Exploit Status (if applicable)
                 if appState.kernelExploitApplicable && AppInfo.versionTuple.major < 26 {
                     if appState.kernelExploitRunning {
                         AppStatusBadge(
@@ -358,27 +544,23 @@ private struct DashboardView: View {
                     } else {
                         AppStatusBadge(
                             title: language.text("dashboard.kernel_inactive"),
-                            systemImage: "bolt.slash.fill",
+                            systemImage: "bolt.slash",
                             type: .neutral
                         )
                     }
                 }
 
                 Spacer()
-            }
 
-            // Enterprise signing footnote
-            HStack(spacing: 6) {
-                Image(systemName: "checkmark.seal.fill")
-                    .font(.system(size: 11, weight: .medium))
-                    .foregroundStyle(AppTheme.accent)
-                Text(language.text("dashboard.enterprise_badge"))
-                    .font(.system(size: 11, weight: .medium))
+                Text("ENTERPRISE")
+                    .font(.system(size: 10, weight: .bold, design: .monospaced))
                     .foregroundStyle(.secondary)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 3)
+                    .background(Color(uiColor: .tertiarySystemFill))
             }
-            .padding(.top, 2)
         }
-        .padding(16)
+        .padding(12)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
             RoundedRectangle(cornerRadius: AppTheme.cardCornerRadius, style: .continuous)
@@ -387,56 +569,50 @@ private struct DashboardView: View {
                     RoundedRectangle(cornerRadius: AppTheme.cardCornerRadius, style: .continuous)
                         .stroke(AppTheme.cardBorder, lineWidth: 1)
                 )
-                .shadow(color: Color.black.opacity(0.04), radius: 10, x: 0, y: 3)
         )
     }
 
     // MARK: - Quick Actions Grid
     private var quickActionsGrid: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text(language.text("dashboard.quick_actions"))
-                .font(.system(size: 15, weight: .semibold))
+        VStack(alignment: .leading, spacing: 8) {
+            Text("THAO TÁC / QUICK ACTIONS")
+                .font(.system(size: 11, weight: .bold, design: .monospaced))
                 .foregroundStyle(.secondary)
-                .padding(.horizontal, 4)
 
-            LazyVGrid(columns: quickActionColumns, spacing: 12) {
-                // App Data Browser
+            LazyVGrid(columns: quickActionColumns, spacing: 8) {
                 AppQuickActionCard(
                     title: language.text("tab.files"),
                     subtitle: language.text("dashboard.quick_files_desc"),
-                    systemImage: "folder.fill",
-                    gradient: AppTheme.filesGradient,
+                    systemImage: "folder",
+                    tint: AppTheme.filesTint,
                     action: { onSelectSection(.files) }
                 )
 
-                // Patch Workspace
                 AppQuickActionCard(
                     title: language.text("tab.patches"),
                     subtitle: language.text("dashboard.quick_patches_desc"),
-                    systemImage: "shippingbox.fill",
-                    gradient: AppTheme.patchesGradient,
+                    systemImage: "shippingbox",
+                    tint: AppTheme.patchesTint,
                     action: { onSelectSection(.patches) }
                 )
 
-                // Limited Cleaner
                 AppQuickActionCard(
                     title: language.text("tab.cleaner"),
                     subtitle: language.text("dashboard.quick_cleaner_desc"),
                     systemImage: "sparkles",
-                    gradient: AppTheme.cleanerGradient,
+                    tint: AppTheme.cleanerTint,
                     action: {
                         if !cleanerEnabled { cleanerEnabled = true }
                         onSelectSection(.cleaner)
                     }
                 )
 
-                // Wallpaper Lab
                 if wallpapersSupported {
                     AppQuickActionCard(
                         title: language.text("tab.wallpapers"),
                         subtitle: language.text("dashboard.quick_wallpapers_desc"),
-                        systemImage: "photo.on.rectangle.angled",
-                        gradient: AppTheme.wallpapersGradient,
+                        systemImage: "photo.on.rectangle",
+                        tint: AppTheme.wallpapersTint,
                         action: {
                             if !wallpapersEnabled { wallpapersEnabled = true }
                             onSelectSection(.wallpapers)
@@ -447,23 +623,57 @@ private struct DashboardView: View {
         }
     }
 
+    // MARK: - Appearance Selector Section
+    private var appearanceSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("CHẾ ĐỘ HIỂN THỊ / THEME")
+                .font(.system(size: 11, weight: .bold, design: .monospaced))
+                .foregroundStyle(.secondary)
+
+            HStack(spacing: 6) {
+                ForEach(AppAppearance.allCases) { item in
+                    Button {
+                        withAnimation(.easeInOut(duration: 0.15)) {
+                            appearance = item.rawValue
+                        }
+                    } label: {
+                        HStack(spacing: 6) {
+                            Image(systemName: item.iconName)
+                                .font(.system(size: 12, weight: .bold))
+                            Text(item.displayName)
+                                .font(.system(size: 12, weight: .bold))
+                        }
+                        .frame(maxWidth: .infinity, minHeight: 34)
+                        .background(
+                            appearance == item.rawValue
+                                ? AppTheme.accent
+                                : AppTheme.cardBackground
+                        )
+                        .foregroundStyle(appearance == item.rawValue ? Color.white : Color.primary)
+                        .overlay(
+                            Rectangle()
+                                .stroke(appearance == item.rawValue ? Color.clear : AppTheme.cardBorder, lineWidth: 1)
+                        )
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+        }
+    }
+
     // MARK: - Feature Management Section
     private var featureManagementSection: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack {
-                Text(language.text("dashboard.features"))
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundStyle(.secondary)
-                Spacer()
-            }
-            .padding(.horizontal, 4)
+        VStack(alignment: .leading, spacing: 8) {
+            Text("TÍNH NĂNG / MODULES")
+                .font(.system(size: 11, weight: .bold, design: .monospaced))
+                .foregroundStyle(.secondary)
 
-            VStack(spacing: 8) {
+            VStack(spacing: 6) {
                 AppFeatureToggleCard(
                     title: language.text("tab.cleaner"),
                     subtitle: language.text("dashboard.quick_cleaner_desc"),
                     systemImage: "sparkles",
-                    gradient: AppTheme.cleanerGradient,
+                    tint: AppTheme.cleanerTint,
                     isOn: $cleanerEnabled
                 )
 
@@ -471,110 +681,89 @@ private struct DashboardView: View {
                     AppFeatureToggleCard(
                         title: language.text("tab.wallpapers"),
                         subtitle: language.text("dashboard.quick_wallpapers_desc"),
-                        systemImage: "photo.on.rectangle.angled",
-                        gradient: AppTheme.wallpapersGradient,
+                        systemImage: "photo.on.rectangle",
+                        tint: AppTheme.wallpapersTint,
                         isOn: $wallpapersEnabled
                     )
                 }
             }
-
-            Text(language.text("dashboard.features_footer"))
-                .font(.system(size: 12))
-                .foregroundStyle(.secondary)
-                .padding(.horizontal, 6)
-                .padding(.top, 2)
         }
     }
 
-    // MARK: - System Overview & Hub
+    // MARK: - System Hub Section
     private var systemHubSection: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text(language.text("dashboard.system_overview"))
-                .font(.system(size: 15, weight: .semibold))
+        VStack(alignment: .leading, spacing: 8) {
+            Text("HỆ THỐNG / LOGS & SETTINGS")
+                .font(.system(size: 11, weight: .bold, design: .monospaced))
                 .foregroundStyle(.secondary)
-                .padding(.horizontal, 4)
 
-            VStack(spacing: 8) {
-                // Logs row
+            VStack(spacing: 6) {
                 Button {
                     showLogs = true
                 } label: {
-                    HStack(spacing: 14) {
-                        ZStack {
-                            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                                .fill(Color.secondary.opacity(0.14))
-                            Image(systemName: "apple.terminal")
-                                .font(.system(size: 15, weight: .semibold))
-                                .foregroundStyle(.primary)
-                        }
-                        .frame(width: 36, height: 36)
+                    HStack(spacing: 10) {
+                        Image(systemName: "apple.terminal")
+                            .font(.system(size: 14, weight: .bold))
+                            .foregroundStyle(.primary)
 
-                        VStack(alignment: .leading, spacing: 2) {
+                        VStack(alignment: .leading, spacing: 1) {
                             Text(language.text("log.title"))
-                                .font(.system(size: 15, weight: .medium))
+                                .font(.system(size: 13, weight: .bold))
                                 .foregroundStyle(.primary)
-
                             Text(language.text("dashboard.system_logs_desc"))
-                                .font(.system(size: 12))
+                                .font(.system(size: 11))
                                 .foregroundStyle(.secondary)
                         }
 
                         Spacer()
 
                         Image(systemName: "chevron.right")
-                            .font(.system(size: 12, weight: .semibold))
+                            .font(.system(size: 10, weight: .bold))
                             .foregroundStyle(.tertiary)
                     }
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 12)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 10)
                     .background(
-                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        RoundedRectangle(cornerRadius: AppTheme.cardCornerRadius, style: .continuous)
                             .fill(AppTheme.cardBackground)
                             .overlay(
-                                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                RoundedRectangle(cornerRadius: AppTheme.cardCornerRadius, style: .continuous)
                                     .stroke(AppTheme.cardBorder, lineWidth: 1)
                             )
                     )
                 }
                 .buttonStyle(AppScaleButtonStyle())
 
-                // Settings row
                 Button {
                     showSettings = true
                 } label: {
-                    HStack(spacing: 14) {
-                        ZStack {
-                            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                                .fill(Color.secondary.opacity(0.14))
-                            Image(systemName: "gearshape.fill")
-                                .font(.system(size: 15, weight: .semibold))
-                                .foregroundStyle(.primary)
-                        }
-                        .frame(width: 36, height: 36)
+                    HStack(spacing: 10) {
+                        Image(systemName: "gearshape.fill")
+                            .font(.system(size: 14, weight: .bold))
+                            .foregroundStyle(.primary)
 
-                        VStack(alignment: .leading, spacing: 2) {
+                        VStack(alignment: .leading, spacing: 1) {
                             Text(language.text("settings.title"))
-                                .font(.system(size: 15, weight: .medium))
+                                .font(.system(size: 13, weight: .bold))
                                 .foregroundStyle(.primary)
-
                             Text(language.text("dashboard.system_settings_desc"))
-                                .font(.system(size: 12))
+                                .font(.system(size: 11))
                                 .foregroundStyle(.secondary)
                         }
 
                         Spacer()
 
                         Image(systemName: "chevron.right")
-                            .font(.system(size: 12, weight: .semibold))
+                            .font(.system(size: 10, weight: .bold))
                             .foregroundStyle(.tertiary)
                     }
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 12)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 10)
                     .background(
-                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        RoundedRectangle(cornerRadius: AppTheme.cardCornerRadius, style: .continuous)
                             .fill(AppTheme.cardBackground)
                             .overlay(
-                                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                RoundedRectangle(cornerRadius: AppTheme.cardCornerRadius, style: .continuous)
                                     .stroke(AppTheme.cardBorder, lineWidth: 1)
                             )
                     )
