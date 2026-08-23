@@ -14,27 +14,24 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Select Xcode Version
-        run: sudo xcode-select -switch /Applications/Xcode_15.4.app || sudo xcode-select -switch /Applications/Xcode_16.0.app || sudo xcode-select -switch /Applications/Xcode.app
-
-      - name: Build Archive (Unsigned)
+      - name: Build Application (.app)
         run: |
           set -o pipefail
           xcodebuild -project ThreeOneOSFive.xcodeproj \
-            -scheme 3105 \
+            -target 3105 \
             -configuration Release \
-            -destination 'generic/platform=iOS' \
-            -archivePath build/3105.xcarchive \
-            archive \
+            -sdk iphoneos \
+            build \
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGN_IDENTITY="" \
-            AD_HOC_CODE_SIGNING_ALLOWED=YES
+            AD_HOC_CODE_SIGNING_ALLOWED=YES \
+            CONFIGURATION_BUILD_DIR="${PWD}/build/Release-iphoneos"
 
       - name: Package IPA
         run: |
           mkdir -p build/Payload
-          cp -r "build/3105.xcarchive/Products/Applications/3105.app" build/Payload/
+          cp -r "build/Release-iphoneos/3105.app" build/Payload/
           cd build
           zip -r 3105.ipa Payload
 
