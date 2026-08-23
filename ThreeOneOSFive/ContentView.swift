@@ -323,9 +323,6 @@ private struct DashboardView: View {
                     // Welcome to APIMeoMeo Card
                     welcomeCard
 
-                    // Language Switcher Card
-                    languageSwitcherCard
-
                     // Direct Jump to Function (Free Fire Hub)
                     functionBannerCard
 
@@ -416,7 +413,7 @@ private struct DashboardView: View {
                 HStack(spacing: 4) {
                     Image(systemName: "applelogo")
                         .font(.system(size: 11))
-                    Text("HỖ TRỢ iOS 15.0 - 18.x")
+                    Text("HỖ TRỢ iOS 15 - 27")
                         .font(.system(size: 10, weight: .bold, design: .monospaced))
                 }
                 .padding(.horizontal, 8)

@@ -4,7 +4,7 @@ struct SettingsView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.appLanguage) private var language
     @EnvironmentObject private var appState: AppState
-    @AppStorage(AppLanguage.storageKey) private var languageCode = AppLanguage.english.rawValue
+    @AppStorage(AppLanguage.storageKey) private var languageCode = AppLanguage.vietnamese.rawValue
     @AppStorage("app.appearance") private var appearance = AppAppearance.system.rawValue
 
     var body: some View {
@@ -12,11 +12,13 @@ struct SettingsView: View {
             Form {
                 Section {
                     HStack(spacing: 14) {
-                        AppLogo()
+                        AppLogo(size: 38)
 
                         VStack(alignment: .leading, spacing: 3) {
-                            Text("3105").font(.headline)
-                            Text(language.text("common.version", appVersion))
+                            Text("MeoMeoPath")
+                                .font(.headline)
+                                .fontWeight(.bold)
+                            Text("Phiên bản \(appVersion) • APIMeoMeo")
                                 .font(.subheadline)
                                 .foregroundStyle(.secondary)
                         }
@@ -34,8 +36,8 @@ struct SettingsView: View {
                     .labelsHidden()
                 }
 
-                Section(language.text("settings.language")) {
-                    Picker(language.text("settings.language"), selection: $languageCode) {
+                Section("Ngôn ngữ / Language") {
+                    Picker("Ngôn ngữ", selection: $languageCode) {
                         ForEach(AppLanguage.allCases) { option in
                             Text(option.displayName).tag(option.rawValue)
                         }
@@ -44,84 +46,27 @@ struct SettingsView: View {
                     .labelsHidden()
                 }
 
-                Section(language.text("common.device")) {
-                    LabeledContent(language.text("dashboard.hardware_model"), value: AppInfo.displayMachineName)
-                    LabeledContent(language.text("settings.ios_version"), value: "\(AppInfo.osVersion) (\(AppInfo.osBuild))")
+                Section("Thông tin thiết bị") {
+                    LabeledContent("Mẫu thiết bị", value: AppInfo.displayMachineName)
+                    LabeledContent("Phiên bản iOS", value: "\(AppInfo.osVersion) (\(AppInfo.osBuild))")
                 }
 
-                Section {
+                Section("Hỗ trợ hệ điều hành") {
                     HStack {
-                        Text(language.text("settings.current_version"))
+                        Text("Trạng thái thiết bị")
                         Spacer()
-                        Text(language.text(appState.isSupported ? "settings.supported" : "settings.unsupported"))
-                        .foregroundStyle(appState.isSupported ? Color.green : Color.red)
+                        Text("Hỗ trợ iOS 15 - 27")
+                            .foregroundStyle(Color.green)
+                            .fontWeight(.semibold)
                     }
-                    LabeledContent("iOS 17", value: ExploitSupportPolicy.verifiedIOS17Range)
-                    LabeledContent("iOS 18", value: ExploitSupportPolicy.verifiedIOS18Range)
-                    LabeledContent("iOS 26", value: ExploitSupportPolicy.verifiedIOS26Range)
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("iOS 27.0")
-                            .font(.body)
-                        ForEach(ExploitSupportPolicy.verifiedIOS27Builds, id: \.build) { version in
-                            Text(versionLabel(version))
-                            .font(.caption.monospaced())
-                            .foregroundStyle(.secondary)
-                        }
-                    }
-                    .padding(.vertical, 2)
-                } header: {
-                    Text(language.text("settings.verified_versions"))
-                } footer: {
-                    Text(language.text("settings.supported_versions_footer"))
-                }
-
-                Section(language.text("settings.social_media")) {
-                    creditsRow(
-                        name: "GitHub",
-                        role: language.text("social.github_role"),
-                        url: "https://github.com/YangJiiii/3105"
-                    )
-                    creditsRow(
-                        name: "Cộng Đồng IOSVN",
-                        role: language.text("social.iosvn_role"),
-                        url: "https://t.me/ioscrackvn"
-                    )
-                }
-
-                Section(language.text("settings.credits")) {
-                    creditsRow(
-                        name: "YangJiii",
-                        role: language.text("credit.yangjiii"),
-                        url: "https://x.com/duongduong0908"
-                    )
-                    creditsRow(
-                        name: "0xjohnnydev",
-                        role: language.text("credit.filzaslop"),
-                        url: "https://github.com/0xjohnnydev/FilzaSlop"
-                    )
-                    creditsRow(
-                        name: "LeminLimez",
-                        role: language.text("credit.pocket_poster"),
-                        url: "https://github.com/leminlimez/Pocket-Poster"
-                    )
-                    creditsRow(
-                        name: "CrazyMind90",
-                        role: language.text("credit.sandbox_escape"),
-                        url: "https://github.com/CrazyMind90"
-                    )
-                    creditsRow(
-                        name: "forcequitOS",
-                        role: language.text("credit.forcequit"),
-                        url: "https://github.com/forcequitOS"
-                    )
                 }
             }
             .tint(AppTheme.accent)
-            .navigationTitle(language.text("settings.title"))
+            .navigationTitle("Cài Đặt")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    Button(language.text("common.done")) { dismiss() }
+                    Button("Xong") { dismiss() }
                         .fontWeight(.semibold)
                 }
             }
@@ -131,49 +76,6 @@ struct SettingsView: View {
     private var appVersion: String {
         Bundle.main.object(forInfoDictionaryKey: "AppReleaseDisplayVersion") as? String
             ?? Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String
-            ?? "1.0"
-    }
-
-    private func versionLabel(
-        _ version: (beta: Int, publicBeta: Int?, build: String)
-    ) -> String {
-        if let publicBeta = version.publicBeta {
-            return language.text(
-                "settings.developer_public_beta_build",
-                Int64(version.beta),
-                Int64(publicBeta),
-                version.build
-            )
-        }
-        return language.text(
-            "settings.developer_beta_build",
-            Int64(version.beta),
-            version.build
-        )
-    }
-
-    @ViewBuilder
-    private func creditsRow(name: String, role: String, url: String) -> some View {
-        if let destination = URL(string: url) {
-            Link(destination: destination) {
-                HStack(spacing: 12) {
-                    VStack(alignment: .leading, spacing: 3) {
-                        Text(name)
-                            .font(.headline)
-                            .foregroundStyle(.primary)
-                        Text(role)
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                    Spacer()
-                    Image(systemName: "arrow.up.right")
-                        .font(.system(size: 14, weight: .medium))
-                        .foregroundStyle(AppTheme.accent)
-                        .frame(width: 28, height: 28)
-                }
-                .contentShape(Rectangle())
-            }
-            .accessibilityLabel(language.text("accessibility.open_profile", name))
-        }
+            ?? "2.0.0"
     }
 }

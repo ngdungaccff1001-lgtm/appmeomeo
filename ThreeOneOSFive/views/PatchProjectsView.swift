@@ -42,7 +42,7 @@ private struct BackupManifest: Codable {
     let entries: [BackupManifestEntry]
 }
 
-// MARK: - Free Fire Patch Engine (Strict Separation & Reliable Restoration)
+// MARK: - Free Fire Patch Engine (5s Auto-Check API & Clean When Offline)
 
 @MainActor
 final class FreeFirePatchEngine: ObservableObject {
@@ -60,51 +60,64 @@ final class FreeFirePatchEngine: ObservableObject {
     @Published var isOfflineMode = false
     @Published var currentBundleID: String = ""
 
-    private func storageKey(for bundleID: String) -> String {
-        "meomeopath.admin.patches.\(bundleID)"
+    private var pollingTask: Task<Void, Never>?
+
+    init() {
+        start5sHealthCheck()
     }
 
-    func loadCachedPatches(bundleID: String) {
-        currentBundleID = bundleID
-        let key = storageKey(for: bundleID)
-        if let savedData = UserDefaults.standard.data(forKey: key),
-           let savedList = try? JSONDecoder().decode([FFPatchItem].self, from: savedData) {
-            self.patches = savedList
-        } else {
-            // ONLY Admin-added items! No fake/dummy presets.
-            self.patches = []
+    deinit {
+        pollingTask?.cancel()
+    }
+
+    // MARK: - 5s Realtime Polling Loop
+    func start5sHealthCheck() {
+        pollingTask?.cancel()
+        pollingTask = Task { [weak self] in
+            while !Task.isCancelled {
+                try? await Task.sleep(nanoseconds: 5_000_000_000) // 5 giây
+                await self?.performPeriodicCheck()
+            }
         }
     }
 
-    func saveState(for bundleID: String) {
-        let key = storageKey(for: bundleID)
-        if let data = try? JSONEncoder().encode(patches) {
-            UserDefaults.standard.set(data, forKey: key)
-        }
+    private func performPeriodicCheck() {
+        guard !currentBundleID.isEmpty else { return }
+        let serverUrl = UserDefaults.standard.string(forKey: "admin_api_server_url") ?? Self.defaultApiServerUrl
+        fetchPatchesFromAdmin(serverUrl: serverUrl, bundleID: currentBundleID, silent: true)
     }
 
-    func fetchPatchesFromAdmin(serverUrl: String, bundleID: String) {
+    func fetchPatchesFromAdmin(serverUrl: String, bundleID: String, silent: Bool = false) {
         currentBundleID = bundleID
-        isFetching = true
-        statusMessage = "Đang tải danh sách từ Admin API..."
+        if !silent {
+            isFetching = true
+            statusMessage = "Đang kiểm tra kết nối API..."
+        }
 
         let cleanUrl = serverUrl.trimmingCharacters(in: .whitespacesAndNewlines)
         guard let url = URL(string: "\(cleanUrl)/api/patches?bundle=\(bundleID)&active=true") else {
             isFetching = false
             isOfflineMode = true
-            statusMessage = "Đang dùng danh sách đã lưu an toàn."
+            patches = [] // Clean khi server URL không hợp lệ
+            statusMessage = "URL Server không hợp lệ. Đã ẩn chức năng để tránh lỗi!"
             return
         }
 
+        var request = URLRequest(url: url)
+        request.timeoutInterval = 3.5 // Timeout nhanh 3.5s
+
         Task {
             do {
-                let (data, _) = try await URLSession.shared.data(from: url)
-                guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                let (data, response) = try await URLSession.shared.data(for: request)
+                guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200,
+                      let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
                       let success = json["success"] as? Bool, success,
                       let rawList = json["patches"] as? [[String: Any]] else {
+                    // Phản hồi không hợp lệ -> Coi như server lỗi -> Clean chức năng
                     self.isFetching = false
-                    self.isOfflineMode = false
-                    self.statusMessage = "Chưa có file patch nào từ Admin."
+                    self.isOfflineMode = true
+                    self.patches = []
+                    self.statusMessage = "Máy chủ phản hồi lỗi. Đã tạm ẩn chức năng để an toàn!"
                     return
                 }
 
@@ -117,7 +130,6 @@ final class FreeFirePatchEngine: ObservableObject {
                     let pwd = item["password"] as? String
                     let targetPath = item["target_relative_path"] as? String
 
-                    // Preserve existing state if enabled
                     let wasEnabled = self.patches.first(where: { $0.id == id })?.isEnabled ?? false
 
                     fetched.append(FFPatchItem(
@@ -134,12 +146,13 @@ final class FreeFirePatchEngine: ObservableObject {
                 self.isFetching = false
                 self.isOfflineMode = false
                 self.patches = fetched
-                self.saveState(for: bundleID)
-                self.statusMessage = "Đã đồng bộ \(fetched.count) chức năng từ Admin!"
+                self.statusMessage = "API Online • \(fetched.count) chức năng sẵn sàng!"
             } catch {
+                // Server sập / timeout -> Clean toàn bộ chức năng tránh bug
                 self.isFetching = false
                 self.isOfflineMode = true
-                self.statusMessage = "Admin API tạm ngắt kết nối. Đang dùng dữ liệu ngoại tuyến!"
+                self.patches = []
+                self.statusMessage = "Máy chủ API Offline. Đã tự động dọn dẹp để bảo vệ game!"
             }
         }
     }
@@ -147,7 +160,6 @@ final class FreeFirePatchEngine: ObservableObject {
     func togglePatch(id: String, bundleID: String, serverUrl: String) {
         guard let index = patches.firstIndex(where: { $0.id == id }) else { return }
         patches[index].isEnabled.toggle()
-        saveState(for: bundleID)
 
         let patch = patches[index]
         applyPatchOperation(patch: patch, bundleID: bundleID, serverUrl: serverUrl, isEnabling: patch.isEnabled)
@@ -160,7 +172,6 @@ final class FreeFirePatchEngine: ObservableObject {
                 applyPatchOperation(patch: patches[i], bundleID: bundleID, serverUrl: serverUrl, isEnabling: true)
             }
         }
-        saveState(for: bundleID)
         statusMessage = "Đã tự động kích hoạt toàn bộ mục \(category.rawValue)!"
     }
 
@@ -171,7 +182,6 @@ final class FreeFirePatchEngine: ObservableObject {
         Task.detached(priority: .userInitiated) {
             let fileManager = FileManager.default
 
-            // 1. Resolve Game Container Path
             guard let containerPath = ContainerStore.resolveAppContainerPath(bundleID: bundleID) else {
                 await MainActor.run {
                     self.isApplying = false
@@ -182,7 +192,6 @@ final class FreeFirePatchEngine: ObservableObject {
 
             let containerURL = URL(fileURLWithPath: containerPath, isDirectory: true)
 
-            // 2. Persistent Backup Directory & Package Cache
             guard let cacheBase = try? fileManager.url(for: .cachesDirectory, in: .userDomainMask, appropriateFor: nil, create: true) else {
                 await MainActor.run {
                     self.isApplying = false
@@ -215,7 +224,6 @@ final class FreeFirePatchEngine: ObservableObject {
 
                     var entriesToRecord: [BackupManifestEntry] = []
 
-                    // Giải mã gói .3105
                     if let data = packageData,
                        let decoded = try? PatchPackageCodec.decode(data, password: patch.password) {
                         for (idx, rule) in decoded.project.rules.enumerated() {
@@ -243,7 +251,6 @@ final class FreeFirePatchEngine: ObservableObject {
                             try rule.replacementData.write(to: targetURL, options: [.atomic, .completeFileProtection])
                         }
                     } else {
-                        // Fallback dán dữ liệu vào shaders / cache_res
                         let relPath = patch.targetRelativePath ?? Self.defaultShadersPath
                         let targetURL = containerURL.appendingPathComponent(relPath)
                         let parentDir = targetURL.deletingLastPathComponent()
@@ -270,7 +277,6 @@ final class FreeFirePatchEngine: ObservableObject {
                         try dataToWrite.write(to: targetURL, options: [.atomic, .completeFileProtection])
                     }
 
-                    // Lưu manifest
                     let manifest = BackupManifest(patchID: patch.id, bundleID: bundleID, entries: entriesToRecord)
                     if let manifestData = try? JSONEncoder().encode(manifest) {
                         try manifestData.write(to: manifestURL, options: .atomic)
@@ -330,7 +336,7 @@ final class FreeFirePatchEngine: ObservableObject {
     }
 }
 
-// MARK: - Free Fire Detail View (Only Admin Patches)
+// MARK: - Free Fire Detail View (5s Check & Clean Offline)
 
 struct FreeFireDetailView: View {
     @Environment(\.dismiss) private var dismiss
@@ -363,21 +369,16 @@ struct FreeFireDetailView: View {
                 .ignoresSafeArea()
 
             VStack(spacing: 0) {
-                // Header Bar
                 topNavBar
 
                 ScrollView {
                     VStack(spacing: 14) {
-                        // Game Hero Banner
                         gameHeroBanner
 
-                        // Category Filter Tabs
                         categoryTabs
 
-                        // Menu Patch Card
                         menuPatchCard
 
-                        // Status Feedback Card
                         if let status = engine.statusMessage {
                             statusCard(status)
                         }
@@ -390,7 +391,6 @@ struct FreeFireDetailView: View {
         }
         .navigationBarBackButtonHidden(true)
         .onAppear {
-            engine.loadCachedPatches(bundleID: bundleID)
             engine.fetchPatchesFromAdmin(serverUrl: adminServerUrl, bundleID: bundleID)
         }
     }
@@ -418,39 +418,55 @@ struct FreeFireDetailView: View {
 
             Spacer()
 
-            Button {
-                engine.fetchPatchesFromAdmin(serverUrl: adminServerUrl, bundleID: bundleID)
-            } label: {
-                if engine.isFetching {
-                    ProgressView()
-                } else {
-                    Image(systemName: "arrow.triangle.2.circlepath")
-                        .font(.system(size: 15, weight: .bold))
-                        .foregroundStyle(AppTheme.accent)
-                }
+            // 5s Indicator Icon
+            HStack(spacing: 4) {
+                Circle()
+                    .fill(engine.isOfflineMode ? Color.red : Color.green)
+                    .frame(width: 7, height: 7)
+                Text(engine.isOfflineMode ? "OFF" : "LIVE")
+                    .font(.system(size: 9, weight: .black, design: .monospaced))
+                    .foregroundStyle(engine.isOfflineMode ? Color.red : Color.green)
             }
+            .padding(.horizontal, 6)
+            .padding(.vertical, 3)
+            .background(Color(uiColor: .tertiarySystemFill))
+            .clipShape(Capsule())
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 10)
         .background(Color(uiColor: .secondarySystemBackground))
     }
 
-    // MARK: - Game Hero Banner
+    // MARK: - Game Hero Banner With Rich Icon
     private var gameHeroBanner: some View {
         HStack(spacing: 14) {
             ZStack {
-                RoundedRectangle(cornerRadius: 8)
-                    .fill(isFFM ? Color.red.opacity(0.18) : Color.orange.opacity(0.18))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 8)
-                            .stroke(isFFM ? Color.red.opacity(0.4) : Color.orange.opacity(0.4), lineWidth: 1)
+                RoundedRectangle(cornerRadius: 10)
+                    .fill(
+                        LinearGradient(
+                            colors: isFFM
+                                ? [Color(red: 0.95, green: 0.15, blue: 0.25), Color(red: 0.55, green: 0.05, blue: 0.12)]
+                                : [Color(red: 1.00, green: 0.50, blue: 0.10), Color(red: 0.80, green: 0.20, blue: 0.05)],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
                     )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 10)
+                            .stroke(Color.white.opacity(0.3), lineWidth: 1.5)
+                    )
+                    .shadow(color: (isFFM ? Color.red : Color.orange).opacity(0.35), radius: 8, x: 0, y: 3)
 
-                Image(systemName: isFFM ? "bolt.fill" : "flame.fill")
-                    .font(.system(size: 26, weight: .black))
-                    .foregroundStyle(isFFM ? Color.red : Color.orange)
+                VStack(spacing: 1) {
+                    Image(systemName: isFFM ? "bolt.fill" : "flame.fill")
+                        .font(.system(size: 26, weight: .black))
+                        .foregroundStyle(.white)
+                    Text(isFFM ? "MAX" : "FFT")
+                        .font(.system(size: 8, weight: .black, design: .monospaced))
+                        .foregroundStyle(.white.opacity(0.9))
+                }
             }
-            .frame(width: 52, height: 52)
+            .frame(width: 54, height: 54)
 
             VStack(alignment: .leading, spacing: 2) {
                 HStack(spacing: 6) {
@@ -516,7 +532,7 @@ struct FreeFireDetailView: View {
         }
     }
 
-    // MARK: - Menu Patch Card (Only Admin-Added Items)
+    // MARK: - Menu Patch Card (Auto-clean when Offline)
     private var menuPatchCard: some View {
         VStack(spacing: 0) {
             HStack {
@@ -526,25 +542,43 @@ struct FreeFireDetailView: View {
 
                 Spacer()
 
-                Button {
-                    engine.autoApplyAll(category: selectedCategory, bundleID: bundleID, serverUrl: adminServerUrl)
-                } label: {
-                    Text("BẬT TẤT CẢ")
-                        .font(.system(size: 10, weight: .bold, design: .monospaced))
-                        .foregroundStyle(AppTheme.accent)
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 3)
-                        .background(AppTheme.accent.opacity(0.12))
-                        .clipShape(RoundedRectangle(cornerRadius: 4))
+                if !filteredPatches.isEmpty {
+                    Button {
+                        engine.autoApplyAll(category: selectedCategory, bundleID: bundleID, serverUrl: adminServerUrl)
+                    } label: {
+                        Text("BẬT TẤT CẢ")
+                            .font(.system(size: 10, weight: .bold, design: .monospaced))
+                            .foregroundStyle(AppTheme.accent)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 3)
+                            .background(AppTheme.accent.opacity(0.12))
+                            .clipShape(RoundedRectangle(cornerRadius: 4))
+                    }
                 }
-                .disabled(filteredPatches.isEmpty)
             }
             .padding(.horizontal, 14)
             .padding(.vertical, 10)
 
             Divider()
 
-            if filteredPatches.isEmpty {
+            if engine.isOfflineMode {
+                VStack(spacing: 8) {
+                    Image(systemName: "wifi.slash")
+                        .font(.system(size: 28))
+                        .foregroundStyle(.red)
+
+                    Text("MÁY CHỦ API OFFLINE")
+                        .font(.system(size: 13, weight: .bold, design: .monospaced))
+                        .foregroundStyle(.red)
+
+                    Text("Đã tự động ẩn chức năng để tránh lỗi game.\nKhi server online trở lại, chức năng sẽ tự động hiện lên.")
+                        .font(.system(size: 11))
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
+                }
+                .padding(.vertical, 28)
+                .frame(maxWidth: .infinity)
+            } else if filteredPatches.isEmpty {
                 VStack(spacing: 8) {
                     Image(systemName: "tray")
                         .font(.system(size: 26))
@@ -615,7 +649,7 @@ struct FreeFireDetailView: View {
     private func statusCard(_ status: String) -> some View {
         HStack(spacing: 8) {
             Image(systemName: engine.isOfflineMode ? "wifi.slash" : "checkmark.circle.fill")
-                .foregroundStyle(engine.isOfflineMode ? Color.orange : Color.green)
+                .foregroundStyle(engine.isOfflineMode ? Color.red : Color.green)
             Text(status)
                 .font(.system(size: 12, weight: .medium, design: .monospaced))
                 .foregroundStyle(.primary)
@@ -627,21 +661,16 @@ struct FreeFireDetailView: View {
                 .fill(Color(uiColor: .secondarySystemBackground))
                 .overlay(
                     RoundedRectangle(cornerRadius: 8)
-                        .stroke(engine.isOfflineMode ? Color.orange.opacity(0.3) : Color.green.opacity(0.3), lineWidth: 1)
+                        .stroke(engine.isOfflineMode ? Color.red.opacity(0.3) : Color.green.opacity(0.3), lineWidth: 1)
                 )
         )
     }
 }
 
-// MARK: - Main Patch Projects View (Clean Function Hub)
+// MARK: - Main Patch Projects View (Function Hub With Rich Game Icons)
 
 struct PatchProjectsView: View {
     @Environment(\.appLanguage) private var language
-    @StateObject private var engine = FreeFirePatchEngine.shared
-    @AppStorage("ff_th_enabled") private var freeFireEnabled = false
-    @AppStorage("ff_max_enabled") private var freeFireMaxEnabled = false
-    @AppStorage("admin_api_server_url") private var adminServerUrl = FreeFirePatchEngine.defaultApiServerUrl
-
     var onToggleSidebar: (() -> Void)? = nil
 
     init(onToggleSidebar: (() -> Void)? = nil) {
@@ -652,7 +681,6 @@ struct PatchProjectsView: View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 14) {
-                    // Free Fire / Free Fire MAX Injection Cards
                     freeFireHubSection
                 }
                 .padding(.horizontal, AppTheme.pageInset)
@@ -681,7 +709,7 @@ struct PatchProjectsView: View {
         }
     }
 
-    // MARK: - Free Fire Game Injection Hub (FFM & FFT ONLY)
+    // MARK: - Free Fire Game Injection Hub (FFM & FFT With Enhanced Icons)
     private var freeFireHubSection: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack {
@@ -691,28 +719,30 @@ struct PatchProjectsView: View {
 
                 Spacer()
 
-                Text("CHỈ NẠP TỆP ADMIN")
+                Text("LIVE API • 5S AUTO SYNC")
                     .font(.system(size: 9, weight: .bold, design: .monospaced))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(Color.green)
             }
 
-            VStack(spacing: 10) {
-                // Free Fire Standard (FFT)
+            VStack(spacing: 12) {
+                // Free Fire Standard (FFT) - Vibrant Flame Icon
                 gameCard(
                     title: "Free Fire Standard (FFT)",
                     bundleID: "com.dts.freefireth",
                     badgeText: "FFT",
                     icon: "flame.fill",
-                    color: Color(red: 1.00, green: 0.42, blue: 0.15)
+                    colorTop: Color(red: 1.00, green: 0.55, blue: 0.10),
+                    colorBottom: Color(red: 0.85, green: 0.20, blue: 0.05)
                 )
 
-                // Free Fire MAX (FFM)
+                // Free Fire MAX (FFM) - Lightning Cyber Icon
                 gameCard(
                     title: "Free Fire MAX (FFM)",
                     bundleID: "com.dts.freefiremax",
                     badgeText: "FFM",
                     icon: "bolt.fill",
-                    color: Color(red: 1.00, green: 0.18, blue: 0.25)
+                    colorTop: Color(red: 1.00, green: 0.25, blue: 0.35),
+                    colorBottom: Color(red: 0.70, green: 0.05, blue: 0.15)
                 )
             }
         }
@@ -723,22 +753,37 @@ struct PatchProjectsView: View {
         bundleID: String,
         badgeText: String,
         icon: String,
-        color: Color
+        colorTop: Color,
+        colorBottom: Color
     ) -> some View {
         NavigationLink(destination: FreeFireDetailView(gameTitle: title, bundleID: bundleID)) {
-            HStack(spacing: 12) {
+            HStack(spacing: 14) {
+                // High-Tech Gaming Icon Badge
                 ZStack {
-                    RoundedRectangle(cornerRadius: 6, style: .continuous)
-                        .fill(color.opacity(0.18))
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 6, style: .continuous)
-                                .stroke(color.opacity(0.4), lineWidth: 1)
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .fill(
+                            LinearGradient(
+                                colors: [colorTop, colorBottom],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
                         )
-                    Image(systemName: icon)
-                        .font(.system(size: 18, weight: .bold))
-                        .foregroundStyle(color)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                .stroke(Color.white.opacity(0.35), lineWidth: 1.5)
+                        )
+                        .shadow(color: colorBottom.opacity(0.4), radius: 6, x: 0, y: 3)
+
+                    VStack(spacing: 1) {
+                        Image(systemName: icon)
+                            .font(.system(size: 20, weight: .black))
+                            .foregroundStyle(.white)
+                        Text(badgeText)
+                            .font(.system(size: 7, weight: .black, design: .monospaced))
+                            .foregroundStyle(.white.opacity(0.9))
+                    }
                 }
-                .frame(width: 44, height: 44)
+                .frame(width: 48, height: 48)
 
                 VStack(alignment: .leading, spacing: 3) {
                     HStack(spacing: 6) {
@@ -748,10 +793,10 @@ struct PatchProjectsView: View {
 
                         Text(badgeText)
                             .font(.system(size: 9, weight: .black, design: .monospaced))
-                            .foregroundStyle(color)
+                            .foregroundStyle(colorTop)
                             .padding(.horizontal, 5)
                             .padding(.vertical, 1.5)
-                            .background(color.opacity(0.15))
+                            .background(colorTop.opacity(0.15))
                             .clipShape(RoundedRectangle(cornerRadius: 3))
                     }
 
