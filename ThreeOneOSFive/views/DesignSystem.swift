@@ -399,6 +399,9 @@ final class BrandConfigStore: ObservableObject {
     @Published var welcomeColorHex: String = "#FF2A42"
     @Published var telegramURL: String = "https://t.me/ioscrackvn"
     @Published var telegramTitle: String = "LIÊN HỆ TELEGRAM"
+    @Published var showGetKey: Bool = true
+    @Published var getKeyTitle: String = "LẤY KEY 12H"
+    @Published var getKeyURL: String = ""
     @Published var isLoading: Bool = false
     @Published var errorMessage: String?
 
@@ -448,6 +451,9 @@ final class BrandConfigStore: ObservableObject {
                 self.welcomeColorHex = json["welcome_color"] as? String ?? "#FF2A42"
                 self.telegramURL = json["telegram_url"] as? String ?? "https://t.me/ioscrackvn"
                 self.telegramTitle = json["telegram_title"] as? String ?? "LIÊN HỆ TELEGRAM"
+                self.showGetKey = json["show_get_key"] as? Bool ?? true
+                self.getKeyTitle = json["get_key_title"] as? String ?? "LẤY KEY 12H"
+                self.getKeyURL = json["get_key_url"] as? String ?? ""
                 self.isLoading = false
                 self.errorMessage = nil
                 return true
@@ -486,6 +492,9 @@ final class BrandConfigStore: ObservableObject {
                     self.welcomeColorHex = json["welcome_color"] as? String ?? "#FF2A42"
                     self.telegramURL = json["telegram_url"] as? String ?? "https://t.me/ioscrackvn"
                     self.telegramTitle = json["telegram_title"] as? String ?? "LIÊN HỆ TELEGRAM"
+                    self.showGetKey = json["show_get_key"] as? Bool ?? true
+                    self.getKeyTitle = json["get_key_title"] as? String ?? "LẤY KEY 12H"
+                    self.getKeyURL = json["get_key_url"] as? String ?? ""
                 } else {
                     // Token bị xóa hoặc tắt trên admin
                     self.logoutToken()
@@ -503,6 +512,9 @@ final class BrandConfigStore: ObservableObject {
         self.welcomeColorHex = "#FF2A42"
         self.telegramURL = "https://t.me/ioscrackvn"
         self.telegramTitle = "LIÊN HỆ TELEGRAM"
+        self.showGetKey = true
+        self.getKeyTitle = "LẤY KEY 12H"
+        self.getKeyURL = ""
         self.errorMessage = nil
         KeyAuthEngine.shared.logout()
         FreeFirePatchEngine.shared.cleanAllPatches()

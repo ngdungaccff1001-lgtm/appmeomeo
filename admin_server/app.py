@@ -245,7 +245,10 @@ def api_get_brand():
             "welcome_subtitle": matched.get('welcome_subtitle', settings.get('default_welcome_subtitle', '')),
             "welcome_color": matched.get('welcome_color', '#FF2A42'),
             "telegram_url": matched.get('telegram_url', settings.get('emergency_link_url', 'https://t.me/ioscrackvn')),
-            "telegram_title": matched.get('telegram_title', settings.get('emergency_link_title', 'LIÊN HỆ TELEGRAM'))
+            "telegram_title": matched.get('telegram_title', settings.get('emergency_link_title', 'LIÊN HỆ TELEGRAM')),
+            "show_get_key": matched.get('show_get_key', True),
+            "get_key_title": matched.get('get_key_title', '⚡ LẤY KEY 12H'),
+            "get_key_url": matched.get('get_key_url', '')
         })
 
     return jsonify({
@@ -255,7 +258,10 @@ def api_get_brand():
         "welcome_subtitle": settings.get('default_welcome_subtitle', 'Hệ thống Mod & Patch Tối Ưu Game Free Fire Chuyên Nghiệp'),
         "welcome_color": "#FF2A42",
         "telegram_url": settings.get('emergency_link_url', 'https://t.me/ioscrackvn'),
-        "telegram_title": settings.get('emergency_link_title', 'LIÊN HỆ TELEGRAM')
+        "telegram_title": settings.get('emergency_link_title', 'LIÊN HỆ TELEGRAM'),
+        "show_get_key": True,
+        "get_key_title": '⚡ LẤY KEY 12H',
+        "get_key_url": ''
     })
 
 @app.route('/api/brand/create', methods=['POST'])
@@ -268,6 +274,9 @@ def api_create_brand():
     welcome_color = data.get('welcome_color', '').strip() or '#FF2A42'
     telegram_url = data.get('telegram_url', '').strip() or 'https://t.me/ioscrackvn'
     telegram_title = data.get('telegram_title', '').strip() or 'LIÊN HỆ TELEGRAM SELLER'
+    show_get_key = bool(data.get('show_get_key', True))
+    get_key_title = data.get('get_key_title', '').strip() or '⚡ LẤY KEY 12H'
+    get_key_url = data.get('get_key_url', '').strip()
     note = data.get('note', '').strip()
 
     tokens = load_json(TOKENS_FILE, [])
@@ -284,6 +293,9 @@ def api_create_brand():
         "welcome_color": welcome_color,
         "telegram_url": telegram_url,
         "telegram_title": telegram_title,
+        "show_get_key": show_get_key,
+        "get_key_title": get_key_title,
+        "get_key_url": get_key_url,
         "note": note,
         "is_active": True,
         "created_at": time.strftime("%Y-%m-%d %H:%M:%S")
@@ -320,6 +332,12 @@ def api_update_brand(token_str):
         matched['telegram_url'] = data['telegram_url'].strip() or 'https://t.me/ioscrackvn'
     if 'telegram_title' in data:
         matched['telegram_title'] = data['telegram_title'].strip() or 'LIÊN HỆ TELEGRAM'
+    if 'show_get_key' in data:
+        matched['show_get_key'] = bool(data['show_get_key'])
+    if 'get_key_title' in data:
+        matched['get_key_title'] = data['get_key_title'].strip() or '⚡ LẤY KEY 12H'
+    if 'get_key_url' in data:
+        matched['get_key_url'] = data['get_key_url'].strip()
     if 'note' in data:
         matched['note'] = data['note'].strip()
 

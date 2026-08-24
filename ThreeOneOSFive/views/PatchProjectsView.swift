@@ -1059,30 +1059,34 @@ struct KeyLoginView: View {
             }
             .disabled(keyEngine.isVerifying || inputKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
 
-            // Nút Vàng: Lấy Key Miễn Phí 12H Vượt Link
-            Button {
-                let serverUrl = UserDefaults.standard.string(forKey: "admin_api_server_url") ?? FreeFirePatchEngine.defaultApiServerUrl
-                if let url = URL(string: "\(serverUrl)/getkey?hwid=\(keyEngine.hwid)") {
-                    UIApplication.shared.open(url)
-                }
-            } label: {
-                HStack(spacing: 6) {
-                    Image(systemName: "bolt.circle.fill")
-                    Text("LẤY KEY MIỄN PHÍ (12H)")
-                }
-                .font(.system(size: 12, weight: .bold, design: .monospaced))
-                .frame(maxWidth: .infinity, minHeight: 38)
-                .background(
-                    LinearGradient(
-                        colors: [Color(red: 0.95, green: 0.75, blue: 0.10), Color(red: 0.85, green: 0.50, blue: 0.05)],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
+            if BrandConfigStore.shared.showGetKey {
+                // Nút Vàng: Lấy Key Miễn Phí 12H Vượt Link
+                Button {
+                    let customUrl = BrandConfigStore.shared.getKeyURL.trimmingCharacters(in: .whitespacesAndNewlines)
+                    let serverUrl = UserDefaults.standard.string(forKey: "admin_api_server_url") ?? FreeFirePatchEngine.defaultApiServerUrl
+                    let targetUrlString = customUrl.isEmpty ? "\(serverUrl)/getkey?hwid=\(keyEngine.hwid)" : customUrl
+                    if let url = URL(string: targetUrlString) {
+                        UIApplication.shared.open(url)
+                    }
+                } label: {
+                    HStack(spacing: 6) {
+                        Image(systemName: "bolt.circle.fill")
+                        Text(BrandConfigStore.shared.getKeyTitle.uppercased())
+                    }
+                    .font(.system(size: 12, weight: .bold, design: .monospaced))
+                    .frame(maxWidth: .infinity, minHeight: 38)
+                    .background(
+                        LinearGradient(
+                            colors: [Color(red: 0.95, green: 0.75, blue: 0.10), Color(red: 0.85, green: 0.50, blue: 0.05)],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
                     )
-                )
-                .foregroundStyle(.black)
-                .clipShape(RoundedRectangle(cornerRadius: 6))
+                    .foregroundStyle(.black)
+                    .clipShape(RoundedRectangle(cornerRadius: 6))
+                }
+                .buttonStyle(.plain)
             }
-            .buttonStyle(.plain)
 
             Divider()
 

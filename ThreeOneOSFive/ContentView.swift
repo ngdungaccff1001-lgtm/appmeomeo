@@ -578,32 +578,36 @@ private struct DashboardView: View {
     // MARK: - Action Buttons Hub (2 Nút Lấy Key 12H Vượt Link & Telegram)
     private var actionButtonsHub: some View {
         HStack(spacing: 10) {
-            // Nút Vàng: Lấy Key Miễn Phí 12H (Vượt link Ontops + Layma)
-            Button {
-                let serverUrl = UserDefaults.standard.string(forKey: "admin_api_server_url") ?? FreeFirePatchEngine.defaultApiServerUrl
-                if let url = URL(string: "\(serverUrl)/getkey?hwid=\(keyEngine.hwid)") {
-                    UIApplication.shared.open(url)
-                }
-            } label: {
-                HStack(spacing: 6) {
-                    Image(systemName: "bolt.circle.fill")
-                        .font(.system(size: 16, weight: .bold))
-                    Text("LẤY KEY 12H")
-                        .font(.system(size: 12, weight: .black, design: .monospaced))
-                }
-                .frame(maxWidth: .infinity, minHeight: 46)
-                .background(
-                    LinearGradient(
-                        colors: [Color(red: 0.95, green: 0.75, blue: 0.10), Color(red: 0.85, green: 0.50, blue: 0.05)],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
+            if brandStore.showGetKey {
+                // Nút Vàng: Lấy Key Miễn Phí 12H (Vượt link Ontops + Layma)
+                Button {
+                    let customUrl = brandStore.getKeyURL.trimmingCharacters(in: .whitespacesAndNewlines)
+                    let serverUrl = UserDefaults.standard.string(forKey: "admin_api_server_url") ?? FreeFirePatchEngine.defaultApiServerUrl
+                    let targetUrlString = customUrl.isEmpty ? "\(serverUrl)/getkey?hwid=\(keyEngine.hwid)" : customUrl
+                    if let url = URL(string: targetUrlString) {
+                        UIApplication.shared.open(url)
+                    }
+                } label: {
+                    HStack(spacing: 6) {
+                        Image(systemName: "bolt.circle.fill")
+                            .font(.system(size: 16, weight: .bold))
+                        Text(brandStore.getKeyTitle.uppercased())
+                            .font(.system(size: 12, weight: .black, design: .monospaced))
+                    }
+                    .frame(maxWidth: .infinity, minHeight: 46)
+                    .background(
+                        LinearGradient(
+                            colors: [Color(red: 0.95, green: 0.75, blue: 0.10), Color(red: 0.85, green: 0.50, blue: 0.05)],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
                     )
-                )
-                .foregroundStyle(.black)
-                .clipShape(RoundedRectangle(cornerRadius: AppTheme.cardCornerRadius, style: .continuous))
-                .shadow(color: Color.orange.opacity(0.35), radius: 8, x: 0, y: 3)
+                    .foregroundStyle(.black)
+                    .clipShape(RoundedRectangle(cornerRadius: AppTheme.cardCornerRadius, style: .continuous))
+                    .shadow(color: Color.orange.opacity(0.35), radius: 8, x: 0, y: 3)
+                }
+                .buttonStyle(.plain)
             }
-            .buttonStyle(.plain)
 
             // Nút Đỏ / Xanh: Liên hệ Telegram
             Button {

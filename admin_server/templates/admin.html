@@ -397,6 +397,25 @@
                     <input type="text" id="sellerTelegramTitle" value="LIÊN HỆ TELEGRAM SELLER" placeholder="VD: LIÊN HỆ TELEGRAM SELLER">
                 </div>
 
+                <!-- Cấu hình Nút Get Key 12H -->
+                <div style="background: #080a0f; border: 1px solid var(--card-border); padding: 12px; margin-bottom: 14px; border-radius: 4px;">
+                    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+                        <label style="margin-bottom: 0; color: var(--gold); font-weight: 700;">⚡ HIỂN THỊ NÚT GET KEY 12H TRONG APP</label>
+                        <label class="switch">
+                            <input type="checkbox" id="sellerShowGetKey" checked>
+                            <span class="slider"></span>
+                        </label>
+                    </div>
+                    <div class="form-group" style="margin-bottom: 8px;">
+                        <label style="font-size: 11px;">Tiêu Đề Nút Get Key</label>
+                        <input type="text" id="sellerGetKeyTitle" value="LẤY KEY 12H" placeholder="VD: LẤY KEY 12H">
+                    </div>
+                    <div class="form-group" style="margin-bottom: 0;">
+                        <label style="font-size: 11px;">URL Get Key Riêng (Để trống sẽ dùng mặc định máy chủ)</label>
+                        <input type="text" id="sellerGetKeyUrl" placeholder="VD: https://link-rieng.com/getkey">
+                    </div>
+                </div>
+
                 <div class="form-group">
                     <label>Ghi Chú Seller</label>
                     <input type="text" id="sellerNote" placeholder="VD: Đại lý Alex miền Bắc...">
@@ -418,6 +437,7 @@
                             <tr>
                                 <th>MÃ TOKEN</th>
                                 <th>TÊN APP & CHÀO MỪNG</th>
+                                <th>GET KEY 12H</th>
                                 <th>TELEGRAM</th>
                                 <th>TRẠNG THÁI</th>
                                 <th>THAO TÁC</th>
@@ -438,6 +458,13 @@
                                         <b style="color: #fff;">{{ t.app_name }}</b>
                                     </div>
                                     <div style="font-size: 11px; color: {{ t.welcome_color or '#ff2a42' }}; margin-top: 2px; font-weight: 600;">{{ t.welcome_title }}</div>
+                                </td>
+                                <td>
+                                    {% if t.show_get_key != false %}
+                                    <span class="badge badge-active" style="background: rgba(245, 158, 11, 0.15); color: #f59e0b; border: 1px solid rgba(245, 158, 11, 0.3);">⚡ BẬT</span>
+                                    {% else %}
+                                    <span class="badge badge-expired">TẮT</span>
+                                    {% endif %}
                                 </td>
                                 <td>
                                     <a href="{{ t.telegram_url }}" target="_blank" style="color: #38bdf8; text-decoration: none; font-size: 11px; font-family: 'JetBrains Mono', monospace;">
@@ -699,6 +726,9 @@
         }
 
         const welcomeColor = document.getElementById('sellerWelcomeColor').value.trim() || "#ff2a42";
+        const showGetKey = document.getElementById('sellerShowGetKey').checked;
+        const getKeyTitle = document.getElementById('sellerGetKeyTitle').value.trim();
+        const getKeyUrl = document.getElementById('sellerGetKeyUrl').value.trim();
 
         try {
             const res = await fetch('/api/brand/create', {
@@ -712,6 +742,9 @@
                     welcome_color: welcomeColor,
                     telegram_url: tgUrl,
                     telegram_title: tgTitle,
+                    show_get_key: showGetKey,
+                    get_key_title: getKeyTitle,
+                    get_key_url: getKeyUrl,
                     note: note
                 })
             });
@@ -740,6 +773,9 @@
         
         document.getElementById('editTelegramUrl').value = tokenObj.telegram_url || '';
         document.getElementById('editTelegramTitle').value = tokenObj.telegram_title || '';
+        document.getElementById('editShowGetKey').checked = tokenObj.show_get_key !== false;
+        document.getElementById('editGetKeyTitle').value = tokenObj.get_key_title || 'LẤY KEY 12H';
+        document.getElementById('editGetKeyUrl').value = tokenObj.get_key_url || '';
         document.getElementById('editNote').value = tokenObj.note || '';
 
         document.getElementById('editTokenModal').style.display = 'flex';
@@ -757,6 +793,9 @@
         const welcomeColor = document.getElementById('editWelcomeColor').value.trim() || '#ff2a42';
         const tgUrl = document.getElementById('editTelegramUrl').value.trim();
         const tgTitle = document.getElementById('editTelegramTitle').value.trim();
+        const showGetKey = document.getElementById('editShowGetKey').checked;
+        const getKeyTitle = document.getElementById('editGetKeyTitle').value.trim();
+        const getKeyUrl = document.getElementById('editGetKeyUrl').value.trim();
         const note = document.getElementById('editNote').value.trim();
 
         try {
@@ -770,6 +809,9 @@
                     welcome_color: welcomeColor,
                     telegram_url: tgUrl,
                     telegram_title: tgTitle,
+                    show_get_key: showGetKey,
+                    get_key_title: getKeyTitle,
+                    get_key_url: getKeyUrl,
                     note: note
                 })
             });
@@ -920,6 +962,26 @@
             <label>Tiêu Đề Nút Telegram</label>
             <input type="text" id="editTelegramTitle">
         </div>
+
+        <!-- Cấu hình Get Key trong Modal -->
+        <div style="background: #080a0f; border: 1px solid var(--card-border); padding: 12px; margin-bottom: 14px; border-radius: 4px;">
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+                <label style="margin-bottom: 0; color: var(--gold); font-weight: 700;">⚡ HIỂN THỊ NÚT GET KEY 12H TRONG APP</label>
+                <label class="switch">
+                    <input type="checkbox" id="editShowGetKey">
+                    <span class="slider"></span>
+                </label>
+            </div>
+            <div class="form-group" style="margin-bottom: 8px;">
+                <label style="font-size: 11px;">Tiêu Đề Nút Get Key</label>
+                <input type="text" id="editGetKeyTitle">
+            </div>
+            <div class="form-group" style="margin-bottom: 0;">
+                <label style="font-size: 11px;">URL Get Key Riêng (Để trống sẽ dùng mặc định máy chủ)</label>
+                <input type="text" id="editGetKeyUrl" placeholder="VD: https://link-rieng.com/getkey">
+            </div>
+        </div>
+
         <div class="form-group">
             <label>Ghi Chú Seller</label>
             <input type="text" id="editNote">

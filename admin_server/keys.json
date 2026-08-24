@@ -1,9 +1,28 @@
 [
   {
+    "key": "MEO-778Z-259P-MFXW",
+    "duration_days": 1.0,
+    "device_limit": 999,
+    "status": "active",
+    "created_at": 1787581331.6973932,
+    "first_activated_at": 1787581363.0391848,
+    "expires_at": 1787667763.0391848,
+    "bound_hwids": [
+      {
+        "hwid": "B9A2D543-E35F-40AE-8C77-A0CD516E8812",
+        "device_name": "iPhone12,3 (26.4.0)",
+        "registered_at": "2026-08-24 21:22:43"
+      }
+    ],
+    "note": "meomeo",
+    "seller_token": "",
+    "last_active": "2026-08-24 21:23:55"
+  },
+  {
     "key": "MEOMEO-QYF9-NU11-DCSX",
     "duration_days": 1,
     "device_limit": 999,
-    "status": "active",
+    "status": "banned",
     "created_at": 1787503797.7523024,
     "first_activated_at": 1787503849.0115323,
     "expires_at": 1787590249.0115323,
@@ -330,7 +349,7 @@
       }
     ],
     "note": "",
-    "last_active": "2026-08-24 21:02:28",
+    "last_active": "2026-08-24 21:11:10",
     "expires_at_str": "2026-08-24 23:50"
   }
 ]
