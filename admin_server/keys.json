@@ -322,10 +322,15 @@
         "hwid": "3CD487C4-555E-42AA-A349-C0D18528A9AD",
         "device_name": "iPhone13,2 (26.4.2)",
         "registered_at": "2026-08-24 20:16:47"
+      },
+      {
+        "hwid": "08A786ED-8B6A-4123-94E3-DE2A68530EAD",
+        "device_name": "iPhone13,4 (26.6.0)",
+        "registered_at": "2026-08-24 21:00:28"
       }
     ],
     "note": "",
-    "last_active": "2026-08-24 20:53:24",
+    "last_active": "2026-08-24 21:02:28",
     "expires_at_str": "2026-08-24 23:50"
   }
 ]
