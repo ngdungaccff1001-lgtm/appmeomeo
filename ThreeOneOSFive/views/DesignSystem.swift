@@ -82,7 +82,7 @@ struct AppCyberPulseScanner: View {
                     .frame(width: 7, height: 7)
             }
 
-            Text("SYSTEM LOGIC ONLINE • MEOMEOPATH CORE")
+            Text("SYSTEM LOGIC ONLINE • \(BrandConfigStore.shared.appName.uppercased()) CORE")
                 .font(.system(size: 10, weight: .bold, design: .monospaced))
                 .foregroundStyle(AppTheme.accent)
 

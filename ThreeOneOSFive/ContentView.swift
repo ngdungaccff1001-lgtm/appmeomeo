@@ -164,7 +164,7 @@ struct ContentView: View {
                 VStack(alignment: .leading, spacing: 1) {
                     Text(BrandConfigStore.shared.appName)
                         .font(.system(size: 16, weight: .bold, design: .monospaced))
-                    Text("PAYLOAD MEOMEO.APP")
+                    Text("PAYLOAD \(BrandConfigStore.shared.appName.uppercased()).APP")
                         .font(.system(size: 8, weight: .bold, design: .monospaced))
                         .foregroundStyle(AppTheme.accent)
                 }
@@ -634,74 +634,56 @@ private struct DashboardView: View {
         }
     }
 
-    // MARK: - Seller Brand Token Customizer Card
+    // MARK: - Seller Brand Token Status Card (Chỉ hiện thông tin và nút Đổi Token)
     private var sellerBrandCustomizerCard: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack {
-                Text("TOKEN ĐẠI LÝ ĐANG SỬ DỤNG")
-                    .font(.system(size: 10, weight: .bold, design: .monospaced))
-                    .foregroundStyle(.secondary)
-
-                Spacer()
-
-                Button {
-                    brandStore.logoutToken()
-                    inputSellerToken = ""
-                } label: {
-                    Text("ĐỔI TOKEN KHÁC")
-                        .font(.system(size: 9, weight: .bold, design: .monospaced))
-                        .foregroundStyle(.red)
-                        .padding(.horizontal, 6)
-                        .padding(.vertical, 2)
-                        .background(Color.red.opacity(0.12))
-                        .clipShape(RoundedRectangle(cornerRadius: 3))
-                }
-            }
-
-            HStack(spacing: 8) {
-                TextField("Nhập mã Token Seller...", text: $inputSellerToken)
-                    .textInputAutocapitalization(.characters)
-                    .autocorrectionDisabled()
-                    .font(.system(size: 12, weight: .bold, design: .monospaced))
-                    .padding(8)
-                    .background(Color(uiColor: .tertiarySystemFill))
-                    .clipShape(RoundedRectangle(cornerRadius: 6))
-
-                Button {
-                    if let clip = UIPasteboard.general.string {
-                        inputSellerToken = clip.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
-                    }
-                } label: {
-                    Text("DÁN")
-                        .font(.system(size: 11, weight: .bold, design: .monospaced))
-                        .foregroundStyle(AppTheme.accent)
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 8)
-                        .background(AppTheme.accent.opacity(0.15))
-                        .clipShape(RoundedRectangle(cornerRadius: 6))
-                }
-
-                Button {
-                    Task {
-                        _ = await brandStore.verifyToken(inputSellerToken)
-                    }
-                } label: {
-                    Text("LƯU")
-                        .font(.system(size: 11, weight: .bold, design: .monospaced))
-                        .foregroundStyle(.white)
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 8)
-                        .background(AppTheme.accent)
-                        .clipShape(RoundedRectangle(cornerRadius: 6))
-                }
-            }
-
-            HStack(spacing: 4) {
-                Circle().fill(Color.green).frame(width: 6, height: 6)
-                Text("Thương hiệu: \(brandStore.appName) (Token: \(brandStore.sellerToken))")
-                    .font(.system(size: 10, weight: .bold, design: .monospaced))
+        HStack(spacing: 10) {
+            ZStack {
+                Circle()
+                    .fill(Color.green.opacity(0.15))
+                    .frame(width: 34, height: 34)
+                Image(systemName: "checkmark.shield.fill")
+                    .font(.system(size: 15, weight: .bold))
                     .foregroundStyle(Color.green)
             }
+
+            VStack(alignment: .leading, spacing: 2) {
+                HStack(spacing: 6) {
+                    Text("TOKEN:")
+                        .font(.system(size: 9, weight: .bold, design: .monospaced))
+                        .foregroundStyle(.secondary)
+                    Text(brandStore.sellerToken)
+                        .font(.system(size: 11, weight: .black, design: .monospaced))
+                        .foregroundStyle(Color(red: 0.95, green: 0.75, blue: 0.10))
+                }
+
+                Text("Thương hiệu: \(brandStore.appName)")
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(.primary)
+                    .lineLimit(1)
+            }
+
+            Spacer()
+
+            Button {
+                brandStore.logoutToken()
+            } label: {
+                HStack(spacing: 4) {
+                    Image(systemName: "arrow.triangle.2.circlepath")
+                        .font(.system(size: 10, weight: .bold))
+                    Text("ĐỔI TOKEN")
+                        .font(.system(size: 10, weight: .bold, design: .monospaced))
+                }
+                .padding(.horizontal, 10)
+                .padding(.vertical, 8)
+                .background(Color.red.opacity(0.12))
+                .foregroundStyle(.red)
+                .clipShape(RoundedRectangle(cornerRadius: 6))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 6)
+                        .stroke(Color.red.opacity(0.3), lineWidth: 1)
+                )
+            }
+            .buttonStyle(.plain)
         }
         .padding(12)
         .background(
@@ -709,7 +691,7 @@ private struct DashboardView: View {
                 .fill(AppTheme.cardBackground)
                 .overlay(
                     RoundedRectangle(cornerRadius: AppTheme.cardCornerRadius, style: .continuous)
-                        .stroke(Color.green.opacity(0.3), lineWidth: 1)
+                        .stroke(Color.green.opacity(0.35), lineWidth: 1)
                 )
         )
         .onAppear {
@@ -1126,26 +1108,6 @@ struct TokenGatekeeperScreen: View {
                             )
                     )
                     .padding(.horizontal, AppTheme.pageInset)
-
-                    // Link Telegram Hỗ Trợ / Mua Token
-                    if let url = URL(string: brandStore.telegramURL) {
-                        Button {
-                            UIApplication.shared.open(url)
-                        } label: {
-                            HStack(spacing: 6) {
-                                Image(systemName: "paperplane.fill")
-                                Text("LIÊN HỆ TELEGRAM MUA TOKEN")
-                            }
-                            .font(.system(size: 12, weight: .bold, design: .monospaced))
-                            .frame(maxWidth: .infinity, minHeight: 42)
-                            .background(Color(uiColor: .secondarySystemFill))
-                            .foregroundStyle(Color(red: 0.20, green: 0.65, blue: 1.0))
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 6).stroke(Color(red: 0.20, green: 0.65, blue: 1.0).opacity(0.4), lineWidth: 1)
-                            )
-                        }
-                        .padding(.horizontal, AppTheme.pageInset)
-                    }
 
                     // HWID Info
                     VStack(spacing: 3) {
