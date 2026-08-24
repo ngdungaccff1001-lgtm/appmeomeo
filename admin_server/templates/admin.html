@@ -375,6 +375,14 @@
                 </div>
 
                 <div class="form-group">
+                    <label>Màu Chữ Tiêu Đề Chào Mừng (Welcome Color)</label>
+                    <div style="display: flex; gap: 8px; align-items: center;">
+                        <input type="color" id="sellerWelcomeColorPicker" value="#ff2a42" style="width: 44px; height: 38px; padding: 2px; cursor: pointer; border-radius: 4px; border: 1px solid var(--card-border);" onchange="document.getElementById('sellerWelcomeColor').value = this.value">
+                        <input type="text" id="sellerWelcomeColor" value="#ff2a42" placeholder="#FF2A42" onchange="document.getElementById('sellerWelcomeColorPicker').value = this.value">
+                    </div>
+                </div>
+
+                <div class="form-group">
                     <label>Phụ Đề Chào Mừng</label>
                     <input type="text" id="sellerWelcomeSubtitle" placeholder="VD: Hệ Thống Mod Free Fire VIP Alex Support">
                 </div>
@@ -425,8 +433,11 @@
                                     {% endif %}
                                 </td>
                                 <td>
-                                    <b style="color: #fff;">{{ t.app_name }}</b>
-                                    <div style="font-size: 11px; color: var(--text-dim); margin-top: 2px;">{{ t.welcome_title }}</div>
+                                    <div style="display: flex; align-items: center; gap: 6px;">
+                                        <span style="display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: {{ t.welcome_color or '#ff2a42' }};" title="Màu chữ: {{ t.welcome_color or '#ff2a42' }}"></span>
+                                        <b style="color: #fff;">{{ t.app_name }}</b>
+                                    </div>
+                                    <div style="font-size: 11px; color: {{ t.welcome_color or '#ff2a42' }}; margin-top: 2px; font-weight: 600;">{{ t.welcome_title }}</div>
                                 </td>
                                 <td>
                                     <a href="{{ t.telegram_url }}" target="_blank" style="color: #38bdf8; text-decoration: none; font-size: 11px; font-family: 'JetBrains Mono', monospace;">
@@ -441,8 +452,9 @@
                                     {% endif %}
                                 </td>
                                 <td>
-                                    <div style="display: flex; gap: 4px;">
+                                    <div style="display: flex; gap: 4px; flex-wrap: wrap;">
                                         <a href="/seller/{{ t.token }}" target="_blank" class="btn-sm btn-reset" style="text-decoration: none; display: inline-flex; align-items: center;">WEB KEY</a>
+                                        <button class="btn-sm btn-active" onclick='openEditTokenModal({{ t|tojson|safe }})'>SỬA</button>
                                         <button class="btn-sm btn-ban" onclick="toggleToken('{{ t.token }}')">{% if t.is_active %}TẮT{% else %}BẬT{% endif %}</button>
                                         <button class="btn-sm btn-del" onclick="deleteToken('{{ t.token }}')">XÓA</button>
                                     </div>
@@ -686,6 +698,8 @@
             return;
         }
 
+        const welcomeColor = document.getElementById('sellerWelcomeColor').value.trim() || "#ff2a42";
+
         try {
             const res = await fetch('/api/brand/create', {
                 method: 'POST',
@@ -695,6 +709,7 @@
                     app_name: appName,
                     welcome_title: welcomeTitle,
                     welcome_subtitle: welcomeSub,
+                    welcome_color: welcomeColor,
                     telegram_url: tgUrl,
                     telegram_title: tgTitle,
                     note: note
@@ -710,6 +725,62 @@
         } catch (e) {
             alert('Lỗi kết nối: ' + e.message);
         }
+    }
+
+    function openEditTokenModal(tokenObj) {
+        document.getElementById('editTokenKey').value = tokenObj.token;
+        document.getElementById('modalTokenTitle').innerText = `CHỈNH SỬA TOKEN: ${tokenObj.token}`;
+        document.getElementById('editAppName').value = tokenObj.app_name || '';
+        document.getElementById('editWelcomeTitle').value = tokenObj.welcome_title || '';
+        document.getElementById('editWelcomeSubtitle').value = tokenObj.welcome_subtitle || '';
+        
+        const color = tokenObj.welcome_color || '#ff2a42';
+        document.getElementById('editWelcomeColor').value = color;
+        document.getElementById('editWelcomeColorPicker').value = color;
+        
+        document.getElementById('editTelegramUrl').value = tokenObj.telegram_url || '';
+        document.getElementById('editTelegramTitle').value = tokenObj.telegram_title || '';
+        document.getElementById('editNote').value = tokenObj.note || '';
+
+        document.getElementById('editTokenModal').style.display = 'flex';
+    }
+
+    function closeEditTokenModal() {
+        document.getElementById('editTokenModal').style.display = 'none';
+    }
+
+    async function submitUpdateToken() {
+        const token = document.getElementById('editTokenKey').value;
+        const appName = document.getElementById('editAppName').value.trim();
+        const welcomeTitle = document.getElementById('editWelcomeTitle').value.trim();
+        const welcomeSub = document.getElementById('editWelcomeSubtitle').value.trim();
+        const welcomeColor = document.getElementById('editWelcomeColor').value.trim() || '#ff2a42';
+        const tgUrl = document.getElementById('editTelegramUrl').value.trim();
+        const tgTitle = document.getElementById('editTelegramTitle').value.trim();
+        const note = document.getElementById('editNote').value.trim();
+
+        try {
+            const res = await fetch(`/api/brand/${token}/update`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    app_name: appName,
+                    welcome_title: welcomeTitle,
+                    welcome_subtitle: welcomeSub,
+                    welcome_color: welcomeColor,
+                    telegram_url: tgUrl,
+                    telegram_title: tgTitle,
+                    note: note
+                })
+            });
+            const data = await res.json();
+            if (data.success) {
+                alert(`Đã cập nhật Token ${token} thành công!`);
+                location.reload();
+            } else {
+                alert('Lỗi: ' + data.error);
+            }
+        } catch (e) { alert('Lỗi kết nối: ' + e.message); }
     }
 
     async function toggleToken(token) {
@@ -813,6 +884,52 @@
         } catch (e) { alert('Lỗi: ' + e.message); }
     }
 </script>
+
+<!-- Modal Chỉnh Sửa Token Seller -->
+<div id="editTokenModal" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.8); z-index: 9999; align-items: center; justify-content: center; backdrop-filter: blur(4px);">
+    <div class="card" style="width: 100%; max-width: 520px; max-height: 90vh; overflow-y: auto; margin: 20px; box-shadow: 0 10px 40px rgba(0,0,0,0.8); border: 1px solid var(--gold);">
+        <div class="card-header" style="border-bottom: 1px solid var(--card-border); padding-bottom: 10px; display: flex; align-items: center; justify-content: space-between;">
+            <span id="modalTokenTitle" style="color: var(--gold); font-weight: 800;">CHỈNH SỬA TOKEN SELLER</span>
+            <button onclick="closeEditTokenModal()" style="background: none; border: none; color: var(--text-dim); font-size: 20px; cursor: pointer;">✕</button>
+        </div>
+        <input type="hidden" id="editTokenKey">
+        <div class="form-group" style="margin-top: 14px;">
+            <label>Tên Ứng Dụng / Header</label>
+            <input type="text" id="editAppName">
+        </div>
+        <div class="form-group">
+            <label>Tiêu Đề Chào Mừng</label>
+            <input type="text" id="editWelcomeTitle">
+        </div>
+        <div class="form-group">
+            <label>Màu Chữ Tiêu Đề Chào Mừng</label>
+            <div style="display: flex; gap: 8px; align-items: center;">
+                <input type="color" id="editWelcomeColorPicker" style="width: 44px; height: 38px; padding: 2px; cursor: pointer; border-radius: 4px; border: 1px solid var(--card-border);" onchange="document.getElementById('editWelcomeColor').value = this.value">
+                <input type="text" id="editWelcomeColor" onchange="document.getElementById('editWelcomeColorPicker').value = this.value">
+            </div>
+        </div>
+        <div class="form-group">
+            <label>Phụ Đề Chào Mừng</label>
+            <input type="text" id="editWelcomeSubtitle">
+        </div>
+        <div class="form-group">
+            <label>Đường Dẫn Telegram</label>
+            <input type="text" id="editTelegramUrl">
+        </div>
+        <div class="form-group">
+            <label>Tiêu Đề Nút Telegram</label>
+            <input type="text" id="editTelegramTitle">
+        </div>
+        <div class="form-group">
+            <label>Ghi Chú Seller</label>
+            <input type="text" id="editNote">
+        </div>
+        <div style="display: flex; gap: 10px; margin-top: 18px;">
+            <button class="btn btn-gold" style="flex: 1;" onclick="submitUpdateToken()">💾 LƯU THAY ĐỔI</button>
+            <button class="btn" style="flex: 0.5; background: #222;" onclick="closeEditTokenModal()">HỦY</button>
+        </div>
+    </div>
+</div>
 
 </body>
 </html>

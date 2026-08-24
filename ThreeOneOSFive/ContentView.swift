@@ -519,7 +519,7 @@ private struct DashboardView: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(brandStore.welcomeTitle)
                         .font(.system(size: 15, weight: .black, design: .monospaced))
-                        .foregroundStyle(AppTheme.accent)
+                        .foregroundStyle(brandStore.welcomeColor)
 
                     Text(brandStore.welcomeSubtitle)
                         .font(.system(size: 11, weight: .medium))

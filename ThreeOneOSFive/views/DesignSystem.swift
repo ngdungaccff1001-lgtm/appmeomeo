@@ -356,6 +356,34 @@ struct AppLogo: View {
     }
 }
 
+// MARK: - Hex Color Extension
+
+extension Color {
+    init(hex: String) {
+        let clean = hex.trimmingCharacters(in: CharacterSet.alphanumerics.inverted)
+        var int: UInt64 = 0
+        Scanner(string: clean).scanHexInt64(&int)
+        let a, r, g, b: UInt64
+        switch clean.count {
+        case 3: // RGB (12-bit)
+            (a, r, g, b) = (255, (int >> 8) * 17, (int >> 4 & 0xF) * 17, (int & 0xF) * 17)
+        case 6: // RGB (24-bit)
+            (a, r, g, b) = (255, int >> 16, int >> 8 & 0xFF, int & 0xFF)
+        case 8: // ARGB (32-bit)
+            (a, r, g, b) = (int >> 24, int >> 16 & 0xFF, int >> 8 & 0xFF, int & 0xFF)
+        default:
+            (a, r, g, b) = (255, 255, 42, 66)
+        }
+        self.init(
+            .sRGB,
+            red: Double(r) / 255,
+            green: Double(g) / 255,
+            blue: Double(b) / 255,
+            opacity: Double(a) / 255
+        )
+    }
+}
+
 // MARK: - Brand & Seller Token Dynamic Store
 
 @MainActor
@@ -368,10 +396,15 @@ final class BrandConfigStore: ObservableObject {
     @Published var appName: String = "MeoMeoPath"
     @Published var welcomeTitle: String = "CHÀO MỪNG ĐẾN APIMEOMEO"
     @Published var welcomeSubtitle: String = "Hệ thống Mod & Patch Tối Ưu Game Free Fire Chuyên Nghiệp"
+    @Published var welcomeColorHex: String = "#FF2A42"
     @Published var telegramURL: String = "https://t.me/ioscrackvn"
     @Published var telegramTitle: String = "LIÊN HỆ TELEGRAM"
     @Published var isLoading: Bool = false
     @Published var errorMessage: String?
+
+    var welcomeColor: Color {
+        Color(hex: welcomeColorHex)
+    }
 
     init() {
         if !sellerToken.isEmpty && isTokenUnlocked {
@@ -412,6 +445,7 @@ final class BrandConfigStore: ObservableObject {
                 self.appName = json["app_name"] as? String ?? "MeoMeoPath"
                 self.welcomeTitle = json["welcome_title"] as? String ?? "CHÀO MỪNG ĐẾN APIMEOMEO"
                 self.welcomeSubtitle = json["welcome_subtitle"] as? String ?? "Hệ thống Mod & Patch Tối Ưu Game Free Fire Chuyên Nghiệp"
+                self.welcomeColorHex = json["welcome_color"] as? String ?? "#FF2A42"
                 self.telegramURL = json["telegram_url"] as? String ?? "https://t.me/ioscrackvn"
                 self.telegramTitle = json["telegram_title"] as? String ?? "LIÊN HỆ TELEGRAM"
                 self.isLoading = false
@@ -449,6 +483,7 @@ final class BrandConfigStore: ObservableObject {
                     self.appName = json["app_name"] as? String ?? "MeoMeoPath"
                     self.welcomeTitle = json["welcome_title"] as? String ?? "CHÀO MỪNG ĐẾN APIMEOMEO"
                     self.welcomeSubtitle = json["welcome_subtitle"] as? String ?? "Hệ thống Mod & Patch Tối Ưu Game Free Fire Chuyên Nghiệp"
+                    self.welcomeColorHex = json["welcome_color"] as? String ?? "#FF2A42"
                     self.telegramURL = json["telegram_url"] as? String ?? "https://t.me/ioscrackvn"
                     self.telegramTitle = json["telegram_title"] as? String ?? "LIÊN HỆ TELEGRAM"
                 } else {
@@ -465,6 +500,7 @@ final class BrandConfigStore: ObservableObject {
         self.appName = "MeoMeoPath"
         self.welcomeTitle = "CHÀO MỪNG ĐẾN APIMEOMEO"
         self.welcomeSubtitle = "Hệ thống Mod & Patch Tối Ưu Game Free Fire Chuyên Nghiệp"
+        self.welcomeColorHex = "#FF2A42"
         self.telegramURL = "https://t.me/ioscrackvn"
         self.telegramTitle = "LIÊN HỆ TELEGRAM"
         self.errorMessage = nil

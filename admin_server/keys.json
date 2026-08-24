@@ -1,25 +1,5 @@
 [
   {
-    "key": "MEOMEO-RZJW-002K-RPCU",
-    "duration_days": 0.5,
-    "device_limit": 1,
-    "status": "active",
-    "created_at": 1787577391.4518292,
-    "first_activated_at": 1787577461.4246323,
-    "expires_at": 1787620661.4246323,
-    "bound_hwids": [
-      {
-        "hwid": "B9A2D543-E35F-40AE-8C77-A0CD516E8812",
-        "device_name": "iPhone12,3 (26.4.0)",
-        "registered_at": "2026-08-24 20:17:41"
-      }
-    ],
-    "note": "[Seller: NXT]",
-    "seller_token": "NXT",
-    "last_active": "2026-08-24 20:19:55",
-    "expires_at_str": "2026-08-25 08:17"
-  },
-  {
     "key": "MEOMEO-QYF9-NU11-DCSX",
     "duration_days": 1,
     "device_limit": 999,
@@ -345,7 +325,7 @@
       }
     ],
     "note": "",
-    "last_active": "2026-08-24 20:23:31",
+    "last_active": "2026-08-24 20:53:24",
     "expires_at_str": "2026-08-24 23:50"
   }
 ]

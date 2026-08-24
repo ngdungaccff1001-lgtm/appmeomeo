@@ -243,6 +243,7 @@ def api_get_brand():
             "app_name": matched.get('app_name', settings.get('default_app_name', 'MeoMeoPath')),
             "welcome_title": matched.get('welcome_title', settings.get('default_welcome_title', 'CHÀO MỪNG ĐẾN APIMEOMEO')),
             "welcome_subtitle": matched.get('welcome_subtitle', settings.get('default_welcome_subtitle', '')),
+            "welcome_color": matched.get('welcome_color', '#FF2A42'),
             "telegram_url": matched.get('telegram_url', settings.get('emergency_link_url', 'https://t.me/ioscrackvn')),
             "telegram_title": matched.get('telegram_title', settings.get('emergency_link_title', 'LIÊN HỆ TELEGRAM'))
         })
@@ -252,6 +253,7 @@ def api_get_brand():
         "app_name": settings.get('default_app_name', 'MeoMeoPath'),
         "welcome_title": settings.get('default_welcome_title', 'CHÀO MỪNG ĐẾN APIMEOMEO'),
         "welcome_subtitle": settings.get('default_welcome_subtitle', 'Hệ thống Mod & Patch Tối Ưu Game Free Fire Chuyên Nghiệp'),
+        "welcome_color": "#FF2A42",
         "telegram_url": settings.get('emergency_link_url', 'https://t.me/ioscrackvn'),
         "telegram_title": settings.get('emergency_link_title', 'LIÊN HỆ TELEGRAM')
     })
@@ -263,6 +265,7 @@ def api_create_brand():
     app_name = data.get('app_name', '').strip() or 'MeoMeoPath'
     welcome_title = data.get('welcome_title', '').strip() or f'CHÀO MỪNG ĐẾN {app_name.upper()}'
     welcome_subtitle = data.get('welcome_subtitle', '').strip() or 'Hệ thống Mod Free Fire VIP'
+    welcome_color = data.get('welcome_color', '').strip() or '#FF2A42'
     telegram_url = data.get('telegram_url', '').strip() or 'https://t.me/ioscrackvn'
     telegram_title = data.get('telegram_title', '').strip() or 'LIÊN HỆ TELEGRAM SELLER'
     note = data.get('note', '').strip()
@@ -278,6 +281,7 @@ def api_create_brand():
         "app_name": app_name,
         "welcome_title": welcome_title,
         "welcome_subtitle": welcome_subtitle,
+        "welcome_color": welcome_color,
         "telegram_url": telegram_url,
         "telegram_title": telegram_title,
         "note": note,
@@ -288,6 +292,39 @@ def api_create_brand():
     tokens.insert(0, new_token)
     save_json(TOKENS_FILE, tokens)
     return jsonify({"success": True, "token": new_token})
+
+@app.route('/api/brand/<token_str>/update', methods=['POST'])
+def api_update_brand(token_str):
+    clean_token = token_str.strip().upper()
+    data = request.get_json(silent=True) or {}
+    tokens = load_json(TOKENS_FILE, [])
+
+    matched = None
+    for t in tokens:
+        if t.get('token', '').upper() == clean_token:
+            matched = t
+            break
+
+    if not matched:
+        return jsonify({"success": False, "error": "Không tìm thấy Token này!"}), 404
+
+    if 'app_name' in data:
+        matched['app_name'] = data['app_name'].strip() or matched.get('app_name', 'MeoMeoPath')
+    if 'welcome_title' in data:
+        matched['welcome_title'] = data['welcome_title'].strip() or matched.get('welcome_title', 'CHÀO MỪNG')
+    if 'welcome_subtitle' in data:
+        matched['welcome_subtitle'] = data['welcome_subtitle'].strip()
+    if 'welcome_color' in data:
+        matched['welcome_color'] = data['welcome_color'].strip() or '#FF2A42'
+    if 'telegram_url' in data:
+        matched['telegram_url'] = data['telegram_url'].strip() or 'https://t.me/ioscrackvn'
+    if 'telegram_title' in data:
+        matched['telegram_title'] = data['telegram_title'].strip() or 'LIÊN HỆ TELEGRAM'
+    if 'note' in data:
+        matched['note'] = data['note'].strip()
+
+    save_json(TOKENS_FILE, tokens)
+    return jsonify({"success": True, "token": matched})
 
 @app.route('/api/brand/<token_str>', methods=['DELETE'])
 def api_delete_brand(token_str):
