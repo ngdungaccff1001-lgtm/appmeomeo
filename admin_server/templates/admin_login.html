@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Xác Thực Quản Trị Viên • Admin Security</title>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700;800&family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #07090e;
+            --surface: #0e121a;
+            --border: #1e2436;
+            --accent: #ff2a42;
+            --accent-glow: rgba(255, 42, 66, 0.35);
+            --gold: #f1c40f;
+            --text: #f0f2f5;
+            --text-dim: #8b949e;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background-color: var(--bg);
+            color: var(--text);
+            font-family: 'Inter', sans-serif;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            background-image: 
+                linear-gradient(rgba(30, 36, 54, 0.25) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(30, 36, 54, 0.25) 1px, transparent 1px);
+            background-size: 32px 32px;
+        }
+
+        .login-card {
+            width: 100%;
+            max-width: 420px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-top: 3px solid var(--accent);
+            padding: 32px 28px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.8), 0 0 25px var(--accent-glow);
+        }
+
+        .header-box {
+            text-align: center;
+            margin-bottom: 26px;
+        }
+
+        .badge-icon {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 52px;
+            height: 52px;
+            background: rgba(255, 42, 66, 0.12);
+            border: 1px solid var(--accent);
+            color: var(--accent);
+            font-size: 22px;
+            margin-bottom: 14px;
+            box-shadow: 0 0 15px var(--accent-glow);
+        }
+
+        h1 {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 18px;
+            font-weight: 800;
+            letter-spacing: 1px;
+            color: #fff;
+        }
+
+        p {
+            font-size: 12px;
+            color: var(--text-dim);
+            margin-top: 6px;
+        }
+
+        .error-box {
+            background: rgba(239, 68, 68, 0.15);
+            border: 1px solid rgba(239, 68, 68, 0.4);
+            color: #f87171;
+            padding: 10px 14px;
+            font-size: 12px;
+            font-family: 'JetBrains Mono', monospace;
+            margin-bottom: 18px;
+            text-align: center;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            font-size: 11px;
+            font-family: 'JetBrains Mono', monospace;
+            font-weight: 700;
+            color: var(--text-dim);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 8px;
+        }
+
+        input[type="password"] {
+            width: 100%;
+            background: #07090e;
+            border: 1px solid var(--border);
+            color: #fff;
+            font-size: 15px;
+            font-family: 'JetBrains Mono', monospace;
+            padding: 12px 14px;
+            outline: none;
+            transition: all 0.2s;
+            text-align: center;
+            letter-spacing: 4px;
+        }
+
+        input[type="password"]:focus {
+            border-color: var(--accent);
+            box-shadow: 0 0 15px var(--accent-glow);
+        }
+
+        .btn-submit {
+            width: 100%;
+            background: var(--accent);
+            color: #fff;
+            border: none;
+            padding: 13px 20px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 13px;
+            font-weight: 800;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            cursor: pointer;
+            transition: all 0.2s;
+            box-shadow: 0 0 15px var(--accent-glow);
+        }
+
+        .btn-submit:hover {
+            filter: brightness(1.15);
+            box-shadow: 0 0 25px var(--accent-glow);
+        }
+
+        .footer-text {
+            text-align: center;
+            font-size: 11px;
+            font-family: 'JetBrains Mono', monospace;
+            color: var(--text-dim);
+            margin-top: 22px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="login-card">
+    <div class="header-box">
+        <div class="badge-icon">🔐</div>
+        <h1>XÁC THỰC QUẢN TRỊ VIÊN</h1>
+        <p>Hệ thống bảo mật MeoMeoPath Core Server</p>
+    </div>
+
+    {% if error %}
+    <div class="error-box">
+        {{ error }}
+    </div>
+    {% endif %}
+
+    <form method="POST" action="/nxt2007/login">
+        <div class="form-group">
+            <label>Mật Khẩu Quản Trị (Admin Pass)</label>
+            <input type="password" name="password" placeholder="••••••" autofocus required>
+        </div>
+
+        <button type="submit" class="btn-submit">⚡ ĐĂNG NHẬP HỆ THỐNG</button>
+    </form>
+
+    <div class="footer-text">
+        PORTAL: /nxt2007 • IP: {{ request.remote_addr }}
+    </div>
+</div>
+
+</body>
+</html>

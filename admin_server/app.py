@@ -7,11 +7,14 @@ import string
 import urllib.request
 import urllib.parse
 import re
-from flask import Flask, render_template, request, jsonify, send_from_directory, redirect
+import threading
+from flask import Flask, render_template, request, jsonify, send_from_directory, redirect, session
 from werkzeug.utils import secure_filename
 
 app = Flask(__name__)
-app.config['SECRET_KEY'] = 'meomeopath-admin-secret-2026'
+app.config['SECRET_KEY'] = 'meomeopath-admin-secret-2026-keyauth'
+
+ADMIN_PASS = "222007"
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 UPLOAD_FOLDER = os.path.join(BASE_DIR, 'uploads')
@@ -23,20 +26,39 @@ CLAIMS_FILE = os.path.join(BASE_DIR, 'claims.json')
 
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
-# MARK: - Data Storage Helpers
+file_lock = threading.Lock()
+
+# MARK: - Data Storage Helpers (Thread-safe & Atomic Write)
 
 def load_json(filepath, default_value):
     if os.path.exists(filepath):
-        try:
-            with open(filepath, 'r', encoding='utf-8') as f:
-                return json.load(f)
-        except Exception:
-            return default_value
+        with file_lock:
+            for _ in range(3):
+                try:
+                    with open(filepath, 'r', encoding='utf-8') as f:
+                        return json.load(f)
+                except Exception:
+                    time.sleep(0.05)
     return default_value
 
 def save_json(filepath, data):
-    with open(filepath, 'w', encoding='utf-8') as f:
-        json.dump(data, f, indent=2, ensure_ascii=False)
+    with file_lock:
+        temp_filepath = f"{filepath}.tmp_{os.getpid()}_{int(time.time() * 1000)}"
+        try:
+            with open(temp_filepath, 'w', encoding='utf-8') as f:
+                json.dump(data, f, indent=2, ensure_ascii=False)
+                f.flush()
+                os.fsync(f.fileno())
+            os.replace(temp_filepath, filepath)
+        except Exception:
+            try:
+                with open(filepath, 'w', encoding='utf-8') as f:
+                    json.dump(data, f, indent=2, ensure_ascii=False)
+            except Exception:
+                pass
+            if os.path.exists(temp_filepath):
+                try: os.remove(temp_filepath)
+                except Exception: pass
 
 def get_settings():
     default_settings = {
@@ -87,6 +109,9 @@ def index():
 
 @app.route('/nxt2007')
 def admin_panel():
+    if not session.get('admin_authenticated'):
+        return render_template('admin_login.html')
+
     patches = load_json(PATCHES_FILE, [])
     keys = load_json(KEYS_FILE, [])
     tokens = load_json(TOKENS_FILE, [])
@@ -101,6 +126,19 @@ def admin_panel():
 
     save_json(KEYS_FILE, keys)
     return render_template('admin.html', patches=patches, keys=keys, tokens=tokens, settings=settings)
+
+@app.route('/nxt2007/login', methods=['POST'])
+def admin_login():
+    pass_input = request.form.get('password', '').strip()
+    if pass_input == ADMIN_PASS:
+        session['admin_authenticated'] = True
+        return redirect('/nxt2007')
+    return render_template('admin_login.html', error='Mật khẩu Admin không chính xác!')
+
+@app.route('/nxt2007/logout')
+def admin_logout():
+    session.pop('admin_authenticated', None)
+    return redirect('/nxt2007')
 
 # MARK: - Seller Web Portal (/seller/<token> & /seller<token>)
 
@@ -347,13 +385,16 @@ def api_update_brand(token_str):
 @app.route('/api/brand/<token_str>', methods=['DELETE'])
 def api_delete_brand(token_str):
     clean_token = token_str.strip().upper()
+    if not clean_token:
+        return jsonify({"success": False, "error": "Mã token không hợp lệ"}), 400
+
     tokens = load_json(TOKENS_FILE, [])
-    new_tokens = [t for t in tokens if t.get('token', '').upper() != clean_token]
+    new_tokens = [t for t in tokens if t.get('token', '').strip().upper() != clean_token]
     save_json(TOKENS_FILE, new_tokens)
 
-    # Xóa sạch toàn bộ key được tạo bởi Seller Token này
+    # Xóa sạch toàn bộ key thuộc về Seller Token này (Tuyệt đối KHÔNG xóa nhầm key Admin)
     keys = load_json(KEYS_FILE, [])
-    new_keys = [k for k in keys if k.get('seller_token', '').upper() != clean_token and f"[Seller: {clean_token}]" not in k.get('note', '')]
+    new_keys = [k for k in keys if not (k.get('seller_token') and k.get('seller_token', '').strip().upper() == clean_token) and f"[Seller: {clean_token}]" not in k.get('note', '')]
     save_json(KEYS_FILE, new_keys)
 
     return jsonify({"success": True})
