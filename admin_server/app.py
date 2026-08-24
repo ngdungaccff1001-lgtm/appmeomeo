@@ -61,7 +61,7 @@ def generate_seller_token():
     part = ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))
     return f"SELLER-{part}"
 
-# MARK: - Shortlink Chain (Ontops -> Layma -> Claim)
+# MARK: - 3-Tier Shortlink Chain (Ontops -> Layma -> Layma -> Claim)
 
 def shorten_layma(target_url):
     layma_token = "77e5a6f69bfddbdb298b37f3783007e8"
@@ -109,11 +109,13 @@ def shorten_ontops(target_url):
         print(f"[Ontops API Error] {e}")
     return target_url
 
-def get_2tier_shortlink(claim_url):
-    # Tier 1: Rút gọn link Claim bằng Layma
-    layma_url = shorten_layma(claim_url)
-    # Tier 2: Rút gọn link Layma bằng Ontops
-    ontops_url = shorten_ontops(layma_url)
+def get_3tier_shortlink(claim_url):
+    # Lớp 3 (Trong cùng): Rút gọn Claim URL qua Layma lần 2
+    layma_url_2 = shorten_layma(claim_url)
+    # Lớp 2 (Giữa): Rút gọn qua Layma lần 1
+    layma_url_1 = shorten_layma(layma_url_2)
+    # Lớp 1 (Ngoài cùng): Rút gọn qua Ontops
+    ontops_url = shorten_ontops(layma_url_1)
     return ontops_url
 
 # MARK: - Public & Admin Routes
@@ -139,7 +141,38 @@ def admin_panel():
     save_json(KEYS_FILE, keys)
     return render_template('admin.html', patches=patches, keys=keys, tokens=tokens, settings=settings)
 
-# MARK: - 12H Key Generator via 2-Tier Shortlinks (/getkey & /getkey/claim)
+# MARK: - Seller Web Portal (/seller/<token> & /seller<token>)
+
+@app.route('/seller/<token_str>')
+@app.route('/seller<token_str>')
+def seller_portal(token_str):
+    tokens = load_json(TOKENS_FILE, [])
+    matched = None
+    clean_token = token_str.strip().upper()
+
+    for t in tokens:
+        if t.get('token', '').upper() == clean_token:
+            matched = t
+            break
+
+    if not matched:
+        return "<h3>Không tìm thấy Seller Token này. Vui lòng liên hệ Admin để nhận link!</h3>", 404
+
+    keys = load_json(KEYS_FILE, [])
+    current_time = time.time()
+    seller_keys = []
+
+    for k in keys:
+        if k.get('seller_token', '').upper() == clean_token or f"[Seller: {clean_token}]" in k.get('note', ''):
+            if k.get('expires_at') and k.get('expires_at') < current_time and k.get('status') == 'active':
+                k['status'] = 'expired'
+            if k.get('expires_at'):
+                k['expires_at_str'] = time.strftime("%Y-%m-%d %H:%M", time.localtime(k['expires_at']))
+            seller_keys.append(k)
+
+    return render_template('seller.html', token=matched, keys=seller_keys)
+
+# MARK: - 12H Key Generator via 3-Tier Shortlinks (/getkey & /getkey/claim)
 
 @app.route('/getkey')
 def get_key_landing():
@@ -178,8 +211,8 @@ def get_key_landing():
     host = request.host_url.rstrip('/')
     direct_claim_url = f"{host}/getkey/claim?token={claim_token}&hwid={hwid}"
 
-    # Tạo link rút gọn 2 tầng Ontops -> Layma
-    redirect_short_url = get_2tier_shortlink(direct_claim_url)
+    # Tạo chuỗi rút gọn 3 lần: Ontops -> Layma 1 -> Layma 2 -> Direct Claim
+    redirect_short_url = get_3tier_shortlink(direct_claim_url)
 
     return render_template('getkey.html',
                            hwid=hwid or "Chưa liên kết HWID",
@@ -205,16 +238,14 @@ def get_key_claim():
         return render_template('403.html'), 403
 
     if claim_entry.get('used'):
-        # Token này đã sử dụng, chống F5 reg liên tục
         return "<h3>Lỗi: Phiên vượt link này đã được sử dụng. Vui lòng quay lại /getkey để tạo phiên mới!</h3>", 400
 
-    # Đánh dấu đã dùng
     claim_entry['used'] = True
     save_json(CLAIMS_FILE, claims)
 
     # Tạo Key 12 Giờ (0.5 ngày)
     key_str = generate_key_string()
-    duration_days = 0.5 # 12 tiếng = 43200 giây
+    duration_days = 0.5
     expires_at = now + 43200
 
     bound_hwids = []
@@ -234,7 +265,7 @@ def get_key_claim():
         "first_activated_at": now,
         "expires_at": expires_at,
         "bound_hwids": bound_hwids,
-        "note": "Get Key 12H Vượt Link (Ontops + Layma)"
+        "note": "Get Key 12H Vượt Link (Ontops + Layma x2)"
     }
 
     keys = load_json(KEYS_FILE, [])
@@ -290,7 +321,6 @@ def api_create_brand():
 
     tokens = load_json(TOKENS_FILE, [])
 
-    # Kiểm tra trùng token
     for t in tokens:
         if t.get('token', '').upper() == token_str:
             return jsonify({"success": False, "error": "Mã Token Seller này đã tồn tại!"}), 400
@@ -441,6 +471,7 @@ def api_create_keys():
     device_limit = int(data.get('device_limit', 1))
     quantity = min(50, max(1, int(data.get('quantity', 1))))
     note = data.get('note', '').strip()
+    seller_token = data.get('seller_token', '').strip().upper()
 
     keys = load_json(KEYS_FILE, [])
     created_keys = []
@@ -455,7 +486,8 @@ def api_create_keys():
             "first_activated_at": None,
             "expires_at": None,
             "bound_hwids": [],
-            "note": note
+            "note": note,
+            "seller_token": seller_token
         }
         keys.insert(0, new_key)
         created_keys.append(new_key['key'])
@@ -513,7 +545,7 @@ def api_status():
     return jsonify({
         "status": "offline" if is_emergency else "online",
         "service": "MeoMeoPath Admin API",
-        "version": "2.3.0",
+        "version": "2.4.0",
         "server_online": settings.get('server_online', True),
         "is_emergency": is_emergency,
         "emergency_message": settings.get('emergency_message'),
@@ -644,7 +676,8 @@ if __name__ == '__main__':
     print("==================================================")
     print("🔥 MEOMEOPATH ADMIN SECURITY SERVER 🔥")
     print("👉 Secret Admin URL: http://0.0.0.0:5000/nxt2007")
-    print("👉 Get Key 12H: http://0.0.0.0:5000/getkey")
+    print("👉 Get Key 12H (Ontops -> Layma -> Layma): http://0.0.0.0:5000/getkey")
+    print("👉 Seller Web Portal: http://0.0.0.0:5000/seller/<token>")
     print("👉 Public Root :5000 -> 403 Forbidden")
     print("==================================================")
     app.run(host='0.0.0.0', port=5000, debug=True)

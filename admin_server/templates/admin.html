@@ -442,6 +442,7 @@
                                 </td>
                                 <td>
                                     <div style="display: flex; gap: 4px;">
+                                        <a href="/seller/{{ t.token }}" target="_blank" class="btn-sm btn-reset" style="text-decoration: none; display: inline-flex; align-items: center;">WEB KEY</a>
                                         <button class="btn-sm btn-ban" onclick="toggleToken('{{ t.token }}')">{% if t.is_active %}TẮT{% else %}BẬT{% endif %}</button>
                                         <button class="btn-sm btn-del" onclick="deleteToken('{{ t.token }}')">XÓA</button>
                                     </div>

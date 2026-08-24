@@ -162,7 +162,6 @@ final class KeyAuthEngine: ObservableObject {
                 }
 
                 let isValid = json["valid"] as? Bool ?? false
-                let msg = json["message"] as? String
                 let linkTitle = json["link_title"] as? String
                 let linkUrl = json["link_url"] as? String
 
@@ -229,11 +228,13 @@ final class KeyAuthEngine: ObservableObject {
     private func startCountdown() {
         countdownTimer?.invalidate()
         countdownTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
-            guard let self = self else { return }
-            if self.remainingSeconds > 0 {
-                self.remainingSeconds -= 1
-            } else if self.isAuthenticated {
-                self.handleInvalidKey(message: "Key đã hết hạn sử dụng!", linkTitle: self.emergencyLinkTitle, linkUrl: self.emergencyLinkURL)
+            Task { @MainActor [weak self] in
+                guard let self = self else { return }
+                if self.remainingSeconds > 0 {
+                    self.remainingSeconds -= 1
+                } else if self.isAuthenticated {
+                    self.handleInvalidKey(message: "Key đã hết hạn sử dụng!", linkTitle: self.emergencyLinkTitle, linkUrl: self.emergencyLinkURL)
+                }
             }
         }
     }

@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ token.app_name }} • Seller Key Portal</title>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;800&family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #090b10;
+            --card-bg: #121520;
+            --card-border: #1e2436;
+            --accent: #ff2a42;
+            --accent-glow: rgba(255, 42, 66, 0.25);
+            --gold: #f1c40f;
+            --text: #f0f2f5;
+            --text-dim: #8b949e;
+            --green: #2ecc71;
+            --cyan: #00d2d3;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            background-color: var(--bg);
+            color: var(--text);
+            font-family: 'Inter', sans-serif;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container { max-width: 1120px; margin: 0 auto; }
+
+        header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding-bottom: 16px;
+            border-bottom: 1px solid var(--card-border);
+            margin-bottom: 20px;
+        }
+
+        .brand { display: flex; align-items: center; gap: 12px; }
+        .logo-box {
+            width: 42px; height: 42px;
+            background: linear-gradient(135deg, #f1c40f, #e67e22);
+            border-radius: 6px;
+            display: flex; align-items: center; justify-content: center;
+            font-weight: 800; font-family: 'JetBrains Mono', monospace;
+            color: #000;
+            box-shadow: 0 0 15px rgba(241, 196, 15, 0.3);
+        }
+
+        h1 { font-size: 19px; font-family: 'JetBrains Mono', monospace; font-weight: 800; }
+        .tag {
+            font-size: 10px; font-family: 'JetBrains Mono', monospace;
+            background: rgba(241, 196, 15, 0.15); color: var(--gold);
+            padding: 3px 8px; border-radius: 3px; border: 1px solid rgba(241, 196, 15, 0.3);
+            margin-left: 6px;
+        }
+
+        .seller-banner {
+            background: linear-gradient(135deg, rgba(241, 196, 15, 0.08), rgba(255, 42, 66, 0.08));
+            border: 1px solid var(--card-border);
+            border-radius: 8px;
+            padding: 16px 20px;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+
+        .grid-2 { display: grid; grid-template-columns: 1fr 1.6fr; gap: 20px; }
+        @media (max-width: 860px) { .grid-2 { grid-template-columns: 1fr; } }
+
+        .card {
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 6px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+
+        .card-header {
+            font-size: 13px; font-weight: 700; font-family: 'JetBrains Mono', monospace;
+            color: var(--text-dim); text-transform: uppercase; margin-bottom: 16px;
+            display: flex; align-items: center; justify-content: space-between;
+        }
+
+        .form-group { margin-bottom: 14px; }
+        label { display: block; font-size: 12px; font-weight: 600; margin-bottom: 6px; color: var(--text-dim); }
+
+        input[type="text"], select {
+            width: 100%; padding: 10px 12px;
+            background: #080a0f; border: 1px solid var(--card-border);
+            border-radius: 4px; color: var(--text); font-size: 13px; outline: none;
+            transition: border 0.15s;
+        }
+
+        input:focus, select:focus {
+            border-color: var(--gold);
+            box-shadow: 0 0 8px rgba(241, 196, 15, 0.3);
+        }
+
+        .btn-group-duration { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; margin-bottom: 12px; }
+        .btn-duration {
+            padding: 8px 4px; background: #080a0f; border: 1px solid var(--card-border);
+            color: var(--text); font-size: 11px; font-weight: 700; text-align: center;
+            border-radius: 4px; cursor: pointer; transition: all 0.15s;
+        }
+        .btn-duration.active {
+            background: rgba(241, 196, 15, 0.2); border-color: var(--gold); color: var(--gold);
+        }
+
+        .btn {
+            display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+            background: linear-gradient(135deg, #f1c40f, #e67e22);
+            color: #000; border: none; border-radius: 4px;
+            padding: 12px 16px; font-size: 13px; font-weight: 800;
+            font-family: 'JetBrains Mono', monospace; cursor: pointer; width: 100%;
+        }
+        .btn:hover { opacity: 0.9; }
+
+        .btn-sm {
+            padding: 4px 8px; font-size: 11px; border-radius: 3px; cursor: pointer;
+            font-family: 'JetBrains Mono', monospace; border: none; font-weight: 700;
+        }
+        .btn-reset { background: #1c2e3a; color: #38bdf8; border: 1px solid #254b60; }
+        .btn-del { background: #281216; color: #ff3344; border: 1px solid #4a1c24; }
+
+        /* Table */
+        .table-responsive { overflow-x: auto; }
+        table { width: 100%; border-collapse: collapse; font-size: 12px; }
+        th {
+            text-align: left; padding: 10px; background: #0b0e15;
+            color: var(--text-dim); font-family: 'JetBrains Mono', monospace;
+            border-bottom: 1px solid var(--card-border);
+        }
+        td {
+            padding: 10px; border-bottom: 1px solid var(--card-border);
+            vertical-align: middle;
+        }
+        tr:hover { background: rgba(255, 255, 255, 0.02); }
+
+        .key-text {
+            font-family: 'JetBrains Mono', monospace; font-weight: 800; color: #f1c40f;
+            background: rgba(241, 196, 15, 0.12); padding: 3px 6px; border-radius: 3px;
+            display: inline-block; cursor: pointer;
+        }
+
+        .badge {
+            padding: 2px 6px; border-radius: 3px; font-size: 10px; font-weight: 700;
+            font-family: 'JetBrains Mono', monospace; display: inline-block;
+        }
+        .badge-active { background: rgba(46, 204, 113, 0.18); color: var(--green); }
+        .badge-expired { background: rgba(241, 196, 15, 0.18); color: var(--gold); }
+        .badge-banned { background: rgba(231, 76, 60, 0.18); color: #ff4757; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <header>
+        <div class="brand">
+            <div class="logo-box">👑</div>
+            <div>
+                <h1>{{ token.app_name }} <span class="tag">SELLER PORTAL</span></h1>
+                <p style="font-size: 11px; color: var(--text-dim); margin-top: 2px;">{{ token.welcome_title }} • {{ token.welcome_subtitle }}</p>
+            </div>
+        </div>
+        <div>
+            <a href="{{ token.telegram_url }}" target="_blank" style="color: #38bdf8; text-decoration: none; font-size: 12px; font-family: 'JetBrains Mono', monospace;">
+                ✈️ {{ token.telegram_title }}
+            </a>
+        </div>
+    </header>
+
+    <!-- Banner Mã Token Cho Khách -->
+    <div class="seller-banner">
+        <div>
+            <div style="font-size: 11px; color: var(--text-dim); font-weight: 600;">MÃ TOKEN CỦA BẠN (CẤP CHO KHÁCH HÀNG NHẬP VÀO APP)</div>
+            <div style="font-size: 18px; font-family: 'JetBrains Mono', monospace; font-weight: 800; color: var(--gold); margin-top: 2px;">
+                {{ token.token }}
+            </div>
+        </div>
+        <button class="btn-sm btn-reset" onclick="copyToken('{{ token.token }}')" style="padding: 8px 14px; font-size: 12px;">📋 SAO CHÉP TOKEN</button>
+    </div>
+
+    <div class="grid-2">
+        <!-- Form Tạo Key Seller -->
+        <div class="card">
+            <div class="card-header">
+                <span>TẠO API KEY CHO KHÁCH</span>
+                <span>AUTO HWID LOCK</span>
+            </div>
+
+            <div class="form-group">
+                <label>Thời Hạn Key</label>
+                <div class="btn-group-duration">
+                    <div class="btn-duration" onclick="setDuration(0.5, this)">12H</div>
+                    <div class="btn-duration active" onclick="setDuration(1, this)">1 NGÀY</div>
+                    <div class="btn-duration" onclick="setDuration(3, this)">3 NGÀY</div>
+                    <div class="btn-duration" onclick="setDuration(7, this)">7 NGÀY</div>
+                    <div class="btn-duration" onclick="setDuration(30, this)">30 NGÀY</div>
+                </div>
+                <input type="hidden" id="keyDuration" value="1">
+            </div>
+
+            <div class="form-group">
+                <label>Số Thiết Bị Khóa HWID</label>
+                <select id="keyDeviceLimit">
+                    <option value="1">🔒 1 Thiết bị duy nhất (Khóa HWID)</option>
+                    <option value="2">2 Thiết bị</option>
+                    <option value="3">3 Thiết bị</option>
+                    <option value="999">🌐 Không giới hạn</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label>Số Lượng Key Cần Tạo</label>
+                <select id="keyQuantity">
+                    <option value="1">Tạo 1 Key</option>
+                    <option value="5">Tạo 5 Key cùng lúc</option>
+                    <option value="10">Tạo 10 Key cùng lúc</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label>Ghi Chú Khách Hàng</label>
+                <input type="text" id="keyNote" placeholder="VD: Bán cho khách Tuấn...">
+            </div>
+
+            <button class="btn" onclick="createSellerKeys()">⚡ TẠO KEY BÁN CHO KHÁCH</button>
+        </div>
+
+        <!-- Danh Sách Key Của Seller Này -->
+        <div class="card">
+            <div class="card-header">
+                <span>DANH SÁCH KEY BẠN ĐÃ TẠO</span>
+                <span>{{ keys|length }} KEY</span>
+            </div>
+
+            <div class="table-responsive">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>MÃ KEY</th>
+                            <th>HẠN</th>
+                            <th>TRẠNG THÁI</th>
+                            <th>THIẾT BỊ</th>
+                            <th>THAO TÁC</th>
+                        </tr>
+                    </thead>
+                    <tbody id="keyTableBody">
+                        {% for k in keys %}
+                        <tr id="key-row-{{ k.key }}">
+                            <td>
+                                <span class="key-text" onclick="copyKey('{{ k.key }}')" title="Nhấn để sao chép">{{ k.key }}</span>
+                                {% if k.note %}
+                                <div style="font-size: 10px; color: var(--text-dim); margin-top: 2px;">{{ k.note }}</div>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <b>{{ '12 Giờ' if k.duration_days == 0.5 else (k.duration_days|string + ' ngày') }}</b>
+                                <div style="font-size: 10px; color: var(--text-dim);">
+                                    {% if k.expires_at %}
+                                    HSD: {{ k.expires_at_str }}
+                                    {% else %}
+                                    Chưa kích hoạt
+                                    {% endif %}
+                                </div>
+                            </td>
+                            <td>
+                                {% if k.status == 'active' %}
+                                <span class="badge badge-active">HOẠT ĐỘNG</span>
+                                {% elif k.status == 'expired' %}
+                                <span class="badge badge-expired">HẾT HẠN</span>
+                                {% else %}
+                                <span class="badge badge-banned">BỊ KHÓA</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <div style="font-size: 11px; font-family: 'JetBrains Mono', monospace;">
+                                    {{ k.bound_hwids|length }}/{{ k.device_limit }} máy
+                                </div>
+                                {% if k.bound_hwids %}
+                                <div style="font-size: 9px; color: var(--text-dim); max-width: 100px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                                    {{ k.bound_hwids[0].device_name }}
+                                </div>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <div style="display: flex; gap: 4px;">
+                                    <button class="btn-sm btn-reset" onclick="resetHwid('{{ k.key }}')" title="Reset HWID">RESET</button>
+                                    <button class="btn-sm btn-del" onclick="deleteKey('{{ k.key }}')">XÓA</button>
+                                </div>
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="5" style="text-align: center; color: var(--text-dim); padding: 30px;">
+                                Bạn chưa tạo mã Key nào. Hãy tạo key ở bảng bên trái!
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const sellerToken = "{{ token.token }}";
+
+    function setDuration(days, el) {
+        document.querySelectorAll('.btn-duration').forEach(e => e.classList.remove('active'));
+        el.classList.add('active');
+        document.getElementById('keyDuration').value = days;
+    }
+
+    function copyKey(key) {
+        navigator.clipboard.writeText(key);
+        alert('Đã sao chép Key: ' + key);
+    }
+
+    function copyToken(tok) {
+        navigator.clipboard.writeText(tok);
+        alert('Đã sao chép Token: ' + tok + '\nHãy hướng dẫn khách dán mã này vào app để áp dụng thương hiệu của bạn!');
+    }
+
+    async function createSellerKeys() {
+        const days = parseFloat(document.getElementById('keyDuration').value);
+        const deviceLimit = parseInt(document.getElementById('keyDeviceLimit').value);
+        const quantity = parseInt(document.getElementById('keyQuantity').value);
+        const note = document.getElementById('keyNote').value;
+
+        try {
+            const res = await fetch('/api/key/create', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    duration_days: days,
+                    device_limit: deviceLimit,
+                    quantity: quantity,
+                    note: `[Seller: ${sellerToken}] ` + note,
+                    seller_token: sellerToken
+                })
+            });
+            const data = await res.json();
+            if (data.success) {
+                alert(`Đã tạo thành công ${data.keys.length} Key!`);
+                location.reload();
+            } else {
+                alert('Lỗi: ' + data.error);
+            }
+        } catch (e) {
+            alert('Lỗi kết nối: ' + e.message);
+        }
+    }
+
+    async function deleteKey(key) {
+        if (!confirm(`Xóa Key ${key}?`)) return;
+        try {
+            const res = await fetch(`/api/key/${key}`, { method: 'DELETE' });
+            const data = await res.json();
+            if (data.success) location.reload();
+        } catch (e) { alert('Lỗi: ' + e.message); }
+    }
+
+    async function resetHwid(key) {
+        if (!confirm(`Reset HWID cho key ${key}? Khách có thể kích hoạt trên máy mới.`)) return;
+        try {
+            const res = await fetch(`/api/key/${key}/reset_hwid`, { method: 'POST' });
+            const data = await res.json();
+            if (data.success) {
+                alert('Đã reset HWID thành công!');
+                location.reload();
+            }
+        } catch (e) { alert('Lỗi: ' + e.message); }
+    }
+</script>
+
+</body>
+</html>
