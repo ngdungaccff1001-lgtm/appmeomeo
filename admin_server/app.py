@@ -4,7 +4,10 @@ import uuid
 import time
 import random
 import string
-from flask import Flask, render_template, request, jsonify, send_from_directory
+import urllib.request
+import urllib.parse
+import re
+from flask import Flask, render_template, request, jsonify, send_from_directory, redirect
 from werkzeug.utils import secure_filename
 
 app = Flask(__name__)
@@ -15,6 +18,8 @@ UPLOAD_FOLDER = os.path.join(BASE_DIR, 'uploads')
 PATCHES_FILE = os.path.join(BASE_DIR, 'patches.json')
 KEYS_FILE = os.path.join(BASE_DIR, 'keys.json')
 SETTINGS_FILE = os.path.join(BASE_DIR, 'settings.json')
+TOKENS_FILE = os.path.join(BASE_DIR, 'tokens.json')
+CLAIMS_FILE = os.path.join(BASE_DIR, 'claims.json')
 
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
@@ -38,8 +43,11 @@ def get_settings():
         "server_online": True,
         "emergency_mode": False,
         "emergency_message": "Máy chủ đang bảo trì nâng cấp hệ thống!",
-        "emergency_link_title": "THAM GIA TELEGRAM HỖ TRỢ",
-        "emergency_link_url": "https://t.me/ioscrackvn"
+        "emergency_link_title": "LIÊN HỆ TELEGRAM",
+        "emergency_link_url": "https://t.me/ioscrackvn",
+        "default_app_name": "MeoMeoPath",
+        "default_welcome_title": "CHÀO MỪNG ĐẾN APIMEOMEO",
+        "default_welcome_subtitle": "Hệ thống Mod & Patch Tối Ưu Game Free Fire Chuyên Nghiệp"
     }
     return load_json(SETTINGS_FILE, default_settings)
 
@@ -49,18 +57,76 @@ def generate_key_string():
     part3 = ''.join(random.choices(string.ascii_uppercase + string.digits, k=4))
     return f"MEOMEO-{part1}-{part2}-{part3}"
 
-# MARK: - Routes
+def generate_seller_token():
+    part = ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))
+    return f"SELLER-{part}"
+
+# MARK: - Shortlink Chain (Ontops -> Layma -> Claim)
+
+def shorten_layma(target_url):
+    layma_token = "77e5a6f69bfddbdb298b37f3783007e8"
+    encoded_url = urllib.parse.quote(target_url, safe='')
+    api_url = f"https://api.layma.net/api/admin/shortlink/quicklink?tokenUser={layma_token}&url={encoded_url}"
+
+    try:
+        req = urllib.request.Request(api_url, headers={'User-Agent': 'Mozilla/5.0'})
+        with urllib.request.urlopen(req, timeout=5) as response:
+            res_data = response.read().decode('utf-8')
+            try:
+                res_json = json.loads(res_data)
+                shortlink = res_json.get('shortlink') or res_json.get('shortenedUrl') or res_json.get('url')
+                if shortlink:
+                    return shortlink
+            except Exception:
+                pass
+            urls = re.findall(r'https?://[^\s"\'<>]+', res_data)
+            if urls:
+                return urls[0]
+    except Exception as e:
+        print(f"[Layma API Error] {e}")
+    return target_url
+
+def shorten_ontops(target_url):
+    ontops_key = "0f2c5d281a2e42a19c28919242544e23"
+    encoded_url = urllib.parse.quote(target_url, safe='')
+    api_url = f"http://ontops.link/st?apikey={ontops_key}&url={encoded_url}"
+
+    try:
+        req = urllib.request.Request(api_url, headers={'User-Agent': 'Mozilla/5.0'})
+        with urllib.request.urlopen(req, timeout=5) as response:
+            res_data = response.read().decode('utf-8')
+            try:
+                res_json = json.loads(res_data)
+                shortlink = res_json.get('shortlink') or res_json.get('url')
+                if shortlink:
+                    return shortlink
+            except Exception:
+                pass
+            urls = re.findall(r'https?://[^\s"\'<>]+', res_data)
+            if urls:
+                return urls[0]
+    except Exception as e:
+        print(f"[Ontops API Error] {e}")
+    return target_url
+
+def get_2tier_shortlink(claim_url):
+    # Tier 1: Rút gọn link Claim bằng Layma
+    layma_url = shorten_layma(claim_url)
+    # Tier 2: Rút gọn link Layma bằng Ontops
+    ontops_url = shorten_ontops(layma_url)
+    return ontops_url
+
+# MARK: - Public & Admin Routes
 
 @app.route('/')
 def index():
-    # Chặn truy cập root :5000 bằng 403 Forbidden
     return render_template('403.html'), 403
 
 @app.route('/nxt2007')
 def admin_panel():
-    # Route quản trị bí mật
     patches = load_json(PATCHES_FILE, [])
     keys = load_json(KEYS_FILE, [])
+    tokens = load_json(TOKENS_FILE, [])
     settings = get_settings()
 
     current_time = time.time()
@@ -71,9 +137,198 @@ def admin_panel():
             k['expires_at_str'] = time.strftime("%Y-%m-%d %H:%M", time.localtime(k['expires_at']))
 
     save_json(KEYS_FILE, keys)
-    return render_template('admin.html', patches=patches, keys=keys, settings=settings)
+    return render_template('admin.html', patches=patches, keys=keys, tokens=tokens, settings=settings)
 
-# MARK: - Key Verification & Auth REST API (For iOS App)
+# MARK: - 12H Key Generator via 2-Tier Shortlinks (/getkey & /getkey/claim)
+
+@app.route('/getkey')
+def get_key_landing():
+    hwid = request.args.get('hwid', '').strip()
+    client_ip = request.headers.get('X-Forwarded-For', request.remote_addr)
+
+    keys = load_json(KEYS_FILE, [])
+    now = time.time()
+
+    # Kiểm tra xem HWID/IP có key 12h còn hạn không
+    existing_active_key = None
+    if hwid:
+        for k in keys:
+            if k.get('duration_days') == 0.5 and k.get('expires_at') and k.get('expires_at') > now:
+                for d in k.get('bound_hwids', []):
+                    if d.get('hwid') == hwid:
+                        existing_active_key = k.get('key')
+                        break
+
+    # Tạo One-Time Claim Session
+    claims = load_json(CLAIMS_FILE, [])
+    # Dọn dẹp session cũ hơn 2 giờ
+    claims = [c for c in claims if now - c.get('created_at', 0) < 7200]
+
+    claim_token = uuid.uuid4().hex
+    new_claim = {
+        "token": claim_token,
+        "hwid": hwid,
+        "ip": client_ip,
+        "created_at": now,
+        "used": False
+    }
+    claims.append(new_claim)
+    save_json(CLAIMS_FILE, claims)
+
+    host = request.host_url.rstrip('/')
+    direct_claim_url = f"{host}/getkey/claim?token={claim_token}&hwid={hwid}"
+
+    # Tạo link rút gọn 2 tầng Ontops -> Layma
+    redirect_short_url = get_2tier_shortlink(direct_claim_url)
+
+    return render_template('getkey.html',
+                           hwid=hwid or "Chưa liên kết HWID",
+                           redirect_url=redirect_short_url,
+                           in_cooldown=bool(existing_active_key),
+                           existing_key=existing_active_key)
+
+@app.route('/getkey/claim')
+def get_key_claim():
+    token = request.args.get('token', '').strip()
+    hwid = request.args.get('hwid', '').strip()
+    now = time.time()
+
+    claims = load_json(CLAIMS_FILE, [])
+    claim_entry = None
+
+    for c in claims:
+        if c.get('token') == token:
+            claim_entry = c
+            break
+
+    if not claim_entry:
+        return render_template('403.html'), 403
+
+    if claim_entry.get('used'):
+        # Token này đã sử dụng, chống F5 reg liên tục
+        return "<h3>Lỗi: Phiên vượt link này đã được sử dụng. Vui lòng quay lại /getkey để tạo phiên mới!</h3>", 400
+
+    # Đánh dấu đã dùng
+    claim_entry['used'] = True
+    save_json(CLAIMS_FILE, claims)
+
+    # Tạo Key 12 Giờ (0.5 ngày)
+    key_str = generate_key_string()
+    duration_days = 0.5 # 12 tiếng = 43200 giây
+    expires_at = now + 43200
+
+    bound_hwids = []
+    if hwid:
+        bound_hwids.append({
+            "hwid": hwid,
+            "device_name": "Get Key 12H Device",
+            "registered_at": time.strftime("%Y-%m-%d %H:%M:%S")
+        })
+
+    new_key = {
+        "key": key_str,
+        "duration_days": duration_days,
+        "device_limit": 1,
+        "status": "active",
+        "created_at": now,
+        "first_activated_at": now,
+        "expires_at": expires_at,
+        "bound_hwids": bound_hwids,
+        "note": "Get Key 12H Vượt Link (Ontops + Layma)"
+    }
+
+    keys = load_json(KEYS_FILE, [])
+    keys.insert(0, new_key)
+    save_json(KEYS_FILE, keys)
+
+    return render_template('claim_success.html', key=key_str, hwid=hwid or "1 Thiết Bị")
+
+# MARK: - Brand & Seller Token API
+
+@app.route('/api/brand', methods=['GET'])
+def api_get_brand():
+    token_str = request.args.get('token', '').strip().upper()
+    tokens = load_json(TOKENS_FILE, [])
+    settings = get_settings()
+
+    matched = None
+    if token_str:
+        for t in tokens:
+            if t.get('token', '').upper() == token_str and t.get('is_active', True):
+                matched = t
+                break
+
+    if matched:
+        return jsonify({
+            "success": True,
+            "app_name": matched.get('app_name', settings.get('default_app_name', 'MeoMeoPath')),
+            "welcome_title": matched.get('welcome_title', settings.get('default_welcome_title', 'CHÀO MỪNG ĐẾN APIMEOMEO')),
+            "welcome_subtitle": matched.get('welcome_subtitle', settings.get('default_welcome_subtitle', '')),
+            "telegram_url": matched.get('telegram_url', settings.get('emergency_link_url', 'https://t.me/ioscrackvn')),
+            "telegram_title": matched.get('telegram_title', settings.get('emergency_link_title', 'LIÊN HỆ TELEGRAM'))
+        })
+
+    return jsonify({
+        "success": False,
+        "app_name": settings.get('default_app_name', 'MeoMeoPath'),
+        "welcome_title": settings.get('default_welcome_title', 'CHÀO MỪNG ĐẾN APIMEOMEO'),
+        "welcome_subtitle": settings.get('default_welcome_subtitle', 'Hệ thống Mod & Patch Tối Ưu Game Free Fire Chuyên Nghiệp'),
+        "telegram_url": settings.get('emergency_link_url', 'https://t.me/ioscrackvn'),
+        "telegram_title": settings.get('emergency_link_title', 'LIÊN HỆ TELEGRAM')
+    })
+
+@app.route('/api/brand/create', methods=['POST'])
+def api_create_brand():
+    data = request.get_json(silent=True) or {}
+    token_str = data.get('token', '').strip().upper() or generate_seller_token()
+    app_name = data.get('app_name', '').strip() or 'MeoMeoPath'
+    welcome_title = data.get('welcome_title', '').strip() or f'CHÀO MỪNG ĐẾN {app_name.upper()}'
+    welcome_subtitle = data.get('welcome_subtitle', '').strip() or 'Hệ thống Mod Free Fire VIP'
+    telegram_url = data.get('telegram_url', '').strip() or 'https://t.me/ioscrackvn'
+    telegram_title = data.get('telegram_title', '').strip() or 'LIÊN HỆ TELEGRAM SELLER'
+    note = data.get('note', '').strip()
+
+    tokens = load_json(TOKENS_FILE, [])
+
+    # Kiểm tra trùng token
+    for t in tokens:
+        if t.get('token', '').upper() == token_str:
+            return jsonify({"success": False, "error": "Mã Token Seller này đã tồn tại!"}), 400
+
+    new_token = {
+        "token": token_str,
+        "app_name": app_name,
+        "welcome_title": welcome_title,
+        "welcome_subtitle": welcome_subtitle,
+        "telegram_url": telegram_url,
+        "telegram_title": telegram_title,
+        "note": note,
+        "is_active": True,
+        "created_at": time.strftime("%Y-%m-%d %H:%M:%S")
+    }
+
+    tokens.insert(0, new_token)
+    save_json(TOKENS_FILE, tokens)
+    return jsonify({"success": True, "token": new_token})
+
+@app.route('/api/brand/<token_str>', methods=['DELETE'])
+def api_delete_brand(token_str):
+    tokens = load_json(TOKENS_FILE, [])
+    new_tokens = [t for t in tokens if t.get('token', '').upper() != token_str.upper()]
+    save_json(TOKENS_FILE, new_tokens)
+    return jsonify({"success": True})
+
+@app.route('/api/brand/<token_str>/toggle', methods=['POST'])
+def api_toggle_brand(token_str):
+    tokens = load_json(TOKENS_FILE, [])
+    for t in tokens:
+        if t.get('token', '').upper() == token_str.upper():
+            t['is_active'] = not t.get('is_active', True)
+            break
+    save_json(TOKENS_FILE, tokens)
+    return jsonify({"success": True})
+
+# MARK: - Key Verification REST API
 
 @app.route('/api/key/verify', methods=['POST'])
 def api_verify_key():
@@ -124,13 +379,11 @@ def api_verify_key():
 
     now = time.time()
 
-    # Kích hoạt key lần đầu nếu chưa có expires_at
     if not matched_key.get('first_activated_at'):
         matched_key['first_activated_at'] = now
         duration_days = matched_key.get('duration_days', 1)
         matched_key['expires_at'] = now + (duration_days * 86400)
 
-    # Kiểm tra hết hạn
     if matched_key.get('expires_at') and matched_key.get('expires_at') < now:
         matched_key['status'] = 'expired'
         save_json(KEYS_FILE, keys)
@@ -142,7 +395,6 @@ def api_verify_key():
             "link_url": settings.get('emergency_link_url')
         }), 200
 
-    # Kiểm tra ràng buộc HWID
     bound_hwids = matched_key.get('bound_hwids', [])
     device_limit = matched_key.get('device_limit', 1)
 
@@ -157,7 +409,6 @@ def api_verify_key():
                 "link_url": settings.get('emergency_link_url')
             }), 200
 
-        # Thêm thiết bị mới
         bound_hwids.append({
             "hwid": hwid,
             "device_name": f"{device_name} ({os_version})",
@@ -186,7 +437,7 @@ def api_verify_key():
 @app.route('/api/key/create', methods=['POST'])
 def api_create_keys():
     data = request.get_json(silent=True) or {}
-    duration_days = int(data.get('duration_days', 1))
+    duration_days = float(data.get('duration_days', 1))
     device_limit = int(data.get('device_limit', 1))
     quantity = min(50, max(1, int(data.get('quantity', 1))))
     note = data.get('note', '').strip()
@@ -258,11 +509,14 @@ def api_update_settings():
 @app.route('/api/status', methods=['GET'])
 def api_status():
     settings = get_settings()
+    is_emergency = not settings.get('server_online', True) or settings.get('emergency_mode', False)
     return jsonify({
-        "status": "online" if settings.get('server_online', True) else "offline",
+        "status": "offline" if is_emergency else "online",
         "service": "MeoMeoPath Admin API",
-        "version": "2.2.0",
+        "version": "2.3.0",
         "server_online": settings.get('server_online', True),
+        "is_emergency": is_emergency,
+        "emergency_message": settings.get('emergency_message'),
         "emergency_link_title": settings.get('emergency_link_title'),
         "emergency_link_url": settings.get('emergency_link_url')
     })
@@ -270,7 +524,7 @@ def api_status():
 @app.route('/api/patches', methods=['GET'])
 def api_get_patches():
     settings = get_settings()
-    if not settings.get('server_online', True):
+    if not settings.get('server_online', True) or settings.get('emergency_mode', False):
         return jsonify({"success": False, "count": 0, "patches": []})
 
     bundle = request.args.get('bundle')
@@ -390,6 +644,7 @@ if __name__ == '__main__':
     print("==================================================")
     print("🔥 MEOMEOPATH ADMIN SECURITY SERVER 🔥")
     print("👉 Secret Admin URL: http://0.0.0.0:5000/nxt2007")
+    print("👉 Get Key 12H: http://0.0.0.0:5000/getkey")
     print("👉 Public Root :5000 -> 403 Forbidden")
     print("==================================================")
     app.run(host='0.0.0.0', port=5000, debug=True)

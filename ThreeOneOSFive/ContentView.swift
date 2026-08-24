@@ -153,7 +153,7 @@ struct ContentView: View {
             HStack(spacing: 10) {
                 AppLogo(size: 34)
                 VStack(alignment: .leading, spacing: 1) {
-                    Text("MeoMeoPath")
+                    Text(BrandConfigStore.shared.appName)
                         .font(.system(size: 16, weight: .bold, design: .monospaced))
                     Text("PAYLOAD MEOMEO.APP")
                         .font(.system(size: 8, weight: .bold, design: .monospaced))
@@ -378,6 +378,9 @@ private extension AppSection {
 private struct DashboardView: View {
     @Environment(\.appLanguage) private var language
     @EnvironmentObject private var appState: AppState
+    @StateObject private var brandStore = BrandConfigStore.shared
+    @StateObject private var keyEngine = KeyAuthEngine.shared
+    @State private var inputSellerToken = ""
     @State private var showSettings = false
     @State private var showLogs = false
     @AppStorage("app.appearance") private var appearance = AppAppearance.system.rawValue
@@ -396,7 +399,7 @@ private struct DashboardView: View {
                     // Cyber HUD Scanner Animation Effect
                     AppCyberPulseScanner()
 
-                    // Welcome to APIMeoMeo Card
+                    // Welcome to APIMeoMeo / Brand Card
                     welcomeCard
 
                     // Direct Jump to Function (Free Fire Hub)
@@ -407,6 +410,12 @@ private struct DashboardView: View {
 
                     // Appearance Switcher
                     appearanceSection
+
+                    // 2 NÚT HÀNH ĐỘNG: LẤY KEY 12H (VÀNG) & TELEGRAM (ĐỎ)
+                    actionButtonsHub
+
+                    // CẤU HÌNH TOKEN SELLER (ĐẠI LÝ)
+                    sellerBrandCustomizerCard
                 }
                 .padding(.horizontal, AppTheme.pageInset)
                 .padding(.top, 10)
@@ -427,7 +436,7 @@ private struct DashboardView: View {
                                     Rectangle().stroke(AppTheme.cardBorder, lineWidth: 1)
                                 )
 
-                            Text("MeoMeoPath")
+                            Text(brandStore.appName)
                                 .font(.system(size: 16, weight: .bold, design: .monospaced))
                                 .foregroundStyle(.primary)
                         }
@@ -469,11 +478,11 @@ private struct DashboardView: View {
                 AppLogo(size: 38)
 
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("CHÀO MỪNG ĐẾN APIMEOMEO")
+                    Text(brandStore.welcomeTitle)
                         .font(.system(size: 15, weight: .black, design: .monospaced))
                         .foregroundStyle(AppTheme.accent)
 
-                    Text("Hệ thống Mod & Patch Tối Ưu Game Free Fire Chuyên Nghiệp")
+                    Text(brandStore.welcomeSubtitle)
                         .font(.system(size: 11, weight: .medium))
                         .foregroundStyle(.secondary)
                 }
@@ -525,6 +534,150 @@ private struct DashboardView: View {
                         .stroke(AppTheme.cardBorder, lineWidth: 1)
                 )
         )
+    }
+
+    // MARK: - Action Buttons Hub (2 Nút Lấy Key 12H Vượt Link & Telegram)
+    private var actionButtonsHub: some View {
+        HStack(spacing: 10) {
+            // Nút Vàng: Lấy Key Miễn Phí 12H (Vượt link Ontops + Layma)
+            Button {
+                let serverUrl = UserDefaults.standard.string(forKey: "admin_api_server_url") ?? FreeFirePatchEngine.defaultApiServerUrl
+                if let url = URL(string: "\(serverUrl)/getkey?hwid=\(keyEngine.hwid)") {
+                    UIApplication.shared.open(url)
+                }
+            } label: {
+                HStack(spacing: 6) {
+                    Image(systemName: "bolt.circle.fill")
+                        .font(.system(size: 16, weight: .bold))
+                    Text("LẤY KEY 12H")
+                        .font(.system(size: 12, weight: .black, design: .monospaced))
+                }
+                .frame(maxWidth: .infinity, minHeight: 46)
+                .background(
+                    LinearGradient(
+                        colors: [Color(red: 0.95, green: 0.75, blue: 0.10), Color(red: 0.85, green: 0.50, blue: 0.05)],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+                .foregroundStyle(.black)
+                .clipShape(RoundedRectangle(cornerRadius: AppTheme.cardCornerRadius, style: .continuous))
+                .shadow(color: Color.orange.opacity(0.35), radius: 8, x: 0, y: 3)
+            }
+            .buttonStyle(.plain)
+
+            // Nút Đỏ / Xanh: Liên hệ Telegram
+            Button {
+                if let url = URL(string: brandStore.telegramURL) {
+                    UIApplication.shared.open(url)
+                }
+            } label: {
+                HStack(spacing: 6) {
+                    Image(systemName: "paperplane.fill")
+                        .font(.system(size: 14, weight: .bold))
+                    Text(brandStore.telegramTitle.uppercased())
+                        .font(.system(size: 11, weight: .black, design: .monospaced))
+                        .lineLimit(1)
+                }
+                .frame(maxWidth: .infinity, minHeight: 46)
+                .background(
+                    LinearGradient(
+                        colors: [Color(red: 0.95, green: 0.18, blue: 0.28), Color(red: 0.70, green: 0.08, blue: 0.18)],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+                .foregroundStyle(.white)
+                .clipShape(RoundedRectangle(cornerRadius: AppTheme.cardCornerRadius, style: .continuous))
+                .shadow(color: AppTheme.accent.opacity(0.35), radius: 8, x: 0, y: 3)
+            }
+            .buttonStyle(.plain)
+        }
+    }
+
+    // MARK: - Seller Brand Token Customizer Card
+    private var sellerBrandCustomizerCard: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Text("CẤU HÌNH TOKEN SELLER (ĐẠI LÝ)")
+                    .font(.system(size: 10, weight: .bold, design: .monospaced))
+                    .foregroundStyle(.secondary)
+
+                Spacer()
+
+                if brandStore.isCustomBranded {
+                    Button {
+                        brandStore.resetToDefault()
+                        inputSellerToken = ""
+                    } label: {
+                        Text("KHÔI PHỤC")
+                            .font(.system(size: 9, weight: .bold, design: .monospaced))
+                            .foregroundStyle(.red)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(Color.red.opacity(0.12))
+                            .clipShape(RoundedRectangle(cornerRadius: 3))
+                    }
+                }
+            }
+
+            HStack(spacing: 8) {
+                TextField("Nhập mã Token Seller...", text: $inputSellerToken)
+                    .textInputAutocapitalization(.characters)
+                    .autocorrectionDisabled()
+                    .font(.system(size: 12, weight: .bold, design: .monospaced))
+                    .padding(8)
+                    .background(Color(uiColor: .tertiarySystemFill))
+                    .clipShape(RoundedRectangle(cornerRadius: 6))
+
+                Button {
+                    if let clip = UIPasteboard.general.string {
+                        inputSellerToken = clip.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
+                    }
+                } label: {
+                    Text("DÁN")
+                        .font(.system(size: 11, weight: .bold, design: .monospaced))
+                        .foregroundStyle(AppTheme.accent)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 8)
+                        .background(AppTheme.accent.opacity(0.15))
+                        .clipShape(RoundedRectangle(cornerRadius: 6))
+                }
+
+                Button {
+                    brandStore.applyToken(inputSellerToken)
+                } label: {
+                    Text("LƯU")
+                        .font(.system(size: 11, weight: .bold, design: .monospaced))
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 8)
+                        .background(AppTheme.accent)
+                        .clipShape(RoundedRectangle(cornerRadius: 6))
+                }
+            }
+
+            if brandStore.isCustomBranded {
+                HStack(spacing: 4) {
+                    Circle().fill(Color.green).frame(width: 6, height: 6)
+                    Text("Đang áp dụng: \(brandStore.appName)")
+                        .font(.system(size: 10, weight: .bold, design: .monospaced))
+                        .foregroundStyle(Color.green)
+                }
+            }
+        }
+        .padding(12)
+        .background(
+            RoundedRectangle(cornerRadius: AppTheme.cardCornerRadius, style: .continuous)
+                .fill(AppTheme.cardBackground)
+                .overlay(
+                    RoundedRectangle(cornerRadius: AppTheme.cardCornerRadius, style: .continuous)
+                        .stroke(brandStore.isCustomBranded ? Color.green.opacity(0.4) : AppTheme.cardBorder, lineWidth: 1)
+                )
+        )
+        .onAppear {
+            inputSellerToken = brandStore.sellerToken
+        }
     }
 
     // MARK: - Language Switcher Card

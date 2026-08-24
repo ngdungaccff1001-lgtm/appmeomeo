@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nhận Key Thành Công • 12H Active</title>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;800&family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #090b10;
+            --card-bg: #121520;
+            --card-border: #1e2436;
+            --accent: #ff2a42;
+            --gold: #f1c40f;
+            --text: #f0f2f5;
+            --text-dim: #8b949e;
+            --green: #2ecc71;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            background-color: var(--bg);
+            color: var(--text);
+            font-family: 'Inter', sans-serif;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .box {
+            background: var(--card-bg);
+            border: 1px solid #2ecc71;
+            border-radius: 12px;
+            box-shadow: 0 0 30px rgba(46, 204, 113, 0.25);
+            padding: 30px 24px;
+            max-width: 460px;
+            width: 100%;
+            text-align: center;
+        }
+
+        .icon-box {
+            width: 64px; height: 64px;
+            background: rgba(46, 204, 113, 0.15);
+            border: 1.5px solid var(--green);
+            border-radius: 16px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 30px;
+            margin: 0 auto 16px;
+            box-shadow: 0 0 20px rgba(46, 204, 113, 0.3);
+        }
+
+        h1 {
+            font-size: 19px;
+            font-weight: 800;
+            font-family: 'JetBrains Mono', monospace;
+            margin-bottom: 6px;
+            color: #fff;
+        }
+
+        .subtitle {
+            font-size: 12px;
+            color: var(--green);
+            font-weight: 700;
+            font-family: 'JetBrains Mono', monospace;
+            margin-bottom: 20px;
+        }
+
+        .key-container {
+            background: #080a0f;
+            border: 1px dashed var(--green);
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 20px;
+        }
+
+        .key-label {
+            font-size: 11px;
+            color: var(--text-dim);
+            font-family: 'JetBrains Mono', monospace;
+            margin-bottom: 6px;
+        }
+
+        .key-value {
+            font-size: 18px;
+            font-weight: 800;
+            font-family: 'JetBrains Mono', monospace;
+            color: #ff385c;
+            letter-spacing: 1px;
+            word-break: break-all;
+            margin-bottom: 10px;
+        }
+
+        .btn-copy {
+            background: var(--green);
+            color: #000;
+            font-weight: 800;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 13px;
+            padding: 10px 16px;
+            border-radius: 4px;
+            border: none;
+            cursor: pointer;
+            width: 100%;
+            transition: all 0.2s;
+        }
+        .btn-copy:hover {
+            opacity: 0.9;
+            transform: scale(1.02);
+        }
+
+        .info-card {
+            background: #080a0f;
+            border: 1px solid var(--card-border);
+            border-radius: 6px;
+            padding: 12px;
+            text-align: left;
+            margin-bottom: 20px;
+            font-size: 12px;
+        }
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 6px;
+        }
+        .info-row:last-child { margin-bottom: 0; }
+        .info-label { color: var(--text-dim); }
+        .info-val { font-family: 'JetBrains Mono', monospace; font-weight: 700; color: #fff; }
+
+        .btn-app {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            background: #1e2436;
+            color: #fff;
+            font-weight: 700;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 13px;
+            padding: 12px 20px;
+            border-radius: 6px;
+            text-decoration: none;
+            border: 1px solid var(--card-border);
+        }
+    </style>
+</head>
+<body>
+
+<div class="box">
+    <div class="icon-box">✓</div>
+    <h1>VƯỢT LINK THÀNH CÔNG!</h1>
+    <div class="subtitle">KEY ĐÃ ĐƯỢC TẠO VÀ KÍCH HOẠT</div>
+
+    <div class="key-container">
+        <div class="key-label">MÃ KEY 12 GIỜ CỦA BẠN</div>
+        <div class="key-value" id="keyVal">{{ key }}</div>
+        <button class="btn-copy" onclick="copyKey()">📋 SAO CHÉP MÃ KEY</button>
+    </div>
+
+    <div class="info-card">
+        <div class="info-row">
+            <span class="info-label">Thời Hạn:</span>
+            <span class="info-val" style="color: var(--gold);">12 Tiếng (0.5 Ngày)</span>
+        </div>
+        <div class="info-row">
+            <span class="info-label">Ràng Buộc:</span>
+            <span class="info-val" style="color: var(--green);">1 Thiết Bị Duy Nhất</span>
+        </div>
+        <div class="info-row">
+            <span class="info-label">HWID Đã Khóa:</span>
+            <span class="info-val">{{ hwid[:16] }}...</span>
+        </div>
+    </div>
+
+    <p style="font-size: 12px; color: var(--text-dim); margin-bottom: 16px;">
+        👉 Mở ứng dụng <b>MeoMeoPath</b> trên thiết bị của bạn, vào tab <b>Function</b> và dán mã Key này vào để sử dụng!
+    </p>
+
+    <a href="javascript:void(0)" onclick="copyKey()" class="btn-app">
+        📲 ĐÃ SAO CHÉP KEY VÀO BỘ NHỚ
+    </a>
+</div>
+
+<script>
+    function copyKey() {
+        const key = document.getElementById('keyVal').innerText;
+        navigator.clipboard.writeText(key);
+        alert('Đã sao chép mã Key: ' + key + '\nHãy dán vào ứng dụng để kích hoạt!');
+    }
+</script>
+
+</body>
+</html>

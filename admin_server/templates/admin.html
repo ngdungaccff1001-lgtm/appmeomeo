@@ -12,13 +12,12 @@
             --card-border: #1e2436;
             --accent: #ff2a42;
             --accent-glow: rgba(255, 42, 66, 0.25);
-            --ff-orange: #ff5e1e;
+            --gold: #f1c40f;
             --text: #f0f2f5;
             --text-dim: #8b949e;
             --green: #2ecc71;
             --cyan: #00d2d3;
             --purple: #9b59b6;
-            --yellow: #f1c40f;
         }
 
         * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -30,7 +29,7 @@
             padding: 20px;
         }
 
-        .container { max-width: 1150px; margin: 0 auto; }
+        .container { max-width: 1180px; margin: 0 auto; }
 
         header {
             display: flex;
@@ -63,12 +62,14 @@
         .nav-tabs {
             display: flex; gap: 8px; margin-bottom: 20px;
             border-bottom: 1px solid var(--card-border); padding-bottom: 10px;
+            overflow-x: auto;
         }
         .nav-tab {
             background: #10131d; border: 1px solid var(--card-border);
             color: var(--text-dim); padding: 8px 16px; border-radius: 4px;
             font-size: 13px; font-weight: 700; cursor: pointer;
             font-family: 'JetBrains Mono', monospace; transition: all 0.2s;
+            white-space: nowrap;
         }
         .nav-tab.active {
             background: var(--accent); color: white; border-color: var(--accent);
@@ -128,6 +129,11 @@
         }
         .btn:hover { opacity: 0.9; }
 
+        .btn-gold {
+            background: linear-gradient(135deg, #f1c40f, #e67e22);
+            color: #000;
+        }
+
         .btn-sm {
             padding: 4px 8px; font-size: 11px; border-radius: 3px; cursor: pointer;
             font-family: 'JetBrains Mono', monospace; border: none; font-weight: 700;
@@ -156,12 +162,18 @@
             display: inline-block; cursor: pointer;
         }
 
+        .token-text {
+            font-family: 'JetBrains Mono', monospace; font-weight: 800; color: #f1c40f;
+            background: rgba(241, 196, 15, 0.12); padding: 3px 6px; border-radius: 3px;
+            display: inline-block; cursor: pointer; border: 1px solid rgba(241, 196, 15, 0.3);
+        }
+
         .badge {
             padding: 2px 6px; border-radius: 3px; font-size: 10px; font-weight: 700;
             font-family: 'JetBrains Mono', monospace; display: inline-block;
         }
         .badge-active { background: rgba(46, 204, 113, 0.18); color: var(--green); }
-        .badge-expired { background: rgba(241, 196, 15, 0.18); color: var(--yellow); }
+        .badge-expired { background: rgba(241, 196, 15, 0.18); color: var(--gold); }
         .badge-banned { background: rgba(231, 76, 60, 0.18); color: #ff4757; }
 
         .upload-dropzone {
@@ -194,7 +206,7 @@
             <div class="logo-box">⚡</div>
             <div>
                 <h1>MeoMeoPath <span class="tag">ADMIN /nxt2007</span></h1>
-                <p style="font-size: 11px; color: var(--text-dim); margin-top: 2px;">Hệ thống Quản lý API Key (1/3/7/30 Ngày), Khóa HWID & Gói Patch .3105</p>
+                <p style="font-size: 11px; color: var(--text-dim); margin-top: 2px;">Quản lý API Key, Gói .3105, Get Key Vượt Link (Ontops + Layma) & Token Seller Riêng</p>
             </div>
         </div>
         <div style="font-size: 12px; font-family: 'JetBrains Mono', monospace; display: flex; align-items: center; gap: 10px;">
@@ -205,6 +217,7 @@
     <!-- Navigation Tabs -->
     <div class="nav-tabs">
         <button class="nav-tab active" onclick="switchTab('keysTab', this)">🔑 QUẢN LÝ KEY</button>
+        <button class="nav-tab" onclick="switchTab('sellersTab', this)">👑 TOKEN SELLER / ĐẠI LÝ</button>
         <button class="nav-tab" onclick="switchTab('patchesTab', this)">⚡ GÓI PATCH .3105</button>
         <button class="nav-tab" onclick="switchTab('settingsTab', this)">🛡️ CÀI ĐẶT SERVER & LINK CRACK</button>
     </div>
@@ -286,7 +299,7 @@
                                     {% endif %}
                                 </td>
                                 <td>
-                                    <b>{{ k.duration_days }} ngày</b>
+                                    <b>{{ '12 Giờ' if k.duration_days == 0.5 else (k.duration_days|string + ' ngày') }}</b>
                                     <div style="font-size: 10px; color: var(--text-dim);">
                                         {% if k.expires_at %}
                                         HSD: {{ k.expires_at_str }}
@@ -336,7 +349,119 @@
         </div>
     </div>
 
-    <!-- TAB 2: GÓI PATCH .3105 -->
+    <!-- TAB 2: TOKEN SELLER / ĐẠI LÝ (ĐỔI TÊN APP, CHÀO MỪNG & TELEGRAM RIÊNG) -->
+    <div id="sellersTab" class="tab-content">
+        <div class="grid-2">
+            <!-- Form Tạo Token Seller -->
+            <div class="card">
+                <div class="card-header">
+                    <span>TẠO TOKEN SELLER / ĐẠI LÝ MỚI</span>
+                    <span>THƯƠNG HIỆU RIÊNG</span>
+                </div>
+
+                <div class="form-group">
+                    <label>Mã Token Seller (Để khách nhập trong app)</label>
+                    <input type="text" id="sellerTokenInput" placeholder="VD: SELLER-ALEX-VIP (Để trống sẽ tự tạo)">
+                </div>
+
+                <div class="form-group">
+                    <label>Tên Ứng Dụng / Header (Thay thế MeoMeoPath)</label>
+                    <input type="text" id="sellerAppName" placeholder="VD: AlexModPath">
+                </div>
+
+                <div class="form-group">
+                    <label>Tiêu Đề Chào Mừng (Thay thế CHÀO MỪNG ĐẾN APIMEOMEO)</label>
+                    <input type="text" id="sellerWelcomeTitle" placeholder="VD: CHÀO MỪNG ĐẾN ALEX MOD">
+                </div>
+
+                <div class="form-group">
+                    <label>Phụ Đề Chào Mừng</label>
+                    <input type="text" id="sellerWelcomeSubtitle" placeholder="VD: Hệ Thống Mod Free Fire VIP Alex Support">
+                </div>
+
+                <div class="form-group">
+                    <label>Đường Dẫn Telegram Riêng Của Seller</label>
+                    <input type="text" id="sellerTelegramUrl" placeholder="VD: https://t.me/alex_mod_vip">
+                </div>
+
+                <div class="form-group">
+                    <label>Tiêu Đề Nút Bấm Telegram</label>
+                    <input type="text" id="sellerTelegramTitle" value="LIÊN HỆ TELEGRAM SELLER" placeholder="VD: LIÊN HỆ TELEGRAM SELLER">
+                </div>
+
+                <div class="form-group">
+                    <label>Ghi Chú Seller</label>
+                    <input type="text" id="sellerNote" placeholder="VD: Đại lý Alex miền Bắc...">
+                </div>
+
+                <button class="btn btn-gold" onclick="createSellerToken()">👑 TẠO TOKEN SELLER NGAY</button>
+            </div>
+
+            <!-- Danh Sách Token Seller -->
+            <div class="card">
+                <div class="card-header">
+                    <span>DANH SÁCH TOKEN SELLER / ĐẠI LÝ</span>
+                    <span>{{ tokens|length }} TOKEN</span>
+                </div>
+
+                <div class="table-responsive">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>MÃ TOKEN</th>
+                                <th>TÊN APP & CHÀO MỪNG</th>
+                                <th>TELEGRAM</th>
+                                <th>TRẠNG THÁI</th>
+                                <th>THAO TÁC</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tokenTableBody">
+                            {% for t in tokens %}
+                            <tr id="token-row-{{ t.token }}">
+                                <td>
+                                    <span class="token-text" onclick="copyKey('{{ t.token }}')" title="Nhấn để sao chép">{{ t.token }}</span>
+                                    {% if t.note %}
+                                    <div style="font-size: 10px; color: var(--text-dim); margin-top: 2px;">{{ t.note }}</div>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <b style="color: #fff;">{{ t.app_name }}</b>
+                                    <div style="font-size: 11px; color: var(--text-dim); margin-top: 2px;">{{ t.welcome_title }}</div>
+                                </td>
+                                <td>
+                                    <a href="{{ t.telegram_url }}" target="_blank" style="color: #38bdf8; text-decoration: none; font-size: 11px; font-family: 'JetBrains Mono', monospace;">
+                                        {{ t.telegram_title }}
+                                    </a>
+                                </td>
+                                <td>
+                                    {% if t.is_active %}
+                                    <span class="badge badge-active">HOẠT ĐỘNG</span>
+                                    {% else %}
+                                    <span class="badge badge-banned">TẮT</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <div style="display: flex; gap: 4px;">
+                                        <button class="btn-sm btn-ban" onclick="toggleToken('{{ t.token }}')">{% if t.is_active %}TẮT{% else %}BẬT{% endif %}</button>
+                                        <button class="btn-sm btn-del" onclick="deleteToken('{{ t.token }}')">XÓA</button>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% else %}
+                            <tr>
+                                <td colspan="5" style="text-align: center; color: var(--text-dim); padding: 30px;">
+                                    Chưa có Token Seller nào. Hãy tạo token ở bảng bên trái để phân phối cho đại lý!
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- TAB 3: GÓI PATCH .3105 -->
     <div id="patchesTab" class="tab-content">
         <div class="grid-2">
             <div class="card">
@@ -418,7 +543,7 @@
         </div>
     </div>
 
-    <!-- TAB 3: CÀI ĐẶT SERVER & LINK CRACK/KHẨN CẤP -->
+    <!-- TAB 4: CÀI ĐẶT SERVER & LINK CRACK/KHẨN CẤP -->
     <div id="settingsTab" class="tab-content">
         <div class="card" style="max-width: 650px;">
             <div class="card-header">
@@ -449,12 +574,12 @@
             </div>
 
             <div class="form-group">
-                <label>Tiêu Đề Nút Bấm Link (Hiện khi Server Off / Hết Hạn / Bị Crack)</label>
+                <label>Tiêu Đề Nút Bấm Telegram Mặc Định</label>
                 <input type="text" id="emergencyLinkTitle" value="{{ settings.emergency_link_title }}" placeholder="VD: THAM GIA TELEGRAM">
             </div>
 
             <div class="form-group">
-                <label>Đường Dẫn URL Khi Bấm Vào Nút</label>
+                <label>Đường Dẫn Telegram Mặc Định (URL)</label>
                 <input type="text" id="emergencyLinkUrl" value="{{ settings.emergency_link_url }}" placeholder="VD: https://t.me/your_channel">
             </div>
 
@@ -484,11 +609,11 @@
 
     function copyKey(key) {
         navigator.clipboard.writeText(key);
-        alert('Đã sao chép Key: ' + key);
+        alert('Đã sao chép: ' + key);
     }
 
     async function createKeys() {
-        const days = parseInt(document.getElementById('keyDuration').value);
+        const days = parseFloat(document.getElementById('keyDuration').value);
         const deviceLimit = parseInt(document.getElementById('keyDeviceLimit').value);
         const quantity = parseInt(document.getElementById('keyQuantity').value);
         const note = document.getElementById('keyNote').value;
@@ -545,6 +670,65 @@
         } catch (e) { alert('Lỗi: ' + e.message); }
     }
 
+    // SELLER TOKENS
+    async function createSellerToken() {
+        const tokenInput = document.getElementById('sellerTokenInput').value;
+        const appName = document.getElementById('sellerAppName').value;
+        const welcomeTitle = document.getElementById('sellerWelcomeTitle').value;
+        const welcomeSub = document.getElementById('sellerWelcomeSubtitle').value;
+        const tgUrl = document.getElementById('sellerTelegramUrl').value;
+        const tgTitle = document.getElementById('sellerTelegramTitle').value;
+        const note = document.getElementById('sellerNote').value;
+
+        if (!appName.trim()) {
+            alert('Vui lòng nhập Tên Ứng Dụng / Header!');
+            return;
+        }
+
+        try {
+            const res = await fetch('/api/brand/create', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    token: tokenInput,
+                    app_name: appName,
+                    welcome_title: welcomeTitle,
+                    welcome_subtitle: welcomeSub,
+                    telegram_url: tgUrl,
+                    telegram_title: tgTitle,
+                    note: note
+                })
+            });
+            const data = await res.json();
+            if (data.success) {
+                alert(`Đã tạo Token Seller thành công: ${data.token.token}`);
+                location.reload();
+            } else {
+                alert('Lỗi: ' + data.error);
+            }
+        } catch (e) {
+            alert('Lỗi kết nối: ' + e.message);
+        }
+    }
+
+    async function toggleToken(token) {
+        try {
+            const res = await fetch(`/api/brand/${token}/toggle`, { method: 'POST' });
+            const data = await res.json();
+            if (data.success) location.reload();
+        } catch (e) { alert('Lỗi: ' + e.message); }
+    }
+
+    async function deleteToken(token) {
+        if (!confirm(`Xóa Token Seller ${token}?`)) return;
+        try {
+            const res = await fetch(`/api/brand/${token}`, { method: 'DELETE' });
+            const data = await res.json();
+            if (data.success) location.reload();
+        } catch (e) { alert('Lỗi: ' + e.message); }
+    }
+
+    // PATCH MANAGEMENT
     function updateFileName(input) {
         if (input.files && input.files[0]) {
             document.getElementById('dropzoneText').innerText = "Đã chọn: " + input.files[0].name;
@@ -590,6 +774,7 @@
         } catch (e) { alert('Lỗi: ' + e.message); }
     }
 
+    // SERVER SETTINGS
     async function updateServerSettings() {
         const online = document.getElementById('serverOnlineToggle').checked;
         const emergency = document.getElementById('emergencyModeToggle').checked;
