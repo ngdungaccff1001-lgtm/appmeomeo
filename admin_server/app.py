@@ -63,59 +63,19 @@ def generate_seller_token():
 
 # MARK: - 3-Tier Shortlink Chain (Ontops -> Layma -> Layma -> Claim)
 
-def shorten_layma(target_url):
+def get_3tier_shortlink(destination_claim_url):
     layma_token = "77e5a6f69bfddbdb298b37f3783007e8"
-    encoded_url = urllib.parse.quote(target_url, safe='')
-    api_url = f"https://api.layma.net/api/admin/shortlink/quicklink?tokenUser={layma_token}&url={encoded_url}"
-
-    try:
-        req = urllib.request.Request(api_url, headers={'User-Agent': 'Mozilla/5.0'})
-        with urllib.request.urlopen(req, timeout=5) as response:
-            res_data = response.read().decode('utf-8')
-            try:
-                res_json = json.loads(res_data)
-                shortlink = res_json.get('shortlink') or res_json.get('shortenedUrl') or res_json.get('url')
-                if shortlink:
-                    return shortlink
-            except Exception:
-                pass
-            urls = re.findall(r'https?://[^\s"\'<>]+', res_data)
-            if urls:
-                return urls[0]
-    except Exception as e:
-        print(f"[Layma API Error] {e}")
-    return target_url
-
-def shorten_ontops(target_url):
     ontops_key = "0f2c5d281a2e42a19c28919242544e23"
-    encoded_url = urllib.parse.quote(target_url, safe='')
-    api_url = f"http://ontops.link/st?apikey={ontops_key}&url={encoded_url}"
 
-    try:
-        req = urllib.request.Request(api_url, headers={'User-Agent': 'Mozilla/5.0'})
-        with urllib.request.urlopen(req, timeout=5) as response:
-            res_data = response.read().decode('utf-8')
-            try:
-                res_json = json.loads(res_data)
-                shortlink = res_json.get('shortlink') or res_json.get('url')
-                if shortlink:
-                    return shortlink
-            except Exception:
-                pass
-            urls = re.findall(r'https?://[^\s"\'<>]+', res_data)
-            if urls:
-                return urls[0]
-    except Exception as e:
-        print(f"[Ontops API Error] {e}")
-    return target_url
+    # Bước 3 (Layma 2): Rút gọn Link nhận key cuối cùng
+    layma_url_2 = f"https://api.layma.net/api/admin/shortlink/quicklink?tokenUser={layma_token}&url={urllib.parse.quote(destination_claim_url, safe='')}"
 
-def get_3tier_shortlink(claim_url):
-    # Lớp 3 (Trong cùng): Rút gọn Claim URL qua Layma lần 2
-    layma_url_2 = shorten_layma(claim_url)
-    # Lớp 2 (Giữa): Rút gọn qua Layma lần 1
-    layma_url_1 = shorten_layma(layma_url_2)
-    # Lớp 1 (Ngoài cùng): Rút gọn qua Ontops
-    ontops_url = shorten_ontops(layma_url_1)
+    # Bước 2 (Layma 1): Rút gọn Layma 2
+    layma_url_1 = f"https://api.layma.net/api/admin/shortlink/quicklink?tokenUser={layma_token}&url={urllib.parse.quote(layma_url_2, safe='')}"
+
+    # Bước 1 (Ontops): Rút gọn Layma 1 (Người dùng vào link này đầu tiên)
+    ontops_url = f"http://ontops.link/st?apikey={ontops_key}&url={urllib.parse.quote(layma_url_1, safe='')}"
+
     return ontops_url
 
 # MARK: - Public & Admin Routes
@@ -182,16 +142,6 @@ def get_key_landing():
     keys = load_json(KEYS_FILE, [])
     now = time.time()
 
-    # Kiểm tra xem HWID/IP có key 12h còn hạn không
-    existing_active_key = None
-    if hwid:
-        for k in keys:
-            if k.get('duration_days') == 0.5 and k.get('expires_at') and k.get('expires_at') > now:
-                for d in k.get('bound_hwids', []):
-                    if d.get('hwid') == hwid:
-                        existing_active_key = k.get('key')
-                        break
-
     # Tạo One-Time Claim Session
     claims = load_json(CLAIMS_FILE, [])
     # Dọn dẹp session cũ hơn 2 giờ
@@ -211,14 +161,11 @@ def get_key_landing():
     host = request.host_url.rstrip('/')
     direct_claim_url = f"{host}/getkey/claim?token={claim_token}&hwid={hwid}"
 
-    # Tạo chuỗi rút gọn 3 lần: Ontops -> Layma 1 -> Layma 2 -> Direct Claim
+    # Tạo chuỗi rút gọn 3 lần lồng nhau: Ontops -> Layma 1 -> Layma 2 -> Direct Claim
     redirect_short_url = get_3tier_shortlink(direct_claim_url)
 
-    return render_template('getkey.html',
-                           hwid=hwid or "Chưa liên kết HWID",
-                           redirect_url=redirect_short_url,
-                           in_cooldown=bool(existing_active_key),
-                           existing_key=existing_active_key)
+    # Chuyển hướng trực tiếp 100% người dùng tới link Ontops
+    return redirect(redirect_short_url)
 
 @app.route('/getkey/claim')
 def get_key_claim():

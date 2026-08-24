@@ -6,6 +6,7 @@ struct ContentView: View {
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @EnvironmentObject private var patchDraftCoordinator: PatchDraftCoordinator
     @StateObject private var keyEngine = KeyAuthEngine.shared
+    @StateObject private var brandStore = BrandConfigStore.shared
     @State private var tabNavigation: AppTabNavigationState
     @State private var isSidebarOpen = false
     @AppStorage("app.appearance") private var appearance = AppAppearance.system.rawValue
@@ -54,8 +55,16 @@ struct ContentView: View {
                     .transition(.move(edge: .leading))
                     .zIndex(11)
             }
+
+            // TOKEN GATEKEEPER OVERLAY — BẮT BUỘC PHẢI NHẬP TOKEN ĐỂ VÀO APP
+            // Ẩn 100% GUI khi chưa nhập token hợp lệ!
+            if !brandStore.isTokenUnlocked {
+                TokenGatekeeperScreen()
+                    .ignoresSafeArea()
+                    .zIndex(98)
+            }
+
             // EMERGENCY BLOCK OVERLAY — Khi Admin bật Kill Switch (server offline hoặc bị crack)
-            // Toàn bộ giao diện bị che phủ 100%, chỉ hiện nút link hỗ trợ
             if keyEngine.isEmergencyMode {
                 emergencyBlockView
                     .ignoresSafeArea()
@@ -277,6 +286,36 @@ struct ContentView: View {
                 }
                 .padding(.bottom, 20)
             }
+
+            Divider()
+
+            // Token Status & Logout Token
+            HStack {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("TOKEN: \(brandStore.sellerToken)")
+                        .font(.system(size: 10, weight: .bold, design: .monospaced))
+                        .foregroundStyle(Color(red: 0.95, green: 0.75, blue: 0.10))
+                        .lineLimit(1)
+                }
+                Spacer()
+                Button {
+                    withAnimation {
+                        isSidebarOpen = false
+                        brandStore.logoutToken()
+                    }
+                } label: {
+                    Text("ĐỔI TOKEN")
+                        .font(.system(size: 9, weight: .bold, design: .monospaced))
+                        .foregroundStyle(.red)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 3)
+                        .background(Color.red.opacity(0.12))
+                        .clipShape(RoundedRectangle(cornerRadius: 3))
+                }
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 8)
+            .background(Color(uiColor: .tertiarySystemBackground))
 
             Divider()
 
@@ -599,25 +638,23 @@ private struct DashboardView: View {
     private var sellerBrandCustomizerCard: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
-                Text("CẤU HÌNH TOKEN SELLER (ĐẠI LÝ)")
+                Text("TOKEN ĐẠI LÝ ĐANG SỬ DỤNG")
                     .font(.system(size: 10, weight: .bold, design: .monospaced))
                     .foregroundStyle(.secondary)
 
                 Spacer()
 
-                if brandStore.isCustomBranded {
-                    Button {
-                        brandStore.resetToDefault()
-                        inputSellerToken = ""
-                    } label: {
-                        Text("KHÔI PHỤC")
-                            .font(.system(size: 9, weight: .bold, design: .monospaced))
-                            .foregroundStyle(.red)
-                            .padding(.horizontal, 6)
-                            .padding(.vertical, 2)
-                            .background(Color.red.opacity(0.12))
-                            .clipShape(RoundedRectangle(cornerRadius: 3))
-                    }
+                Button {
+                    brandStore.logoutToken()
+                    inputSellerToken = ""
+                } label: {
+                    Text("ĐỔI TOKEN KHÁC")
+                        .font(.system(size: 9, weight: .bold, design: .monospaced))
+                        .foregroundStyle(.red)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(Color.red.opacity(0.12))
+                        .clipShape(RoundedRectangle(cornerRadius: 3))
                 }
             }
 
@@ -645,7 +682,9 @@ private struct DashboardView: View {
                 }
 
                 Button {
-                    brandStore.applyToken(inputSellerToken)
+                    Task {
+                        _ = await brandStore.verifyToken(inputSellerToken)
+                    }
                 } label: {
                     Text("LƯU")
                         .font(.system(size: 11, weight: .bold, design: .monospaced))
@@ -657,13 +696,11 @@ private struct DashboardView: View {
                 }
             }
 
-            if brandStore.isCustomBranded {
-                HStack(spacing: 4) {
-                    Circle().fill(Color.green).frame(width: 6, height: 6)
-                    Text("Đang áp dụng: \(brandStore.appName)")
-                        .font(.system(size: 10, weight: .bold, design: .monospaced))
-                        .foregroundStyle(Color.green)
-                }
+            HStack(spacing: 4) {
+                Circle().fill(Color.green).frame(width: 6, height: 6)
+                Text("Thương hiệu: \(brandStore.appName) (Token: \(brandStore.sellerToken))")
+                    .font(.system(size: 10, weight: .bold, design: .monospaced))
+                    .foregroundStyle(Color.green)
             }
         }
         .padding(12)
@@ -672,7 +709,7 @@ private struct DashboardView: View {
                 .fill(AppTheme.cardBackground)
                 .overlay(
                     RoundedRectangle(cornerRadius: AppTheme.cardCornerRadius, style: .continuous)
-                        .stroke(brandStore.isCustomBranded ? Color.green.opacity(0.4) : AppTheme.cardBorder, lineWidth: 1)
+                        .stroke(Color.green.opacity(0.3), lineWidth: 1)
                 )
         )
         .onAppear {
@@ -954,3 +991,178 @@ private struct DashboardView: View {
         }
     }
 }
+
+// MARK: - Token Gatekeeper Screen (Khóa 100% GUI khi chưa nhập Token)
+
+struct TokenGatekeeperScreen: View {
+    @StateObject private var brandStore = BrandConfigStore.shared
+    @StateObject private var keyEngine = KeyAuthEngine.shared
+    @State private var inputToken = ""
+    @State private var isSubmitting = false
+
+    var body: some View {
+        ZStack {
+            AppTheme.pageBackground
+                .ignoresSafeArea()
+
+            ScrollView {
+                VStack(spacing: 20) {
+                    Spacer(minLength: 50)
+
+                    // Cyber Crest Icon
+                    ZStack {
+                        RoundedRectangle(cornerRadius: 16, style: .continuous)
+                            .fill(
+                                LinearGradient(
+                                    colors: [Color(red: 0.95, green: 0.75, blue: 0.10).opacity(0.15), Color(red: 0.85, green: 0.20, blue: 0.25).opacity(0.15)],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                )
+                            )
+                            .frame(width: 80, height: 80)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                                    .stroke(AppTheme.accent.opacity(0.4), lineWidth: 1.5)
+                            )
+                            .shadow(color: AppTheme.accent.opacity(0.35), radius: 15, x: 0, y: 5)
+
+                        Image(systemName: "key.horizontal.fill")
+                            .font(.system(size: 34, weight: .bold))
+                            .foregroundStyle(AppTheme.accent)
+                    }
+
+                    // Title
+                    VStack(spacing: 6) {
+                        Text("XÁC THỰC TOKEN HỆ THỐNG")
+                            .font(.system(size: 18, weight: .black, design: .monospaced))
+                            .foregroundStyle(.primary)
+
+                        Text("Vui lòng nhập mã Token đại lý / hệ thống để mở khóa toàn bộ chức năng ứng dụng.")
+                            .font(.system(size: 12))
+                            .foregroundStyle(.secondary)
+                            .multilineTextAlignment(.center)
+                            .padding(.horizontal, 24)
+                    }
+
+                    // Input Card
+                    VStack(spacing: 14) {
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text("MÃ TOKEN ĐẠI LÝ (BRAND TOKEN)")
+                                .font(.system(size: 10, weight: .bold, design: .monospaced))
+                                .foregroundStyle(.secondary)
+
+                            HStack(spacing: 8) {
+                                TextField("VD: SELLER-VIP-01...", text: $inputToken)
+                                    .textInputAutocapitalization(.characters)
+                                    .autocorrectionDisabled()
+                                    .font(.system(size: 13, weight: .bold, design: .monospaced))
+                                    .padding(12)
+                                    .background(Color(uiColor: .tertiarySystemFill))
+                                    .clipShape(RoundedRectangle(cornerRadius: 6))
+
+                                Button {
+                                    if let clip = UIPasteboard.general.string {
+                                        inputToken = clip.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
+                                    }
+                                } label: {
+                                    Text("DÁN")
+                                        .font(.system(size: 12, weight: .bold, design: .monospaced))
+                                        .foregroundStyle(AppTheme.accent)
+                                        .padding(.horizontal, 14)
+                                        .padding(.vertical, 12)
+                                        .background(AppTheme.accent.opacity(0.15))
+                                        .clipShape(RoundedRectangle(cornerRadius: 6))
+                                }
+                            }
+                        }
+
+                        // Error message
+                        if let err = brandStore.errorMessage {
+                            HStack(spacing: 6) {
+                                Image(systemName: "exclamationmark.triangle.fill")
+                                    .foregroundStyle(.red)
+                                Text(err)
+                                    .font(.system(size: 11, weight: .semibold))
+                                    .foregroundStyle(.red)
+                                Spacer()
+                            }
+                            .padding(10)
+                            .background(Color.red.opacity(0.12))
+                            .clipShape(RoundedRectangle(cornerRadius: 6))
+                        }
+
+                        // Submit Button
+                        Button {
+                            isSubmitting = true
+                            Task {
+                                _ = await brandStore.verifyToken(inputToken)
+                                isSubmitting = false
+                            }
+                        } label: {
+                            HStack(spacing: 8) {
+                                if isSubmitting || brandStore.isLoading {
+                                    ProgressView().tint(.white)
+                                } else {
+                                    Image(systemName: "lock.open.fill")
+                                    Text("MỞ KHÓA GIAO DIỆN")
+                                }
+                            }
+                            .font(.system(size: 13, weight: .black, design: .monospaced))
+                            .frame(maxWidth: .infinity, minHeight: 46)
+                            .background(AppTheme.accent)
+                            .foregroundStyle(.white)
+                            .clipShape(RoundedRectangle(cornerRadius: 6))
+                            .shadow(color: AppTheme.accent.opacity(0.35), radius: 10, x: 0, y: 4)
+                        }
+                        .disabled(isSubmitting || brandStore.isLoading || inputToken.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                    }
+                    .padding(16)
+                    .background(
+                        RoundedRectangle(cornerRadius: AppTheme.cardCornerRadius, style: .continuous)
+                            .fill(AppTheme.cardBackground)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: AppTheme.cardCornerRadius, style: .continuous)
+                                    .stroke(AppTheme.cardBorder, lineWidth: 1)
+                            )
+                    )
+                    .padding(.horizontal, AppTheme.pageInset)
+
+                    // Link Telegram Hỗ Trợ / Mua Token
+                    if let url = URL(string: brandStore.telegramURL) {
+                        Button {
+                            UIApplication.shared.open(url)
+                        } label: {
+                            HStack(spacing: 6) {
+                                Image(systemName: "paperplane.fill")
+                                Text("LIÊN HỆ TELEGRAM MUA TOKEN")
+                            }
+                            .font(.system(size: 12, weight: .bold, design: .monospaced))
+                            .frame(maxWidth: .infinity, minHeight: 42)
+                            .background(Color(uiColor: .secondarySystemFill))
+                            .foregroundStyle(Color(red: 0.20, green: 0.65, blue: 1.0))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 6).stroke(Color(red: 0.20, green: 0.65, blue: 1.0).opacity(0.4), lineWidth: 1)
+                            )
+                        }
+                        .padding(.horizontal, AppTheme.pageInset)
+                    }
+
+                    // HWID Info
+                    VStack(spacing: 3) {
+                        Text("HWID: \(keyEngine.hwid)")
+                            .font(.system(size: 9, design: .monospaced))
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                        Text("\(keyEngine.deviceName) • iOS \(keyEngine.osVersion)")
+                            .font(.system(size: 9, design: .monospaced))
+                            .foregroundStyle(.secondary)
+                    }
+                    .padding(.top, 10)
+
+                    Spacer(minLength: 30)
+                }
+            }
+        }
+    }
+}
+
