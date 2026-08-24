@@ -678,6 +678,58 @@ def api_toggle_patch(patch_id):
 
     return jsonify({"success": False, "error": "Không tìm thấy patch"}), 404
 
+@app.route('/api/patches/<patch_id>/update', methods=['POST'])
+def api_update_patch(patch_id):
+    data = request.get_json(silent=True) or {}
+    patches = load_json(PATCHES_FILE, [])
+
+    matched = None
+    for p in patches:
+        if p.get('id') == patch_id:
+            matched = p
+            break
+
+    if not matched:
+        return jsonify({"success": False, "error": "Không tìm thấy patch"}), 404
+
+    if 'name' in data:
+        matched['name'] = data['name'].strip() or matched.get('name', 'Patch File')
+    if 'target_game' in data:
+        matched['target_game'] = data['target_game'].strip() or matched.get('target_game', 'com.dts.freefiremax')
+    if 'category' in data:
+        matched['category'] = data['category'].strip() or matched.get('category', 'Aim File')
+    if 'password' in data:
+        matched['password'] = data['password'].strip()
+        matched['is_password_protected'] = bool(matched['password'])
+
+    save_json(PATCHES_FILE, patches)
+    return jsonify({"success": True, "patch": matched})
+
+@app.route('/api/patches/<patch_id>/move', methods=['POST'])
+def api_move_patch(patch_id):
+    direction = request.args.get('dir', '').strip().lower()
+    patches = load_json(PATCHES_FILE, [])
+
+    idx = -1
+    for i, p in enumerate(patches):
+        if p.get('id') == patch_id:
+            idx = i
+            break
+
+    if idx == -1:
+        return jsonify({"success": False, "error": "Không tìm thấy patch"}), 404
+
+    if direction == 'up' and idx > 0:
+        patches[idx], patches[idx - 1] = patches[idx - 1], patches[idx]
+        save_json(PATCHES_FILE, patches)
+        return jsonify({"success": True})
+    elif direction == 'down' and idx < len(patches) - 1:
+        patches[idx], patches[idx + 1] = patches[idx + 1], patches[idx]
+        save_json(PATCHES_FILE, patches)
+        return jsonify({"success": True})
+
+    return jsonify({"success": False, "error": "Không thể di chuyển thêm"}), 400
+
 @app.route('/api/patches/<patch_id>', methods=['DELETE'])
 def api_delete_patch(patch_id):
     patches = load_json(PATCHES_FILE, [])

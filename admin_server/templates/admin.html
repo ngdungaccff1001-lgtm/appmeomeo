@@ -558,18 +558,29 @@
 
                 <div id="patchList" style="display: flex; flex-direction: column; gap: 10px;">
                     {% for p in patches %}
-                    <div style="background: #080a0f; border: 1px solid var(--card-border); padding: 12px; border-radius: 4px; display: flex; align-items: center; justify-content: space-between;">
-                        <div>
-                            <div style="font-size: 14px; font-weight: 700;">{{ p.name }}</div>
-                            <div style="font-size: 11px; color: var(--text-dim); margin-top: 3px;">
-                                <span>{{ 'FFM' if p.target_game == 'com.dts.freefiremax' else 'FFT' }}</span> • <span>{{ p.category }}</span> • <span>{{ p.size }}</span>
+                    <div style="background: #080a0f; border: 1px solid var(--card-border); padding: 12px 14px; border-radius: 4px; display: flex; align-items: center; justify-content: space-between; gap: 10px;">
+                        <div style="display: flex; align-items: center; gap: 12px;">
+                            <!-- Nút điều chỉnh vị trí Lên / Xuống -->
+                            <div style="display: flex; flex-direction: column; gap: 2px;">
+                                <button class="btn-sm btn-reset" style="padding: 2px 6px; font-size: 10px; line-height: 1;" onclick="movePatch('{{ p.id }}', 'up')" title="Chuyển lên trên">▲</button>
+                                <button class="btn-sm btn-reset" style="padding: 2px 6px; font-size: 10px; line-height: 1;" onclick="movePatch('{{ p.id }}', 'down')" title="Chuyển xuống dưới">▼</button>
+                            </div>
+                            <div>
+                                <div style="font-size: 14px; font-weight: 700; color: #fff;">{{ p.name }}</div>
+                                <div style="font-size: 11px; color: var(--text-dim); margin-top: 3px;">
+                                    <span style="color: var(--gold); font-weight: 600;">{{ 'FFM' if p.target_game == 'com.dts.freefiremax' else ('FFT' if p.target_game == 'com.dts.freefireth' else 'ALL') }}</span> • <span>{{ p.category }}</span> • <span>{{ p.size }}</span>
+                                    {% if p.is_password_protected %}
+                                    • <span style="color: #38bdf8;">🔒 Có pass</span>
+                                    {% endif %}
+                                </div>
                             </div>
                         </div>
-                        <div style="display: flex; align-items: center; gap: 10px;">
-                            <label class="switch">
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <label class="switch" title="Bật/Tắt hiển thị trong menu">
                                 <input type="checkbox" {% if p.enabled %}checked{% endif %} onchange="togglePatch('{{ p.id }}')">
                                 <span class="slider"></span>
                             </label>
+                            <button class="btn-sm btn-active" onclick='openEditPatchModal({{ p|tojson|safe }})'>SỬA</button>
                             <button class="btn-sm btn-del" onclick="deletePatch('{{ p.id }}')">XÓA</button>
                         </div>
                     </div>
@@ -888,6 +899,64 @@
         } catch (e) { alert('Lỗi: ' + e.message); }
     }
 
+    function openEditPatchModal(patchObj) {
+        document.getElementById('editPatchId').value = patchObj.id;
+        document.getElementById('editPatchName').value = patchObj.name || '';
+        document.getElementById('editTargetGame').value = patchObj.target_game || 'com.dts.freefiremax';
+        document.getElementById('editCategory').value = patchObj.category || 'Aim File';
+        document.getElementById('editPatchPassword').value = patchObj.password || '';
+        document.getElementById('editPatchModal').style.display = 'flex';
+    }
+
+    function closeEditPatchModal() {
+        document.getElementById('editPatchModal').style.display = 'none';
+    }
+
+    async function submitUpdatePatch() {
+        const id = document.getElementById('editPatchId').value;
+        const name = document.getElementById('editPatchName').value.trim();
+        const targetGame = document.getElementById('editTargetGame').value;
+        const category = document.getElementById('editCategory').value;
+        const password = document.getElementById('editPatchPassword').value.trim();
+
+        if (!name) {
+            alert('Vui lòng nhập tên gói patch!');
+            return;
+        }
+
+        try {
+            const res = await fetch(`/api/patches/${id}/update`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    name: name,
+                    target_game: targetGame,
+                    category: category,
+                    password: password
+                })
+            });
+            const data = await res.json();
+            if (data.success) {
+                alert('Đã cập nhật gói Patch thành công!');
+                location.reload();
+            } else {
+                alert('Lỗi: ' + data.error);
+            }
+        } catch (e) { alert('Lỗi: ' + e.message); }
+    }
+
+    async function movePatch(id, dir) {
+        try {
+            const res = await fetch(`/api/patches/${id}/move?dir=${dir}`, { method: 'POST' });
+            const data = await res.json();
+            if (data.success) {
+                location.reload();
+            } else {
+                alert(data.error || 'Không thể di chuyển gói này!');
+            }
+        } catch (e) { alert('Lỗi: ' + e.message); }
+    }
+
     // SERVER SETTINGS
     async function updateServerSettings() {
         const online = document.getElementById('serverOnlineToggle').checked;
@@ -926,6 +995,45 @@
         } catch (e) { alert('Lỗi: ' + e.message); }
     }
 </script>
+
+<!-- Modal Chỉnh Sửa Gói Patch -->
+<div id="editPatchModal" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.8); z-index: 9999; align-items: center; justify-content: center; backdrop-filter: blur(4px);">
+    <div class="card" style="width: 100%; max-width: 500px; max-height: 90vh; overflow-y: auto; margin: 20px; box-shadow: 0 10px 40px rgba(0,0,0,0.8); border: 1px solid var(--accent);">
+        <div class="card-header" style="border-bottom: 1px solid var(--card-border); padding-bottom: 10px; display: flex; align-items: center; justify-content: space-between;">
+            <span style="color: var(--accent); font-weight: 800;">CHỈNH SỬA GÓI PATCH .3105</span>
+            <button onclick="closeEditPatchModal()" style="background: none; border: none; color: var(--text-dim); font-size: 20px; cursor: pointer;">✕</button>
+        </div>
+        <input type="hidden" id="editPatchId">
+        <div class="form-group" style="margin-top: 14px;">
+            <label>Tên Hiển Thị Trong Menu</label>
+            <input type="text" id="editPatchName">
+        </div>
+        <div class="form-group">
+            <label>Áp Dụng Cho Game</label>
+            <select id="editTargetGame">
+                <option value="com.dts.freefiremax">⚡ Free Fire MAX (FFM)</option>
+                <option value="com.dts.freefireth">🔥 Free Fire Standard (FFT)</option>
+                <option value="all">🌐 Cả hai Game (All)</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label>Danh Mục</label>
+            <select id="editCategory">
+                <option value="Aim File">⚡ Aim File</option>
+                <option value="Định Vị">👁️ Định Vị (ESP)</option>
+                <option value="ModSkin File">⚙️ ModSkin File</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label>Mật Khẩu Giải Mã .3105 (Để trống nếu không đặt)</label>
+            <input type="text" id="editPatchPassword" placeholder="Nhập mật khẩu mới...">
+        </div>
+        <div style="display: flex; gap: 10px; margin-top: 18px;">
+            <button class="btn btn-primary" style="flex: 1;" onclick="submitUpdatePatch()">💾 LƯU THAY ĐỔI</button>
+            <button class="btn" style="flex: 0.5; background: #222;" onclick="closeEditPatchModal()">HỦY</button>
+        </div>
+    </div>
+</div>
 
 <!-- Modal Chỉnh Sửa Token Seller -->
 <div id="editTokenModal" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.8); z-index: 9999; align-items: center; justify-content: center; backdrop-filter: blur(4px);">
