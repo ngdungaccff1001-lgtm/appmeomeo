@@ -51,11 +51,12 @@ def get_settings():
     }
     return load_json(SETTINGS_FILE, default_settings)
 
-def generate_key_string():
+def generate_key_string(prefix="MEO"):
+    clean_prefix = re.sub(r'[^A-Za-z0-9]', '', str(prefix)).upper()[:8] or "MEO"
     part1 = ''.join(random.choices(string.ascii_uppercase + string.digits, k=4))
     part2 = ''.join(random.choices(string.ascii_uppercase + string.digits, k=4))
     part3 = ''.join(random.choices(string.ascii_uppercase + string.digits, k=4))
-    return f"MEOMEO-{part1}-{part2}-{part3}"
+    return f"{clean_prefix}-{part1}-{part2}-{part3}"
 
 def generate_seller_token():
     part = ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))
@@ -191,7 +192,7 @@ def get_key_claim():
     save_json(CLAIMS_FILE, claims)
 
     # Tạo Key 12 Giờ (0.5 ngày)
-    key_str = generate_key_string()
+    key_str = generate_key_string("MEO")
     duration_days = 0.5
     expires_at = now + 43200
 
@@ -290,19 +291,38 @@ def api_create_brand():
 
 @app.route('/api/brand/<token_str>', methods=['DELETE'])
 def api_delete_brand(token_str):
+    clean_token = token_str.strip().upper()
     tokens = load_json(TOKENS_FILE, [])
-    new_tokens = [t for t in tokens if t.get('token', '').upper() != token_str.upper()]
+    new_tokens = [t for t in tokens if t.get('token', '').upper() != clean_token]
     save_json(TOKENS_FILE, new_tokens)
+
+    # Xóa sạch toàn bộ key được tạo bởi Seller Token này
+    keys = load_json(KEYS_FILE, [])
+    new_keys = [k for k in keys if k.get('seller_token', '').upper() != clean_token and f"[Seller: {clean_token}]" not in k.get('note', '')]
+    save_json(KEYS_FILE, new_keys)
+
     return jsonify({"success": True})
 
 @app.route('/api/brand/<token_str>/toggle', methods=['POST'])
 def api_toggle_brand(token_str):
+    clean_token = token_str.strip().upper()
     tokens = load_json(TOKENS_FILE, [])
+    new_active_state = False
     for t in tokens:
-        if t.get('token', '').upper() == token_str.upper():
+        if t.get('token', '').upper() == clean_token:
             t['is_active'] = not t.get('is_active', True)
+            new_active_state = t['is_active']
             break
     save_json(TOKENS_FILE, tokens)
+
+    # Nếu tắt token, khóa toàn bộ key của đại lý đó
+    if not new_active_state:
+        keys = load_json(KEYS_FILE, [])
+        for k in keys:
+            if k.get('seller_token', '').upper() == clean_token:
+                k['status'] = 'banned'
+        save_json(KEYS_FILE, keys)
+
     return jsonify({"success": True})
 
 # MARK: - Key Verification REST API
@@ -420,12 +440,22 @@ def api_create_keys():
     note = data.get('note', '').strip()
     seller_token = data.get('seller_token', '').strip().upper()
 
+    custom_prefix = data.get('prefix', '').strip().upper()
+    if not custom_prefix and seller_token:
+        tokens = load_json(TOKENS_FILE, [])
+        for t in tokens:
+            if t.get('token', '').upper() == seller_token:
+                custom_prefix = t.get('app_name', 'MEO').strip().upper()
+                break
+    if not custom_prefix:
+        custom_prefix = "MEO"
+
     keys = load_json(KEYS_FILE, [])
     created_keys = []
 
     for _ in range(quantity):
         new_key = {
-            "key": generate_key_string(),
+            "key": generate_key_string(custom_prefix),
             "duration_days": duration_days,
             "device_limit": device_limit,
             "status": "active",

@@ -974,7 +974,7 @@ private struct DashboardView: View {
     }
 }
 
-// MARK: - Token Gatekeeper Screen (Khóa 100% GUI khi chưa nhập Token)
+// MARK: - Token Gatekeeper Screen (Giao diện Nhập Token & Đăng Nhập Tối Giản)
 
 struct TokenGatekeeperScreen: View {
     @StateObject private var brandStore = BrandConfigStore.shared
@@ -987,142 +987,103 @@ struct TokenGatekeeperScreen: View {
             AppTheme.pageBackground
                 .ignoresSafeArea()
 
-            ScrollView {
-                VStack(spacing: 20) {
-                    Spacer(minLength: 50)
+            VStack(spacing: 24) {
+                Spacer()
 
-                    // Cyber Crest Icon
-                    ZStack {
-                        RoundedRectangle(cornerRadius: 16, style: .continuous)
-                            .fill(
-                                LinearGradient(
-                                    colors: [Color(red: 0.95, green: 0.75, blue: 0.10).opacity(0.15), Color(red: 0.85, green: 0.20, blue: 0.25).opacity(0.15)],
-                                    startPoint: .topLeading,
-                                    endPoint: .bottomTrailing
-                                )
-                            )
-                            .frame(width: 80, height: 80)
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 16, style: .continuous)
-                                    .stroke(AppTheme.accent.opacity(0.4), lineWidth: 1.5)
-                            )
-                            .shadow(color: AppTheme.accent.opacity(0.35), radius: 15, x: 0, y: 5)
+                // Tiêu đề đơn giản
+                Text("Nhập Token")
+                    .font(.system(size: 24, weight: .black, design: .monospaced))
+                    .foregroundStyle(.primary)
 
-                        Image(systemName: "key.horizontal.fill")
-                            .font(.system(size: 34, weight: .bold))
-                            .foregroundStyle(AppTheme.accent)
-                    }
-
-                    // Title
-                    VStack(spacing: 6) {
-                        Text("XÁC THỰC TOKEN HỆ THỐNG")
-                            .font(.system(size: 18, weight: .black, design: .monospaced))
-                            .foregroundStyle(.primary)
-
-                        Text("Vui lòng nhập mã Token đại lý / hệ thống để mở khóa toàn bộ chức năng ứng dụng.")
-                            .font(.system(size: 12))
-                            .foregroundStyle(.secondary)
-                            .multilineTextAlignment(.center)
-                            .padding(.horizontal, 24)
-                    }
-
-                    // Input Card
-                    VStack(spacing: 14) {
-                        VStack(alignment: .leading, spacing: 6) {
-                            Text("MÃ TOKEN ĐẠI LÝ (BRAND TOKEN)")
-                                .font(.system(size: 10, weight: .bold, design: .monospaced))
-                                .foregroundStyle(.secondary)
-
-                            HStack(spacing: 8) {
-                                TextField("VD: SELLER-VIP-01...", text: $inputToken)
-                                    .textInputAutocapitalization(.characters)
-                                    .autocorrectionDisabled()
-                                    .font(.system(size: 13, weight: .bold, design: .monospaced))
-                                    .padding(12)
-                                    .background(Color(uiColor: .tertiarySystemFill))
-                                    .clipShape(RoundedRectangle(cornerRadius: 6))
-
-                                Button {
-                                    if let clip = UIPasteboard.general.string {
-                                        inputToken = clip.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
-                                    }
-                                } label: {
-                                    Text("DÁN")
-                                        .font(.system(size: 12, weight: .bold, design: .monospaced))
-                                        .foregroundStyle(AppTheme.accent)
-                                        .padding(.horizontal, 14)
-                                        .padding(.vertical, 12)
-                                        .background(AppTheme.accent.opacity(0.15))
-                                        .clipShape(RoundedRectangle(cornerRadius: 6))
-                                }
-                            }
-                        }
-
-                        // Error message
-                        if let err = brandStore.errorMessage {
-                            HStack(spacing: 6) {
-                                Image(systemName: "exclamationmark.triangle.fill")
-                                    .foregroundStyle(.red)
-                                Text(err)
-                                    .font(.system(size: 11, weight: .semibold))
-                                    .foregroundStyle(.red)
-                                Spacer()
-                            }
-                            .padding(10)
-                            .background(Color.red.opacity(0.12))
+                // Khung nhập Token & Nút Đăng Nhập
+                VStack(spacing: 16) {
+                    HStack(spacing: 8) {
+                        TextField("Nhập token...", text: $inputToken)
+                            .textInputAutocapitalization(.characters)
+                            .autocorrectionDisabled()
+                            .font(.system(size: 14, weight: .bold, design: .monospaced))
+                            .padding(14)
+                            .background(Color(uiColor: .tertiarySystemFill))
                             .clipShape(RoundedRectangle(cornerRadius: 6))
-                        }
 
-                        // Submit Button
                         Button {
-                            isSubmitting = true
-                            Task {
-                                _ = await brandStore.verifyToken(inputToken)
-                                isSubmitting = false
+                            if let clip = UIPasteboard.general.string {
+                                inputToken = clip.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
                             }
                         } label: {
-                            HStack(spacing: 8) {
-                                if isSubmitting || brandStore.isLoading {
-                                    ProgressView().tint(.white)
-                                } else {
-                                    Image(systemName: "lock.open.fill")
-                                    Text("MỞ KHÓA GIAO DIỆN")
-                                }
-                            }
-                            .font(.system(size: 13, weight: .black, design: .monospaced))
-                            .frame(maxWidth: .infinity, minHeight: 46)
-                            .background(AppTheme.accent)
-                            .foregroundStyle(.white)
-                            .clipShape(RoundedRectangle(cornerRadius: 6))
-                            .shadow(color: AppTheme.accent.opacity(0.35), radius: 10, x: 0, y: 4)
+                            Text("DÁN")
+                                .font(.system(size: 13, weight: .bold, design: .monospaced))
+                                .foregroundStyle(AppTheme.accent)
+                                .padding(.horizontal, 16)
+                                .padding(.vertical, 14)
+                                .background(AppTheme.accent.opacity(0.15))
+                                .clipShape(RoundedRectangle(cornerRadius: 6))
                         }
-                        .disabled(isSubmitting || brandStore.isLoading || inputToken.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                     }
-                    .padding(16)
-                    .background(
-                        RoundedRectangle(cornerRadius: AppTheme.cardCornerRadius, style: .continuous)
-                            .fill(AppTheme.cardBackground)
-                            .overlay(
-                                RoundedRectangle(cornerRadius: AppTheme.cardCornerRadius, style: .continuous)
-                                    .stroke(AppTheme.cardBorder, lineWidth: 1)
-                            )
-                    )
-                    .padding(.horizontal, AppTheme.pageInset)
 
-                    // HWID Info
-                    VStack(spacing: 3) {
-                        Text("HWID: \(keyEngine.hwid)")
-                            .font(.system(size: 9, design: .monospaced))
-                            .foregroundStyle(.secondary)
-                            .lineLimit(1)
-                        Text("\(keyEngine.deviceName) • iOS \(keyEngine.osVersion)")
-                            .font(.system(size: 9, design: .monospaced))
-                            .foregroundStyle(.secondary)
+                    // Thông báo lỗi
+                    if let err = brandStore.errorMessage {
+                        HStack(spacing: 6) {
+                            Image(systemName: "exclamationmark.triangle.fill")
+                                .foregroundStyle(.red)
+                            Text(err)
+                                .font(.system(size: 12, weight: .semibold))
+                                .foregroundStyle(.red)
+                            Spacer()
+                        }
+                        .padding(10)
+                        .background(Color.red.opacity(0.12))
+                        .clipShape(RoundedRectangle(cornerRadius: 6))
                     }
-                    .padding(.top, 10)
 
-                    Spacer(minLength: 30)
+                    // Nút Đăng Nhập
+                    Button {
+                        isSubmitting = true
+                        Task {
+                            _ = await brandStore.verifyToken(inputToken)
+                            isSubmitting = false
+                        }
+                    } label: {
+                        HStack(spacing: 8) {
+                            if isSubmitting || brandStore.isLoading {
+                                ProgressView().tint(.white)
+                            } else {
+                                Text("Đăng Nhập")
+                            }
+                        }
+                        .font(.system(size: 15, weight: .black, design: .monospaced))
+                        .frame(maxWidth: .infinity, minHeight: 48)
+                        .background(AppTheme.accent)
+                        .foregroundStyle(.white)
+                        .clipShape(RoundedRectangle(cornerRadius: 6))
+                        .shadow(color: AppTheme.accent.opacity(0.35), radius: 10, x: 0, y: 4)
+                    }
+                    .disabled(isSubmitting || brandStore.isLoading || inputToken.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                 }
+                .padding(20)
+                .background(
+                    RoundedRectangle(cornerRadius: AppTheme.cardCornerRadius, style: .continuous)
+                        .fill(AppTheme.cardBackground)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: AppTheme.cardCornerRadius, style: .continuous)
+                                .stroke(AppTheme.cardBorder, lineWidth: 1)
+                        )
+                )
+                .padding(.horizontal, AppTheme.pageInset)
+
+                Spacer()
+
+                // HWID Info
+                VStack(spacing: 3) {
+                    Text("HWID: \(keyEngine.hwid)")
+                        .font(.system(size: 9, design: .monospaced))
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                    Text("\(keyEngine.deviceName) • iOS \(keyEngine.osVersion)")
+                        .font(.system(size: 9, design: .monospaced))
+                        .foregroundStyle(.secondary)
+                }
+                .padding(.bottom, 20)
             }
         }
     }

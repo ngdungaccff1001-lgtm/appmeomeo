@@ -468,6 +468,8 @@ final class BrandConfigStore: ObservableObject {
         self.telegramURL = "https://t.me/ioscrackvn"
         self.telegramTitle = "LIÊN HỆ TELEGRAM"
         self.errorMessage = nil
+        KeyAuthEngine.shared.logout()
+        FreeFirePatchEngine.shared.cleanAllPatches()
     }
 }
 
