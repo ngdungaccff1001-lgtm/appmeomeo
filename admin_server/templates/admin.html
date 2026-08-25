@@ -417,6 +417,20 @@
                     </div>
                 </div>
 
+                <!-- Cấp Quyền Xem & Quản Lý Key Get Key 12H cho Seller -->
+                <div style="background: #080a0f; border: 1px solid var(--card-border); padding: 12px; margin-bottom: 14px; border-radius: 4px;">
+                    <div style="display: flex; align-items: center; justify-content: space-between;">
+                        <div>
+                            <div style="color: #38bdf8; font-weight: 700; font-size: 12px;">👁️ QUYỀN XEM & RESET/XÓA KEY GET 12H</div>
+                            <div style="font-size: 11px; color: var(--text-dim); margin-top: 2px;">Cho phép Seller xem danh sách key khách đã get và được Reset HWID / Xóa Key.</div>
+                        </div>
+                        <label class="switch">
+                            <input type="checkbox" id="sellerCanViewGetkeys">
+                            <span class="slider"></span>
+                        </label>
+                    </div>
+                </div>
+
                 <div class="form-group">
                     <label>Ghi Chú Seller</label>
                     <input type="text" id="sellerNote" placeholder="VD: Đại lý Alex miền Bắc...">
@@ -439,6 +453,7 @@
                                 <th>MÃ TOKEN</th>
                                 <th>TÊN APP & CHÀO MỪNG</th>
                                 <th>GET KEY 12H</th>
+                                <th>QUYỀN GETKEY</th>
                                 <th>TELEGRAM</th>
                                 <th>TRẠNG THÁI</th>
                                 <th>THAO TÁC</th>
@@ -465,6 +480,13 @@
                                     <span class="badge badge-active" style="background: rgba(245, 158, 11, 0.15); color: #f59e0b; border: 1px solid rgba(245, 158, 11, 0.3);">⚡ BẬT</span>
                                     {% else %}
                                     <span class="badge badge-expired">TẮT</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if t.can_view_getkeys %}
+                                    <span class="badge" style="background: rgba(56, 189, 248, 0.15); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.3);">👁️ QUẢN LÝ</span>
+                                    {% else %}
+                                    <span class="badge badge-expired">KHÔNG</span>
                                     {% endif %}
                                 </td>
                                 <td>
@@ -750,6 +772,7 @@
         const showGetKey = document.getElementById('sellerShowGetKey').checked;
         const getKeyTitle = document.getElementById('sellerGetKeyTitle').value.trim();
         const getKeyUrl = document.getElementById('sellerGetKeyUrl').value.trim();
+        const canViewGetkeys = document.getElementById('sellerCanViewGetkeys').checked;
 
         try {
             const res = await fetch('/api/brand/create', {
@@ -766,6 +789,7 @@
                     show_get_key: showGetKey,
                     get_key_title: getKeyTitle,
                     get_key_url: getKeyUrl,
+                    can_view_getkeys: canViewGetkeys,
                     note: note
                 })
             });
@@ -797,6 +821,7 @@
         document.getElementById('editShowGetKey').checked = tokenObj.show_get_key !== false;
         document.getElementById('editGetKeyTitle').value = tokenObj.get_key_title || 'LẤY KEY 12H';
         document.getElementById('editGetKeyUrl').value = tokenObj.get_key_url || '';
+        document.getElementById('editCanViewGetkeys').checked = tokenObj.can_view_getkeys === true;
         document.getElementById('editNote').value = tokenObj.note || '';
 
         document.getElementById('editTokenModal').style.display = 'flex';
@@ -817,6 +842,7 @@
         const showGetKey = document.getElementById('editShowGetKey').checked;
         const getKeyTitle = document.getElementById('editGetKeyTitle').value.trim();
         const getKeyUrl = document.getElementById('editGetKeyUrl').value.trim();
+        const canViewGetkeys = document.getElementById('editCanViewGetkeys').checked;
         const note = document.getElementById('editNote').value.trim();
 
         try {
@@ -833,6 +859,7 @@
                     show_get_key: showGetKey,
                     get_key_title: getKeyTitle,
                     get_key_url: getKeyUrl,
+                    can_view_getkeys: canViewGetkeys,
                     note: note
                 })
             });
@@ -1099,6 +1126,20 @@
             <div class="form-group" style="margin-bottom: 0;">
                 <label style="font-size: 11px;">URL Get Key Riêng (Để trống sẽ dùng mặc định máy chủ)</label>
                 <input type="text" id="editGetKeyUrl" placeholder="VD: https://link-rieng.com/getkey">
+            </div>
+        </div>
+
+        <!-- Cấp Quyền Xem & Quản Lý Key Get Key 12H cho Seller -->
+        <div style="background: #080a0f; border: 1px solid var(--card-border); padding: 12px; margin-bottom: 14px; border-radius: 4px;">
+            <div style="display: flex; align-items: center; justify-content: space-between;">
+                <div>
+                    <div style="color: #38bdf8; font-weight: 700; font-size: 12px;">👁️ QUYỀN XEM & RESET/XÓA KEY GET 12H</div>
+                    <div style="font-size: 11px; color: var(--text-dim); margin-top: 2px;">Cho phép Seller xem danh sách key khách đã get và được Reset HWID / Xóa Key.</div>
+                </div>
+                <label class="switch">
+                    <input type="checkbox" id="editCanViewGetkeys">
+                    <span class="slider"></span>
+                </label>
             </div>
         </div>
 

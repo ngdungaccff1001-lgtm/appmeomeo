@@ -315,6 +315,8 @@
         .btn-reset:hover { background: #0284c7; color: #fff; }
         .btn-copy { background: rgba(245, 158, 11, 0.15); border-color: rgba(245, 158, 11, 0.4); color: #fbbf24; }
         .btn-copy:hover { background: #f59e0b; color: #000; }
+        .btn-filter { background: #07090e; border: 1px solid var(--border); color: var(--text-dim); }
+        .btn-filter.active { background: var(--accent); color: #fff; border-color: var(--accent); }
 
         /* TABLE */
         .table-wrap {
@@ -477,7 +479,21 @@
         <div class="card">
             <div class="card-header">
                 <span>DANH SÁCH KEY ĐÃ TẠO</span>
-                <span>{{ keys|length }} KEY</span>
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    {% if token.can_view_getkeys %}
+                    <span class="badge" style="background: rgba(56, 189, 248, 0.15); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.3); font-size: 10px;">👁️ QUYỀN GET KEY 12H</span>
+                    {% endif %}
+                    <span>{{ keys|length }} KEY</span>
+                </div>
+            </div>
+
+            <!-- BỘ LỌC LOẠI KEY -->
+            <div style="display: flex; gap: 8px; margin-bottom: 14px; flex-wrap: wrap;">
+                <button type="button" class="btn-sm btn-filter active" onclick="filterType('all', this)">TẤT CẢ KEY ({{ keys|length }})</button>
+                <button type="button" class="btn-sm btn-filter" onclick="filterType('manual', this)">KEY TỰ TẠO ({{ keys|rejectattr('is_getkey')|list|length }})</button>
+                {% if token.can_view_getkeys %}
+                <button type="button" class="btn-sm btn-filter" onclick="filterType('getkey', this)">KEY GET 12H ({{ keys|selectattr('is_getkey')|list|length }})</button>
+                {% endif %}
             </div>
 
             <div class="search-box">
@@ -497,9 +513,14 @@
                     </thead>
                     <tbody id="keysTableBody">
                         {% for k in keys %}
-                        <tr class="key-row" data-search="{{ k.key }} {{ k.note or '' }}">
+                        <tr class="key-row" data-search="{{ k.key }} {{ k.note or '' }}" data-type="{{ 'getkey' if k.is_getkey else 'manual' }}">
                             <td>
-                                <span class="key-text" onclick="copyText('{{ k.key }}')" title="Nhấn để sao chép">{{ k.key }}</span>
+                                <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
+                                    <span class="key-text" onclick="copyText('{{ k.key }}')" title="Nhấn để sao chép">{{ k.key }}</span>
+                                    {% if k.is_getkey %}
+                                    <span class="badge" style="background: rgba(245, 158, 11, 0.15); color: #f59e0b; border: 1px solid rgba(245, 158, 11, 0.3); font-size: 9px; padding: 2px 6px;">⚡ GET KEY 12H</span>
+                                    {% endif %}
+                                </div>
                                 {% if k.note %}
                                 <div style="font-size: 10px; color: var(--text-dark); margin-top: 2px;">{{ k.note }}</div>
                                 {% endif %}
@@ -536,7 +557,7 @@
                             <td>
                                 <div style="display: flex; gap: 4px;">
                                     <button class="btn-sm btn-copy" onclick="copyText('{{ k.key }}')">COPY</button>
-                                    <button class="btn-sm btn-reset" onclick="resetKeyHwid('{{ k.key }}')" title="Reset máy">RESET</button>
+                                    <button class="btn-sm btn-reset" onclick="resetKeyHwid('{{ k.key }}')" title="Reset máy (HWID)">RESET</button>
                                     <button class="btn-sm btn-del" onclick="deleteKey('{{ k.key }}')">XÓA</button>
                                 </div>
                             </td>
@@ -567,12 +588,30 @@
         });
     }
 
+    let currentFilterType = 'all';
+
+    function filterType(type, btn) {
+        currentFilterType = type;
+        document.querySelectorAll('.btn-filter').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        applyFilters();
+    }
+
     function filterKeys() {
+        applyFilters();
+    }
+
+    function applyFilters() {
         const query = document.getElementById('searchInput').value.toLowerCase();
         const rows = document.querySelectorAll('.key-row');
         rows.forEach(row => {
-            const data = row.getAttribute('data-search').toLowerCase();
-            row.style.display = data.includes(query) ? '' : 'none';
+            const dataSearch = (row.getAttribute('data-search') || '').toLowerCase();
+            const dataType = row.getAttribute('data-type');
+
+            const matchSearch = dataSearch.includes(query);
+            const matchType = (currentFilterType === 'all') || (dataType === currentFilterType);
+
+            row.style.display = (matchSearch && matchType) ? '' : 'none';
         });
     }
 

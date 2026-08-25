@@ -162,13 +162,28 @@ def seller_portal(token_str):
     current_time = time.time()
     seller_keys = []
 
+    can_view_getkeys = matched.get('can_view_getkeys', False)
+
     for k in keys:
-        if k.get('seller_token', '').upper() == clean_token or f"[Seller: {clean_token}]" in k.get('note', ''):
+        is_own_seller = (k.get('seller_token', '').upper() == clean_token or f"[Seller: {clean_token}]" in k.get('note', ''))
+        is_getkey = bool(k.get('is_getkey') or 'Get Key 12H' in k.get('note', ''))
+        k['is_getkey'] = is_getkey
+
+        # Key tự tạo thông thường
+        if is_own_seller and not is_getkey:
             if k.get('expires_at') and k.get('expires_at') < current_time and k.get('status') == 'active':
                 k['status'] = 'expired'
             if k.get('expires_at'):
                 k['expires_at_str'] = time.strftime("%Y-%m-%d %H:%M", time.localtime(k['expires_at']))
             seller_keys.append(k)
+        # Key từ Get Key 12H (chỉ hiển thị nếu Seller được cấp quyền can_view_getkeys)
+        elif is_getkey and can_view_getkeys:
+            if is_own_seller or not k.get('seller_token') or k.get('seller_token', '').upper() == clean_token:
+                if k.get('expires_at') and k.get('expires_at') < current_time and k.get('status') == 'active':
+                    k['status'] = 'expired'
+                if k.get('expires_at'):
+                    k['expires_at_str'] = time.strftime("%Y-%m-%d %H:%M", time.localtime(k['expires_at']))
+                seller_keys.append(k)
 
     return render_template('seller.html', token=matched, keys=seller_keys)
 
@@ -329,6 +344,7 @@ def api_create_brand():
     show_get_key = bool(data.get('show_get_key', True))
     get_key_title = data.get('get_key_title', '').strip() or '⚡ LẤY KEY 12H'
     get_key_url = data.get('get_key_url', '').strip()
+    can_view_getkeys = bool(data.get('can_view_getkeys', False))
     note = data.get('note', '').strip()
 
     tokens = load_json(TOKENS_FILE, [])
@@ -348,6 +364,7 @@ def api_create_brand():
         "show_get_key": show_get_key,
         "get_key_title": get_key_title,
         "get_key_url": get_key_url,
+        "can_view_getkeys": can_view_getkeys,
         "note": note,
         "is_active": True,
         "created_at": time.strftime("%Y-%m-%d %H:%M:%S")
@@ -390,6 +407,8 @@ def api_update_brand(token_str):
         matched['get_key_title'] = data['get_key_title'].strip() or '⚡ LẤY KEY 12H'
     if 'get_key_url' in data:
         matched['get_key_url'] = data['get_key_url'].strip()
+    if 'can_view_getkeys' in data:
+        matched['can_view_getkeys'] = bool(data['can_view_getkeys'])
     if 'note' in data:
         matched['note'] = data['note'].strip()
 
