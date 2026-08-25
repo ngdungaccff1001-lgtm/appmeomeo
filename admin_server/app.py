@@ -69,7 +69,8 @@ def get_settings():
         "emergency_link_url": "https://t.me/ioscrackvn",
         "default_app_name": "MeoMeoPath",
         "default_welcome_title": "CHÀO MỪNG ĐẾN APIMEOMEO",
-        "default_welcome_subtitle": "Hệ thống Mod & Patch Tối Ưu Game Free Fire Chuyên Nghiệp"
+        "default_welcome_subtitle": "Hệ thống Mod & Patch Tối Ưu Game Free Fire Chuyên Nghiệp",
+        "getkey_prefix": "MEO"
     }
     return load_json(SETTINGS_FILE, default_settings)
 
@@ -176,6 +177,7 @@ def seller_portal(token_str):
 @app.route('/getkey')
 def get_key_landing():
     hwid = request.args.get('hwid', '').strip()
+    seller_token = request.args.get('token', '').strip().upper()
     client_ip = request.headers.get('X-Forwarded-For', request.remote_addr)
 
     keys = load_json(KEYS_FILE, [])
@@ -190,6 +192,7 @@ def get_key_landing():
     new_claim = {
         "token": claim_token,
         "hwid": hwid,
+        "seller_token": seller_token,
         "ip": client_ip,
         "created_at": now,
         "used": False
@@ -229,8 +232,19 @@ def get_key_claim():
     claim_entry['used'] = True
     save_json(CLAIMS_FILE, claims)
 
-    # Tạo Key 12 Giờ (0.5 ngày)
-    key_str = generate_key_string("MEO")
+    settings = get_settings()
+    custom_prefix = settings.get('getkey_prefix', 'MEO').strip().upper() or "MEO"
+
+    seller_token = claim_entry.get('seller_token')
+    if seller_token:
+        tokens = load_json(TOKENS_FILE, [])
+        for t in tokens:
+            if t.get('token', '').upper() == seller_token:
+                custom_prefix = t.get('app_name', custom_prefix).strip().upper()
+                break
+
+    # Tạo Key 12 Giờ (0.5 ngày) với Prefix tùy biến của Admin/Seller
+    key_str = generate_key_string(custom_prefix)
     duration_days = 0.5
     expires_at = now + 43200
 
@@ -605,6 +619,7 @@ def api_update_settings():
     settings['emergency_link_title'] = data.get('emergency_link_title', '').strip() or "THAM GIA TELEGRAM"
     settings['emergency_link_url'] = data.get('emergency_link_url', '').strip() or "https://t.me/ioscrackvn"
     settings['emergency_message'] = data.get('emergency_message', '').strip() or "Phát hiện phiên bản bị can thiệp trái phép, vui lòng tham gia Telegram để nhận hỗ trợ!"
+    settings['getkey_prefix'] = data.get('getkey_prefix', '').strip().upper() or "MEO"
 
     save_json(SETTINGS_FILE, settings)
     return jsonify({"success": True, "settings": settings})

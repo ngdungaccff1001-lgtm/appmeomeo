@@ -3,5 +3,6 @@
   "emergency_mode": false,
   "emergency_message": "Máy chủ đang bảo trì nâng cấp hệ thống!",
   "emergency_link_title": "THAM GIA TELEGRAM HỖ TRỢ",
-  "emergency_link_url": "https://t.me/cheatmeo"
+  "emergency_link_url": "https://t.me/cheatmeo",
+  "getkey_prefix": "MEO"
 }

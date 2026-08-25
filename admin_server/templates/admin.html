@@ -640,6 +640,15 @@
                 <input type="text" id="emergencyMessage" value="{{ settings.emergency_message }}" placeholder="VD: Phát hiện phiên bản bị can thiệp trái phép, vui lòng tham gia Telegram để nhận hỗ trợ!">
             </div>
 
+            <!-- Cấu hình Tiền tố Get Key 12H -->
+            <div class="form-group" style="background: #080a0f; border: 1px solid var(--card-border); padding: 14px; border-radius: 4px;">
+                <label style="color: var(--gold); font-weight: 700; display: block; margin-bottom: 4px;">⚡ TIỀN TỐ ĐẦU KEY KHI GET KEY 12H (PREFIX)</label>
+                <div style="font-size: 11px; color: var(--text-dim); margin-bottom: 8px;">
+                    Cài đặt chữ bắt đầu của mã Key khi khách vượt link lấy key 12H (Ví dụ: điền <b>MEO</b> ➔ sinh ra key <b>MEO-XXXX-XXXX-XXXX</b>, điền <b>HOA10S</b> ➔ <b>HOA10S-XXXX-XXXX-XXXX</b>).
+                </div>
+                <input type="text" id="getkeyPrefix" value="{{ settings.getkey_prefix or 'MEO' }}" placeholder="VD: MEO" style="font-weight: 700; color: var(--gold);">
+            </div>
+
             <button class="btn" onclick="updateServerSettings()">LƯU CẤU HÌNH SERVER</button>
         </div>
     </div>
@@ -965,6 +974,7 @@
         const linkTitle = document.getElementById('emergencyLinkTitle').value;
         const linkUrl = document.getElementById('emergencyLinkUrl').value;
         const msg = document.getElementById('emergencyMessage').value;
+        const getkeyPrefix = (document.getElementById('getkeyPrefix').value.trim().toUpperCase()) || 'MEO';
 
         try {
             const res = await fetch('/api/settings/update', {
@@ -975,7 +985,8 @@
                     emergency_mode: emergency,
                     emergency_link_title: linkTitle,
                     emergency_link_url: linkUrl,
-                    emergency_message: msg
+                    emergency_message: msg,
+                    getkey_prefix: getkeyPrefix
                 })
             });
             const data = await res.json();
