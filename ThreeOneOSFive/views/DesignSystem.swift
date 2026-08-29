@@ -410,8 +410,45 @@ final class BrandConfigStore: ObservableObject {
     }
 
     init() {
-        if !sellerToken.isEmpty && isTokenUnlocked {
-            fetchBrandConfig(token: sellerToken)
+        checkServerHealth()
+    }
+
+    func checkServerHealth() {
+        let serverUrl = UserDefaults.standard.string(forKey: "admin_api_server_url") ?? "http://103.238.234.204:5000"
+        guard let url = URL(string: "\(serverUrl)/api/status") else { return }
+
+        var request = URLRequest(url: url)
+        request.timeoutInterval = 3.0
+
+        Task {
+            do {
+                let (data, response) = try await URLSession.shared.data(for: request)
+                guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200,
+                      let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+                    await MainActor.run {
+                        KeyAuthEngine.shared.isEmergencyMode = true
+                        KeyAuthEngine.shared.emergencyMessage = "Máy chủ đang bảo trì. Vui lòng quay lại sau!"
+                    }
+                    return
+                }
+
+                let isEmergency = json["is_emergency"] as? Bool ?? false
+                let serverOnline = json["server_online"] as? Bool ?? true
+
+                await MainActor.run {
+                    if isEmergency || !serverOnline {
+                        KeyAuthEngine.shared.isEmergencyMode = true
+                        KeyAuthEngine.shared.emergencyMessage = json["emergency_message"] as? String ?? "Máy chủ đang bảo trì. Vui lòng quay lại sau!"
+                    } else {
+                        KeyAuthEngine.shared.isEmergencyMode = false
+                    }
+                }
+            } catch {
+                await MainActor.run {
+                    KeyAuthEngine.shared.isEmergencyMode = true
+                    KeyAuthEngine.shared.emergencyMessage = "Máy chủ đang bảo trì. Vui lòng quay lại sau!"
+                }
+            }
         }
     }
 
