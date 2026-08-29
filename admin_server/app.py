@@ -85,6 +85,54 @@ def generate_seller_token():
     part = ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))
     return f"SELLER-{part}"
 
+# MARK: - Auto Clean GetKey Past Midnight (00:00 Mỗi Ngày)
+
+def clean_midnight_getkeys():
+    """
+    Tự động xóa sạch toàn bộ các key GetKey (is_getkey == True hoặc note chứa 'Get Key 12H')
+    khi bước qua 00:00 (nửa đêm) mỗi ngày, hoặc khi các key getkey đã quá 00:00 của ngày tạo.
+    CHỈ xóa key GetKey, TUYỆT ĐỐI GIỮ LẠI các key VIP do Admin hoặc Seller tự tạo!
+    """
+    keys = load_json(KEYS_FILE, [])
+    now = time.time()
+    current_day_str = time.strftime("%Y-%m-%d", time.localtime(now))
+
+    modified = False
+    new_keys = []
+
+    for k in keys:
+        is_getkey = bool(k.get('is_getkey') or 'Get Key 12H' in k.get('note', ''))
+        if not is_getkey:
+            # Key VIP bình thường (1 ngày, 3 ngày, 7 ngày, 30 ngày...) -> Giữ lại 100%
+            new_keys.append(k)
+        else:
+            # Key GetKey 12H: Kiểm tra nếu tạo từ ngày trước (đã qua 00h) HOẶC key đã hết hạn -> Xóa sạch
+            created_at = k.get('created_at', now)
+            created_day_str = time.strftime("%Y-%m-%d", time.localtime(created_at))
+            if created_day_str != current_day_str or (k.get('expires_at') and k.get('expires_at') < now):
+                modified = True
+                continue
+            else:
+                new_keys.append(k)
+
+    if modified:
+        save_json(KEYS_FILE, new_keys)
+    return len(keys) - len(new_keys)
+
+def start_midnight_cleaner_thread():
+    def loop():
+        while True:
+            try:
+                clean_midnight_getkeys()
+            except Exception:
+                pass
+            time.sleep(60) # Kiểm tra mỗi 60 giây
+
+    t = threading.Thread(target=loop, daemon=True)
+    t.start()
+
+start_midnight_cleaner_thread()
+
 # MARK: - 3-Tier Shortlink Chain (Ontops -> Layma -> Layma -> Claim)
 
 def get_3tier_shortlink(destination_claim_url):
@@ -104,6 +152,10 @@ def get_3tier_shortlink(destination_claim_url):
 
 # MARK: - Public & Admin Routes
 
+@app.before_request
+def before_request_hook():
+    clean_midnight_getkeys()
+
 @app.route('/')
 def index():
     return render_template('403.html'), 403
@@ -113,6 +165,7 @@ def admin_panel():
     if not session.get('admin_authenticated'):
         return render_template('admin_login.html')
 
+    clean_midnight_getkeys()
     patches = load_json(PATCHES_FILE, [])
     keys = load_json(KEYS_FILE, [])
     tokens = load_json(TOKENS_FILE, [])
