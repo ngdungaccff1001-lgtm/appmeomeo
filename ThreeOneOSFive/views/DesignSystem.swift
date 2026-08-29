@@ -606,4 +606,131 @@ final class BrandConfigStore: ObservableObject {
     }
 }
 
+// MARK: - Toast Alert Notification Manager (Bay từ góc trên bên phải, hiển thị 3s)
+
+enum ToastType {
+    case success
+    case error
+    case warning
+    case info
+
+    var iconName: String {
+        switch self {
+        case .success: return "checkmark.circle.fill"
+        case .error: return "xmark.octagon.fill"
+        case .warning: return "exclamationmark.triangle.fill"
+        case .info: return "info.circle.fill"
+        }
+    }
+
+    var color: Color {
+        switch self {
+        case .success: return Color.green
+        case .error: return Color.red
+        case .warning: return Color.orange
+        case .info: return Color(red: 0.20, green: 0.65, blue: 1.0)
+        }
+    }
+}
+
+struct ToastMessage: Identifiable, Equatable {
+    let id = UUID()
+    let type: ToastType
+    let title: String
+    let message: String
+}
+
+@MainActor
+final class AppToastManager: ObservableObject {
+    static let shared = AppToastManager()
+
+    @Published var currentToast: ToastMessage? = nil
+    private var dismissTask: Task<Void, Never>? = nil
+
+    func show(type: ToastType, title: String, message: String) {
+        dismissTask?.cancel()
+        withAnimation(.spring(response: 0.35, dampingFraction: 0.7)) {
+            self.currentToast = ToastMessage(type: type, title: title, message: message)
+        }
+
+        dismissTask = Task {
+            try? await Task.sleep(nanoseconds: 3_000_000_000) // Tự động ẩn sau 3 giây
+            if !Task.isCancelled {
+                withAnimation(.easeInOut(duration: 0.3)) {
+                    self.currentToast = nil
+                }
+            }
+        }
+    }
+
+    func hide() {
+        dismissTask?.cancel()
+        withAnimation(.easeInOut(duration: 0.25)) {
+            self.currentToast = nil
+        }
+    }
+}
+
+// MARK: - System Log & Error Tracker Manager (Nhật ký lỗi & tiến trình hệ thống)
+
+enum LogType {
+    case info
+    case success
+    case error
+    case warning
+
+    var prefix: String {
+        switch self {
+        case .info: return "[INFO]"
+        case .success: return "[SUCCESS]"
+        case .error: return "[ERROR]"
+        case .warning: return "[WARN]"
+        }
+    }
+
+    var color: Color {
+        switch self {
+        case .info: return Color(red: 0.20, green: 0.65, blue: 1.0)
+        case .success: return Color.green
+        case .error: return Color.red
+        case .warning: return Color.orange
+        }
+    }
+}
+
+struct LogEntry: Identifiable {
+    let id = UUID()
+    let time: String
+    let type: LogType
+    let message: String
+}
+
+@MainActor
+final class AppLogManager: ObservableObject {
+    static let shared = AppLogManager()
+
+    @Published var logs: [LogEntry] = []
+
+    init() {
+        addLog(type: .info, message: "Hệ thống bảo mật PATH DATA CHEAT đã khởi tạo")
+    }
+
+    func addLog(type: LogType, message: String) {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "HH:mm:ss"
+        let timeStr = formatter.string(from: Date())
+        let newEntry = LogEntry(time: timeStr, type: type, message: message)
+        logs.append(newEntry)
+    }
+
+    func clearLogs() {
+        logs.removeAll()
+        addLog(type: .info, message: "Đã làm sạch toàn bộ nhật ký log hệ thống")
+    }
+
+    var fullLogsText: String {
+        logs.map { "[\($0.time)] \($0.type.prefix) \($0.message)" }.joined(separator: "\n")
+    }
+}
+
 

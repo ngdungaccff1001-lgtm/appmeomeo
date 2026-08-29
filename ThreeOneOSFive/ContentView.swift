@@ -7,8 +7,10 @@ struct ContentView: View {
     @Environment(\.appLanguage) private var language
     @StateObject private var keyEngine = KeyAuthEngine.shared
     @StateObject private var brandStore = BrandConfigStore.shared
+    @StateObject private var toastManager = AppToastManager.shared
     @State private var isLoadingFinished: Bool = false
     @State private var showProfileSheet: Bool = false
+    @State private var showCheckLogSheet: Bool = false
     @AppStorage("app.appearance") private var appearance = AppAppearance.dark.rawValue
 
     var body: some View {
@@ -44,17 +46,83 @@ struct ContentView: View {
             else {
                 MainBrandScreen(onOpenProfile: {
                     showProfileSheet = true
+                }, onOpenCheckLog: {
+                    showCheckLogSheet = true
                 })
                 .transition(.opacity)
                 .zIndex(90)
             }
         }
+        .overlay(topToastOverlay, alignment: .topTrailing)
         .preferredColorScheme(appearance == "dark" ? .dark : (appearance == "light" ? .light : nil))
         .sheet(isPresented: $showProfileSheet) {
             UserProfileSheetView()
         }
+        .sheet(isPresented: $showCheckLogSheet) {
+            CheckLogSheetView()
+        }
         .onAppear {
             brandStore.checkServerHealth()
+        }
+    }
+
+    // MARK: - Top-Right Toast Alert Notification (Hiển thị 3s rồi tự out)
+    @ViewBuilder
+    private var topToastOverlay: some View {
+        if let toast = toastManager.currentToast {
+            VStack {
+                HStack {
+                    Spacer()
+
+                    HStack(spacing: 10) {
+                        Image(systemName: toast.type.iconName)
+                            .font(.system(size: 16, weight: .bold))
+                            .foregroundStyle(toast.type.color)
+
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(toast.title)
+                                .font(.system(size: 11, weight: .black, design: .monospaced))
+                                .foregroundStyle(.white)
+
+                            Text(toast.message)
+                                .font(.system(size: 10, weight: .medium))
+                                .foregroundStyle(.white.opacity(0.85))
+                                .lineLimit(2)
+                        }
+
+                        Button {
+                            toastManager.hide()
+                        } label: {
+                            Image(systemName: "xmark")
+                                .font(.system(size: 10, weight: .bold))
+                                .foregroundStyle(.secondary)
+                                .padding(4)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 10)
+                    .background(
+                        RoundedRectangle(cornerRadius: 8)
+                            .fill(Color(uiColor: .secondarySystemBackground).opacity(0.95))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 8)
+                                    .stroke(toast.type.color.opacity(0.6), lineWidth: 1.5)
+                            )
+                            .shadow(color: toast.type.color.opacity(0.35), radius: 12, x: 0, y: 4)
+                    )
+                    .frame(maxWidth: 320)
+                }
+                .padding(.top, 48)
+                .padding(.trailing, 14)
+
+                Spacer()
+            }
+            .transition(.asymmetric(
+                insertion: .move(edge: .trailing).combined(with: .opacity),
+                removal: .move(edge: .trailing).combined(with: .opacity)
+            ))
+            .zIndex(999)
         }
     }
 }
@@ -491,6 +559,7 @@ struct MainBrandScreen: View {
     @State private var showCleanAlert: Bool = false
 
     let onOpenProfile: () -> Void
+    let onOpenCheckLog: () -> Void
 
     private var activeBundleID: String {
         selectedGame == "max" ? "com.dts.freefiremax" : "com.dts.freefireth"
@@ -575,6 +644,8 @@ struct MainBrandScreen: View {
             if selectedGame != nil {
                 Button {
                     patchEngine.fetchPatchesFromAdmin(serverUrl: adminServerUrl, bundleID: activeBundleID)
+                    AppToastManager.shared.show(type: .info, title: "LÀM MỚI", message: "Đang tải danh sách gói mới nhất...")
+                    AppLogManager.shared.addLog(type: .info, message: "Làm mới danh sách patch từ máy chủ")
                 } label: {
                     Image(systemName: "arrow.clockwise")
                         .font(.system(size: 12, weight: .bold))
@@ -631,59 +702,48 @@ struct MainBrandScreen: View {
 
                 // Card Nhập Key VIP
                 VStack(spacing: 14) {
-                    if let err = keyEngine.errorMessage {
-                        Text(err)
-                            .font(.system(size: 11, weight: .bold))
-                            .foregroundStyle(.red)
-                            .multilineTextAlignment(.center)
-                            .padding(8)
-                            .frame(maxWidth: .infinity)
-                            .background(Color.red.opacity(0.12))
-                            .border(Color.red.opacity(0.3), width: 1)
-                    }
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("NHẬP MÃ KEY VIP CỦA BẠN:")
+                            .font(.system(size: 10, weight: .black, design: .monospaced))
+                            .foregroundStyle(.secondary)
 
-                    // Ô Nhập Key
-                    HStack(spacing: 8) {
-                        Image(systemName: "key.fill")
-                            .font(.system(size: 14, weight: .bold))
-                            .foregroundStyle(brandStore.welcomeColor)
+                        HStack {
+                            Image(systemName: "key.fill")
+                                .font(.system(size: 14))
+                                .foregroundStyle(brandStore.welcomeColor)
 
-                        TextField("Nhập mã Key VIP của bạn...", text: $inputKey)
-                            .font(.system(size: 13, weight: .semibold, design: .monospaced))
-                            .textInputAutocapitalization(.characters)
-                            .autocorrectionDisabled()
-
-                        if let clip = UIPasteboard.general.string, !clip.isEmpty {
-                            Button {
-                                inputKey = clip.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
-                            } label: {
-                                Text("DÁN")
-                                    .font(.system(size: 10, weight: .black, design: .monospaced))
-                                    .foregroundStyle(brandStore.welcomeColor)
-                                    .padding(.horizontal, 8)
-                                    .padding(.vertical, 4)
-                                    .background(brandStore.welcomeColor.opacity(0.15))
-                                    .border(brandStore.welcomeColor.opacity(0.3), width: 1)
-                            }
-                            .buttonStyle(.plain)
+                            TextField("Nhập mã Key (VD: MEO-XXXX-XXXX)...", text: $inputKey)
+                                .font(.system(size: 13, weight: .semibold, design: .monospaced))
+                                .autocorrectionDisabled()
+                                .textInputAutocapitalization(.characters)
                         }
+                        .padding(12)
+                        .background(Color(uiColor: .tertiarySystemBackground))
+                        .border(AppTheme.cardBorder, width: 1)
                     }
-                    .padding(12)
-                    .background(Color(uiColor: .tertiarySystemBackground))
-                    .border(AppTheme.cardBorder, width: 1)
+
+                    if let err = keyEngine.errorMessage {
+                        HStack(spacing: 6) {
+                            Image(systemName: "exclamationmark.circle.fill")
+                                .font(.system(size: 12))
+                            Text(err)
+                                .font(.system(size: 11, weight: .semibold))
+                        }
+                        .foregroundStyle(Color.red)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    }
 
                     // Nút Đăng Nhập Key
                     Button {
-                        keyEngine.verifyKey(inputKey)
+                        keyEngine.verifyKey(inputKey, sellerToken: brandStore.sellerToken)
                     } label: {
-                        HStack(spacing: 6) {
-                            if keyEngine.isVerifying {
-                                ProgressView()
-                                    .tint(.white)
+                        HStack(spacing: 8) {
+                            if keyEngine.isLoading {
+                                ProgressView().tint(.white)
                             } else {
-                                Image(systemName: "bolt.fill")
-                                    .font(.system(size: 14, weight: .bold))
-                                Text("ĐĂNG NHẬP")
+                                Image(systemName: "checkmark.shield.fill")
+                                    .font(.system(size: 14, weight: .black))
+                                Text("XÁC NHẬN KEY VIP")
                                     .font(.system(size: 13, weight: .black, design: .monospaced))
                             }
                         }
@@ -693,36 +753,25 @@ struct MainBrandScreen: View {
                         .shadow(color: brandStore.welcomeColor.opacity(0.4), radius: 8, x: 0, y: 3)
                     }
                     .buttonStyle(.plain)
-                    .disabled(keyEngine.isVerifying)
+                    .disabled(keyEngine.isLoading)
 
                     // Nút Lấy Key 12H (CHỈ HIỆN KHI TOKEN ĐƯỢC BẬT ON)
                     if brandStore.showGetKey {
                         Button {
-                            let serverUrl = UserDefaults.standard.string(forKey: "admin_api_server_url") ?? "http://103.238.234.204:5000"
-                            let targetUrlStr = brandStore.getKeyURL.isEmpty
-                                ? "\(serverUrl)/getkey?hwid=\(keyEngine.hwid)&token=\(brandStore.sellerToken)"
-                                : brandStore.getKeyURL
-
-                            if let url = URL(string: targetUrlStr) {
+                            if let url = URL(string: brandStore.getKeyURL.isEmpty ? "http://103.238.234.204:5000/getkey" : brandStore.getKeyURL) {
                                 UIApplication.shared.open(url)
                             }
                         } label: {
                             HStack(spacing: 6) {
-                                Image(systemName: "link.badge.plus")
-                                    .font(.system(size: 13, weight: .bold))
+                                Image(systemName: "bolt.fill")
+                                    .font(.system(size: 12))
                                 Text(brandStore.getKeyTitle.uppercased())
-                                    .font(.system(size: 12, weight: .black, design: .monospaced))
+                                    .font(.system(size: 12, weight: .bold, design: .monospaced))
                             }
-                            .frame(maxWidth: .infinity, minHeight: 42)
-                            .background(
-                                LinearGradient(
-                                    colors: [Color(red: 0.95, green: 0.75, blue: 0.10), Color(red: 0.85, green: 0.50, blue: 0.05)],
-                                    startPoint: .topLeading,
-                                    endPoint: .bottomTrailing
-                                )
-                            )
-                            .foregroundStyle(.black)
-                            .shadow(color: Color.orange.opacity(0.3), radius: 8, x: 0, y: 3)
+                            .frame(maxWidth: .infinity, minHeight: 40)
+                            .background(Color(red: 0.95, green: 0.75, blue: 0.10).opacity(0.15))
+                            .foregroundStyle(Color(red: 0.95, green: 0.75, blue: 0.10))
+                            .border(Color(red: 0.95, green: 0.75, blue: 0.10).opacity(0.4), width: 1)
                         }
                         .buttonStyle(.plain)
                     }
@@ -735,19 +784,20 @@ struct MainBrandScreen: View {
                     } label: {
                         HStack(spacing: 6) {
                             Image(systemName: "paperplane.fill")
-                                .font(.system(size: 13, weight: .bold))
+                                .font(.system(size: 12))
                             Text(brandStore.telegramTitle.uppercased())
-                                .font(.system(size: 11, weight: .black, design: .monospaced))
+                                .font(.system(size: 11, weight: .bold, design: .monospaced))
                         }
-                        .frame(maxWidth: .infinity, minHeight: 40)
-                        .background(Color(red: 0.08, green: 0.55, blue: 0.85))
-                        .foregroundStyle(.white)
+                        .frame(maxWidth: .infinity, minHeight: 38)
+                        .background(Color(uiColor: .tertiarySystemBackground))
+                        .foregroundStyle(Color(red: 0.20, green: 0.60, blue: 0.95))
+                        .border(AppTheme.cardBorder, width: 1)
                     }
                     .buttonStyle(.plain)
                 }
                 .padding(18)
                 .background(Color(uiColor: .secondarySystemBackground))
-                .border(brandStore.welcomeColor.opacity(0.3), width: 1)
+                .border(AppTheme.cardBorder, width: 1)
 
                 Spacer(minLength: 30)
 
@@ -773,7 +823,7 @@ struct MainBrandScreen: View {
 
     // MARK: - Game Selector Screen (Chọn Free Fire hay Free Fire MAX)
     private var gameSelectorScreen: some View {
-        VStack(spacing: 20) {
+        VStack(spacing: 18) {
             Spacer()
 
             VStack(spacing: 6) {
@@ -781,10 +831,12 @@ struct MainBrandScreen: View {
                     .font(.system(size: 18, weight: .black, design: .monospaced))
                     .foregroundStyle(.white)
 
-                Text("Chọn phiên bản Free Fire bạn muốn nạp chức năng:")
-                    .font(.system(size: 12))
+                Text("Vui lòng chọn bản Free Fire bạn đang chơi để nạp dữ liệu")
+                    .font(.system(size: 11, weight: .medium))
                     .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
             }
+            .padding(.horizontal, 20)
 
             VStack(spacing: 16) {
                 // Card Free Fire MAX
@@ -796,6 +848,8 @@ struct MainBrandScreen: View {
                     withAnimation(.easeInOut(duration: 0.2)) {
                         selectedGame = "max"
                         patchEngine.fetchPatchesFromAdmin(serverUrl: adminServerUrl, bundleID: "com.dts.freefiremax")
+                        AppToastManager.shared.show(type: .info, title: "FREE FIRE MAX", message: "Đã chọn phiên bản Free Fire MAX")
+                        AppLogManager.shared.addLog(type: .info, message: "Chọn phiên bản game: Free Fire MAX (com.dts.freefiremax)")
                     }
                 }
 
@@ -808,6 +862,8 @@ struct MainBrandScreen: View {
                     withAnimation(.easeInOut(duration: 0.2)) {
                         selectedGame = "th"
                         patchEngine.fetchPatchesFromAdmin(serverUrl: adminServerUrl, bundleID: "com.dts.freefireth")
+                        AppToastManager.shared.show(type: .info, title: "FREE FIRE THƯỜNG", message: "Đã chọn phiên bản Free Fire Thường")
+                        AppLogManager.shared.addLog(type: .info, message: "Chọn phiên bản game: Free Fire Thường (com.dts.freefireth)")
                     }
                 }
             }
@@ -846,6 +902,7 @@ struct MainBrandScreen: View {
                 Button {
                     withAnimation(.easeInOut(duration: 0.15)) {
                         selectedGame = nil // Quay lại màn hình chọn game
+                        AppLogManager.shared.addLog(type: .info, message: "Quay lại màn hình chọn phiên bản game")
                     }
                 } label: {
                     HStack(spacing: 4) {
@@ -914,36 +971,58 @@ struct MainBrandScreen: View {
                 }
             }
 
-            // Thanh Tiện Ích Dưới Cùng: NÚT MỞ GAME + DỌN SẠCH + TELEGRAM
+            // Thanh Tiện Ích Dưới Cùng: NÚT MỞ GAME + CHECK LOG + DỌN SẠCH + TELEGRAM
             VStack(spacing: 6) {
-                // NÚT MỞ GAME (OPEN GAME) NỔI BẬT
-                Button {
-                    openSelectedGame()
-                } label: {
-                    HStack(spacing: 8) {
-                        Image(systemName: "play.fill")
-                            .font(.system(size: 14, weight: .black))
-                        Text("🚀 MỞ GAME (OPEN GAME)")
-                            .font(.system(size: 13, weight: .black, design: .monospaced))
-                    }
-                    .frame(maxWidth: .infinity, minHeight: 44)
-                    .background(
-                        LinearGradient(
-                            colors: selectedGame == "max"
-                                ? [Color(red: 0.95, green: 0.20, blue: 0.28), Color(red: 0.70, green: 0.08, blue: 0.18)]
-                                : [Color(red: 0.95, green: 0.55, blue: 0.10), Color(red: 0.80, green: 0.35, blue: 0.05)],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
+                // HÀNG 1: NÚT MỞ GAME + NÚT CHECK LOG (XEM BÁO LỖI)
+                HStack(spacing: 8) {
+                    // NÚT MỞ GAME (OPEN GAME) NỔI BẬT
+                    Button {
+                        openSelectedGame()
+                    } label: {
+                        HStack(spacing: 6) {
+                            Image(systemName: "play.fill")
+                                .font(.system(size: 13, weight: .black))
+                            Text("🚀 MỞ GAME")
+                                .font(.system(size: 12, weight: .black, design: .monospaced))
+                        }
+                        .frame(maxWidth: .infinity, minHeight: 44)
+                        .background(
+                            LinearGradient(
+                                colors: selectedGame == "max"
+                                    ? [Color(red: 0.95, green: 0.20, blue: 0.28), Color(red: 0.70, green: 0.08, blue: 0.18)]
+                                    : [Color(red: 0.95, green: 0.55, blue: 0.10), Color(red: 0.80, green: 0.35, blue: 0.05)],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
                         )
-                    )
-                    .foregroundStyle(.white)
-                    .shadow(color: (selectedGame == "max" ? Color.red : Color.orange).opacity(0.5), radius: 10, x: 0, y: 3)
+                        .foregroundStyle(.white)
+                        .shadow(color: (selectedGame == "max" ? Color.red : Color.orange).opacity(0.5), radius: 10, x: 0, y: 3)
+                    }
+                    .buttonStyle(.plain)
+
+                    // NÚT CHECK LOG
+                    Button {
+                        onOpenCheckLog()
+                    } label: {
+                        HStack(spacing: 6) {
+                            Image(systemName: "terminal.fill")
+                                .font(.system(size: 12, weight: .bold))
+                            Text("📋 CHECK LOG")
+                                .font(.system(size: 11, weight: .black, design: .monospaced))
+                        }
+                        .frame(width: 125, height: 44)
+                        .background(Color(red: 0.10, green: 0.14, blue: 0.22))
+                        .foregroundStyle(Color(red: 0.38, green: 0.75, blue: 1.0))
+                        .border(Color(red: 0.20, green: 0.50, blue: 0.85).opacity(0.5), width: 1)
+                    }
+                    .buttonStyle(.plain)
                 }
-                .buttonStyle(.plain)
 
                 // Nút Dọn Sạch Game
                 Button {
                     patchEngine.cleanAllPatches()
+                    AppToastManager.shared.show(type: .warning, title: "ĐÃ TẮT TOÀN BỘ", message: "Game đã về trạng thái gốc an toàn 100%!")
+                    AppLogManager.shared.addLog(type: .warning, message: "Đã làm sạch toàn bộ file mod, khôi phục game gốc 100%")
                     showCleanAlert = true
                 } label: {
                     HStack(spacing: 6) {
@@ -981,6 +1060,8 @@ struct MainBrandScreen: View {
 
                     Button {
                         keyEngine.logout()
+                        AppToastManager.shared.show(type: .info, title: "ĐĂNG XUẤT", message: "Đã đăng xuất mã Key VIP!")
+                        AppLogManager.shared.addLog(type: .info, message: "Người dùng đăng xuất Key VIP")
                     } label: {
                         HStack(spacing: 4) {
                             Image(systemName: "lock.fill")
@@ -1006,6 +1087,9 @@ struct MainBrandScreen: View {
     private func openSelectedGame() {
         let isMax = selectedGame == "max"
         let schemes = isMax ? ["freefiremax://", "com.dts.freefiremax://"] : ["freefire://", "freefireth://", "com.dts.freefireth://"]
+
+        AppToastManager.shared.show(type: .info, title: "KHỞI CHẠY GAME", message: "Đang mở \(isMax ? "Free Fire MAX" : "Free Fire")...")
+        AppLogManager.shared.addLog(type: .info, message: "Khởi chạy ứng dụng game: \(activeBundleID)")
 
         for s in schemes {
             if let url = URL(string: s), UIApplication.shared.canOpenURL(url) {
@@ -1063,8 +1147,16 @@ struct MainBrandScreen: View {
 
             Toggle("", isOn: Binding(
                 get: { patch.isEnabled },
-                set: { _ in
+                set: { newVal in
                     patchEngine.togglePatch(id: patch.id, bundleID: activeBundleID, serverUrl: adminServerUrl)
+                    let name = cleanPatchName(patch.name)
+                    if newVal {
+                        AppToastManager.shared.show(type: .success, title: "ĐÃ HOẠT ĐỘNG", message: "Đã nạp thành công [\(name)]!")
+                        AppLogManager.shared.addLog(type: .success, message: "Kích hoạt nạp [\(name)] vào game \(activeBundleID)")
+                    } else {
+                        AppToastManager.shared.show(type: .warning, title: "ĐÃ TẮT", message: "Đã tắt chức năng [\(name)]!")
+                        AppLogManager.shared.addLog(type: .warning, message: "Đã tắt chức năng [\(name)] và khôi phục gốc")
+                    }
                 }
             ))
             .labelsHidden()
@@ -1413,6 +1505,120 @@ struct UserProfileSheetView: View {
                     }
                     .font(.system(size: 13, weight: .bold))
                     .foregroundStyle(brandStore.welcomeColor)
+                }
+            }
+        }
+    }
+}
+
+// MARK: - 7. CỬA SỔ XEM LOG & BÁO LỖI HỆ THỐNG (TERMINAL LOGS)
+
+struct CheckLogSheetView: View {
+    @Environment(\.dismiss) private var dismiss
+    @StateObject private var logManager = AppLogManager.shared
+    @State private var isCopied: Bool = false
+
+    var body: some View {
+        NavigationView {
+            VStack(spacing: 0) {
+                // Header Information
+                HStack {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("NHẬT KÝ & BÁO LỖI HỆ THỐNG")
+                            .font(.system(size: 12, weight: .black, design: .monospaced))
+                            .foregroundStyle(.white)
+                        Text("Theo dõi trạng thái nạp file, hoạt động chức năng và lỗi game")
+                            .font(.system(size: 10))
+                            .foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 10)
+                .background(Color(uiColor: .secondarySystemBackground))
+
+                // Terminal Log Console View
+                ScrollViewReader { proxy in
+                    ScrollView {
+                        LazyVStack(alignment: .leading, spacing: 6) {
+                            if logManager.logs.isEmpty {
+                                Text("Chưa có nhật ký ghi nhận.")
+                                    .font(.system(size: 11, design: .monospaced))
+                                    .foregroundStyle(.secondary)
+                                    .padding(16)
+                            } else {
+                                ForEach(logManager.logs) { entry in
+                                    HStack(alignment: .top, spacing: 6) {
+                                        Text("[\(entry.time)]")
+                                            .font(.system(size: 10, weight: .bold, design: .monospaced))
+                                            .foregroundStyle(Color.secondary)
+
+                                        Text(entry.type.prefix)
+                                            .font(.system(size: 10, weight: .black, design: .monospaced))
+                                            .foregroundStyle(entry.type.color)
+
+                                        Text(entry.message)
+                                            .font(.system(size: 11, weight: .medium, design: .monospaced))
+                                            .foregroundStyle(.white)
+                                    }
+                                    .id(entry.id)
+                                }
+                            }
+                        }
+                        .padding(14)
+                    }
+                    .background(Color(red: 0.04, green: 0.05, blue: 0.07))
+                    .border(AppTheme.cardBorder, width: 1)
+                    .padding(12)
+                }
+
+                // Bottom Actions
+                HStack(spacing: 10) {
+                    Button {
+                        UIPasteboard.general.string = logManager.fullLogsText
+                        isCopied = true
+                        AppToastManager.shared.show(type: .info, title: "ĐÃ SAO CHÉP", message: "Đã copy toàn bộ nhật ký log vào bộ nhớ tạm!")
+                    } label: {
+                        HStack(spacing: 6) {
+                            Image(systemName: isCopied ? "checkmark" : "doc.on.doc.fill")
+                            Text(isCopied ? "ĐÃ COPY LOG" : "COPY TOÀN BỘ LOG")
+                                .font(.system(size: 11, weight: .black, design: .monospaced))
+                        }
+                        .frame(maxWidth: .infinity, minHeight: 40)
+                        .background(Color(red: 0.08, green: 0.55, blue: 0.85))
+                        .foregroundStyle(.white)
+                    }
+                    .buttonStyle(.plain)
+
+                    Button {
+                        logManager.clearLogs()
+                        AppToastManager.shared.show(type: .warning, title: "ĐÃ XÓA LOG", message: "Đã làm sạch nhật ký console!")
+                    } label: {
+                        HStack(spacing: 6) {
+                            Image(systemName: "trash.fill")
+                            Text("XÓA LOG")
+                                .font(.system(size: 11, weight: .black, design: .monospaced))
+                        }
+                        .frame(width: 110, height: 40)
+                        .background(Color(uiColor: .tertiarySystemBackground))
+                        .foregroundStyle(.red)
+                        .border(Color.red.opacity(0.4), width: 1)
+                    }
+                    .buttonStyle(.plain)
+                }
+                .padding(.horizontal, 14)
+                .padding(.bottom, 14)
+            }
+            .background(Color.black.ignoresSafeArea())
+            .navigationTitle("CHECK LOG")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("Đóng") {
+                        dismiss()
+                    }
+                    .font(.system(size: 13, weight: .bold))
+                    .foregroundStyle(.white)
                 }
             }
         }
