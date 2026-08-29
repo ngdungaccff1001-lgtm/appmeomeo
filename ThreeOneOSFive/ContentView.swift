@@ -53,12 +53,13 @@ struct ContentView: View {
     }
 }
 
-// MARK: - 1. MÀN HÌNH LOADING 1% - 100% (RANDOM 4 - 7 GIÂY)
+// MARK: - 1. MÀN HÌNH LOADING HÌNH TRÒN (TIÊU ĐỀ: PATH DATA CHEAT)
 
 struct CyberLoadingScreen: View {
     @Binding var isFinished: Bool
     @State private var progress: Double = 1.0
-    @State private var statusText: String = "Đang khởi tạo hệ thống bảo mật..."
+    @State private var rotationDegrees: Double = 0
+    @State private var statusText: String = "Đang kiểm tra bảo mật dữ liệu..."
 
     let totalDuration: Double = Double.random(in: 4.0...7.0)
 
@@ -66,79 +67,90 @@ struct CyberLoadingScreen: View {
         ZStack {
             Color.black.ignoresSafeArea()
 
-            VStack(spacing: 28) {
+            VStack(spacing: 30) {
                 Spacer()
 
-                // Logo Phát Sáng
-                ZStack {
-                    RoundedRectangle(cornerRadius: 18)
-                        .fill(Color.red.opacity(0.15))
-                        .frame(width: 96, height: 96)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 18)
-                                .stroke(Color.red.opacity(0.4), lineWidth: 1.5)
+                // TIÊU ĐỀ: PATH DATA CHEAT
+                VStack(spacing: 6) {
+                    Text("PATH DATA CHEAT")
+                        .font(.system(size: 22, weight: .black, design: .monospaced))
+                        .foregroundStyle(
+                            LinearGradient(
+                                colors: [Color.white, Color(red: 0.95, green: 0.25, blue: 0.35)],
+                                startPoint: .top,
+                                endPoint: .bottom
+                            )
                         )
-                        .shadow(color: Color.red.opacity(0.4), radius: 20, x: 0, y: 5)
+                        .shadow(color: Color.red.opacity(0.6), radius: 10, x: 0, y: 0)
 
-                    AppLogo(size: 82)
+                    Text("HỆ THỐNG TỐI ƯU DỮ LIỆU GAME")
+                        .font(.system(size: 10, weight: .bold, design: .monospaced))
+                        .foregroundStyle(.secondary)
                 }
 
-                VStack(spacing: 8) {
-                    Text("APIMEOMEO CORE")
-                        .font(.system(size: 20, weight: .black, design: .monospaced))
-                        .foregroundStyle(.white)
+                // LOADING HÌNH TRÒN CÔNG NGHỆ CAO
+                ZStack {
+                    // Vòng tròn nền
+                    Circle()
+                        .stroke(Color.white.opacity(0.08), lineWidth: 8)
+                        .frame(width: 130, height: 130)
 
-                    Text("HỆ THỐNG MOD GAME FREE FIRE")
-                        .font(.system(size: 11, weight: .bold, design: .monospaced))
-                        .foregroundStyle(Color.red)
-                }
+                    // Vòng xoay dash trang trí ngoài
+                    Circle()
+                        .stroke(
+                            Color.red.opacity(0.35),
+                            style: StrokeStyle(lineWidth: 2, lineCap: .round, dash: [6, 10])
+                        )
+                        .frame(width: 154, height: 154)
+                        .rotationEffect(.degrees(rotationDegrees))
 
-                // Progress Bar & Percentage
-                VStack(spacing: 12) {
-                    GeometryReader { geo in
-                        ZStack(alignment: .leading) {
-                            RoundedRectangle(cornerRadius: 4)
-                                .fill(Color(uiColor: .tertiarySystemBackground))
-                                .frame(height: 8)
+                    // Vòng tiến trình chính hình tròn (1% - 100%)
+                    Circle()
+                        .trim(from: 0.0, to: CGFloat(min(1.0, progress / 100.0)))
+                        .stroke(
+                            LinearGradient(
+                                colors: [Color.red, Color.orange],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            ),
+                            style: StrokeStyle(lineWidth: 8, lineCap: .round)
+                        )
+                        .frame(width: 130, height: 130)
+                        .rotationEffect(.degrees(-90))
+                        .shadow(color: Color.red.opacity(0.8), radius: 8, x: 0, y: 0)
 
-                            RoundedRectangle(cornerRadius: 4)
-                                .fill(
-                                    LinearGradient(
-                                        colors: [Color.red, Color.orange],
-                                        startPoint: .leading,
-                                        endPoint: .trailing
-                                    )
-                                )
-                                .frame(width: max(4, geo.size.width * CGFloat(progress / 100.0)), height: 8)
-                                .shadow(color: Color.red.opacity(0.8), radius: 6, x: 0, y: 0)
-                        }
-                    }
-                    .frame(height: 8)
-                    .padding(.horizontal, 40)
-
-                    HStack {
-                        Text(statusText)
-                            .font(.system(size: 11, weight: .semibold, design: .monospaced))
-                            .foregroundStyle(.secondary)
-
-                        Spacer()
-
+                    // Phần trăm ở chính giữa vòng tròn
+                    VStack(spacing: 2) {
                         Text("\(Int(progress))%")
-                            .font(.system(size: 13, weight: .black, design: .monospaced))
+                            .font(.system(size: 26, weight: .black, design: .monospaced))
+                            .foregroundStyle(.white)
+
+                        Text("LOADING")
+                            .font(.system(size: 9, weight: .black, design: .monospaced))
                             .foregroundStyle(Color.red)
                     }
-                    .padding(.horizontal, 40)
                 }
+                .padding(.vertical, 10)
+
+                // Dòng trạng thái
+                Text(statusText)
+                    .font(.system(size: 11, weight: .semibold, design: .monospaced))
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+                    .frame(height: 20)
 
                 Spacer()
 
-                Text("LOADING SECURITY ENGINE • PLEASE WAIT")
+                Text("INITIALIZING SYSTEM • PLEASE WAIT")
                     .font(.system(size: 9, weight: .bold, design: .monospaced))
-                    .foregroundStyle(.secondary.opacity(0.5))
+                    .foregroundStyle(.secondary.opacity(0.4))
                     .padding(.bottom, 24)
             }
         }
         .onAppear {
+            withAnimation(.linear(duration: 4.0).repeatForever(autoreverses: false)) {
+                rotationDegrees = 360
+            }
             runLoadingAnimation()
         }
     }
@@ -151,13 +163,13 @@ struct CyberLoadingScreen: View {
             self.progress = percent
 
             if percent < 30 {
-                self.statusText = "Đang kiểm tra bảo mật thiết bị..."
+                self.statusText = "Đang kiểm tra dữ liệu hệ thống..."
             } else if percent < 60 {
                 self.statusText = "Đang kết nối máy chủ API..."
             } else if percent < 90 {
-                self.statusText = "Đang nạp cấu hình hệ thống..."
+                self.statusText = "Đang tải cấu hình..."
             } else {
-                self.statusText = "Khởi tạo thành công!"
+                self.statusText = "Khởi tạo hoàn tất!"
             }
 
             if elapsed >= totalDuration {

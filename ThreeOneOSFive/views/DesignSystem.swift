@@ -391,7 +391,7 @@ final class BrandConfigStore: ObservableObject {
     static let shared = BrandConfigStore()
 
     @AppStorage("seller_brand_token") var sellerToken: String = ""
-    @Published var isTokenUnlocked: Bool = false
+    @AppStorage("seller_token_unlocked") var isTokenUnlocked: Bool = false
 
     @Published var appName: String = "MeoMeoPath"
     @Published var welcomeTitle: String = "CHÀO MỪNG ĐẾN APIMEOMEO"
@@ -411,6 +411,9 @@ final class BrandConfigStore: ObservableObject {
 
     init() {
         checkServerHealth()
+        if isTokenUnlocked && !sellerToken.isEmpty {
+            fetchBrandConfig(token: sellerToken)
+        }
     }
 
     func checkServerHealth() {
