@@ -346,6 +346,17 @@ def get_key_claim():
 
 @app.route('/api/brand', methods=['GET'])
 def api_get_brand():
+    settings = get_settings()
+    if not settings.get('server_online', True) or settings.get('emergency_mode', False):
+        return jsonify({
+            "success": False,
+            "server_online": False,
+            "emergency_mode": True,
+            "message": settings.get('emergency_message', 'Máy chủ đang bảo trì nâng cấp hệ thống!'),
+            "telegram_url": settings.get('emergency_link_url', 'https://t.me/ioscrackvn'),
+            "telegram_title": settings.get('emergency_link_title', 'LIÊN HỆ TELEGRAM')
+        })
+
     token_str = request.args.get('token', '').strip().upper()
     tokens = load_json(TOKENS_FILE, [])
     settings = get_settings()

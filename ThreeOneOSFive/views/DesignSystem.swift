@@ -442,6 +442,17 @@ final class BrandConfigStore: ObservableObject {
             }
 
             let success = json["success"] as? Bool ?? false
+            let isServerOnline = json["server_online"] as? Bool ?? true
+            let isEmergency = json["emergency_mode"] as? Bool ?? false
+
+            if !isServerOnline || isEmergency {
+                self.isLoading = false
+                KeyAuthEngine.shared.isEmergencyMode = true
+                KeyAuthEngine.shared.emergencyMessage = json["message"] as? String ?? "Máy chủ đang bảo trì nâng cấp hệ thống!"
+                KeyAuthEngine.shared.emergencyLinkURL = json["telegram_url"] as? String ?? self.telegramURL
+                return false
+            }
+
             if success {
                 self.sellerToken = clean
                 self.isTokenUnlocked = true
@@ -481,6 +492,16 @@ final class BrandConfigStore: ObservableObject {
                 let (data, response) = try await URLSession.shared.data(from: url)
                 guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200,
                       let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+                    return
+                }
+
+                let isServerOnline = json["server_online"] as? Bool ?? true
+                let isEmergency = json["emergency_mode"] as? Bool ?? false
+
+                if !isServerOnline || isEmergency {
+                    KeyAuthEngine.shared.isEmergencyMode = true
+                    KeyAuthEngine.shared.emergencyMessage = json["message"] as? String ?? "Máy chủ đang bảo trì nâng cấp hệ thống!"
+                    KeyAuthEngine.shared.emergencyLinkURL = json["telegram_url"] as? String ?? self.telegramURL
                     return
                 }
 

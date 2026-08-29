@@ -188,10 +188,9 @@ final class KeyAuthEngine: ObservableObject {
 
                     if errorType == "server_offline" {
                         self.isEmergencyMode = true
-                        self.emergencyMessage = serverMsg ?? "Hệ thống đang tạm dừng."
-                        self.emergencyLinkTitle = linkTitle
-                        self.emergencyLinkURL = linkUrl
-                        // Xóa key để bắt buộc nhập lại khi server trở lại
+                        self.emergencyMessage = serverMsg ?? "Máy chủ đang bảo trì nâng cấp hệ thống!"
+                        self.emergencyLinkTitle = linkTitle ?? "LIÊN HỆ TELEGRAM"
+                        self.emergencyLinkURL = linkUrl ?? BrandConfigStore.shared.telegramURL
                         UserDefaults.standard.removeObject(forKey: "meomeo_saved_api_key")
                         FreeFirePatchEngine.shared.cleanAllPatches()
                     } else {
@@ -199,7 +198,12 @@ final class KeyAuthEngine: ObservableObject {
                     }
                 }
             } catch {
-                self.handleInvalidKey(message: "Máy chủ Offline. Chức năng đã tự động khóa để bảo vệ!", linkTitle: nil, linkUrl: nil)
+                self.isEmergencyMode = true
+                self.emergencyMessage = "Máy chủ đang bảo trì nâng cấp hệ thống!\nVui lòng thử lại sau ít phút hoặc tham gia Telegram để nhận thông báo mới nhất."
+                self.emergencyLinkTitle = "LIÊN HỆ TELEGRAM"
+                self.emergencyLinkURL = BrandConfigStore.shared.telegramURL
+                self.isVerifying = false
+                FreeFirePatchEngine.shared.cleanAllPatches()
             }
         }
     }

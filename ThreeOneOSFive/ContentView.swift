@@ -1104,10 +1104,12 @@ struct UserProfileSheetView: View {
     }
 }
 
-// MARK: - 5. EMERGENCY LOCKDOWN VIEW (Chống Crack / Khóa Toàn Bộ App)
+// MARK: - 5. MÀN HÌNH MÁY CHỦ ĐANG BẢO TRÌ (KHI TẮT API HOẶC OFFLINE)
 
 struct EmergencyLockdownView: View {
     @StateObject private var keyEngine = KeyAuthEngine.shared
+    @StateObject private var brandStore = BrandConfigStore.shared
+    @State private var isRetrying: Bool = false
 
     var body: some View {
         ZStack {
@@ -1116,33 +1118,37 @@ struct EmergencyLockdownView: View {
             VStack(spacing: 24) {
                 Spacer()
 
+                // Icon Bảo Trì Phát Sáng
                 ZStack {
                     Circle()
-                        .fill(Color.red.opacity(0.15))
-                        .frame(width: 90, height: 90)
+                        .fill(Color.orange.opacity(0.15))
+                        .frame(width: 96, height: 96)
                     Circle()
-                        .stroke(Color.red.opacity(0.4), lineWidth: 2)
-                        .frame(width: 90, height: 90)
+                        .stroke(Color.orange.opacity(0.4), lineWidth: 2)
+                        .frame(width: 96, height: 96)
 
-                    Image(systemName: "shield.slash.fill")
-                        .font(.system(size: 42, weight: .black))
-                        .foregroundStyle(Color.red)
+                    Image(systemName: "wrench.and.screwdriver.fill")
+                        .font(.system(size: 44, weight: .black))
+                        .foregroundStyle(Color.orange)
                 }
+                .shadow(color: Color.orange.opacity(0.4), radius: 15, x: 0, y: 5)
 
+                // Tiêu Đề & Nội Dung Thông Báo
                 VStack(spacing: 8) {
-                    Text("HỆ THỐNG ĐÃ BỊ KHÓA")
+                    Text("MÁY CHỦ ĐANG BẢO TRÌ")
                         .font(.system(size: 18, weight: .black, design: .monospaced))
                         .foregroundStyle(.white)
 
-                    Text(keyEngine.emergencyMessage ?? "Hệ thống đang bảo trì hoặc phát hiện can thiệp. Vui lòng bấm vào nút bên dưới để nhận hỗ trợ!")
-                        .font(.system(size: 13, weight: .medium))
+                    Text(keyEngine.emergencyMessage ?? "Hệ thống máy chủ API đang tạm thời bảo trì nâng cấp. Vui lòng quay lại sau ít phút hoặc tham gia nhóm Telegram để nhận thông báo mới nhất!")
+                        .font(.system(size: 12, weight: .medium))
                         .foregroundStyle(.secondary)
                         .multilineTextAlignment(.center)
-                        .padding(.horizontal, 30)
-                        .lineSpacing(3)
+                        .padding(.horizontal, 28)
+                        .lineSpacing(4)
                 }
 
-                if let urlStr = keyEngine.emergencyLinkURL,
+                // Nút Telegram Hỗ Trợ
+                if let urlStr = keyEngine.emergencyLinkURL ?? brandStore.telegramURL as String?,
                    let url = URL(string: urlStr), !urlStr.isEmpty {
                     Button {
                         UIApplication.shared.open(url)
@@ -1150,21 +1156,60 @@ struct EmergencyLockdownView: View {
                         HStack(spacing: 8) {
                             Image(systemName: "paperplane.fill")
                                 .font(.system(size: 15, weight: .bold))
-                            Text(keyEngine.emergencyLinkTitle ?? "THAM GIA TELEGRAM")
-                                .font(.system(size: 14, weight: .black, design: .monospaced))
+                            Text(keyEngine.emergencyLinkTitle ?? "THAM GIA TELEGRAM HỖ TRỢ")
+                                .font(.system(size: 13, weight: .black, design: .monospaced))
                         }
-                        .frame(maxWidth: .infinity, minHeight: 50)
-                        .background(Color.red)
+                        .frame(maxWidth: .infinity, minHeight: 48)
+                        .background(
+                            LinearGradient(
+                                colors: [Color(red: 0.08, green: 0.55, blue: 0.85), Color(red: 0.05, green: 0.40, blue: 0.70)],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
                         .foregroundStyle(.white)
-                        .shadow(color: Color.red.opacity(0.5), radius: 12, x: 0, y: 5)
+                        .shadow(color: Color.blue.opacity(0.4), radius: 10, x: 0, y: 4)
                     }
                     .buttonStyle(.plain)
-                    .padding(.horizontal, 32)
+                    .padding(.horizontal, 30)
                 }
+
+                // Nút Thử Lại Kết Nối
+                Button {
+                    isRetrying = true
+                    Task {
+                        try? await Task.sleep(nanoseconds: 1_000_000_000)
+                        brandStore.fetchBrandConfig()
+                        if !keyEngine.currentKey.isEmpty {
+                            keyEngine.verifyKey(keyEngine.currentKey)
+                        } else {
+                            keyEngine.isEmergencyMode = false
+                        }
+                        isRetrying = false
+                    }
+                } label: {
+                    HStack(spacing: 6) {
+                        if isRetrying {
+                            ProgressView()
+                                .tint(.white)
+                        } else {
+                            Image(systemName: "arrow.clockwise")
+                                .font(.system(size: 13, weight: .bold))
+                            Text("🔄 THỬ LẠI KẾT NỐI")
+                                .font(.system(size: 12, weight: .black, design: .monospaced))
+                        }
+                    }
+                    .frame(maxWidth: .infinity, minHeight: 44)
+                    .background(Color(uiColor: .secondarySystemBackground))
+                    .foregroundStyle(.white)
+                    .border(AppTheme.cardBorder, width: 1)
+                }
+                .buttonStyle(.plain)
+                .padding(.horizontal, 30)
 
                 Spacer()
 
-                Text("PROTECTED BY APIMEOMEO • ANTI-CRACK ENGINE")
+                Text("PROTECTED BY APIMEOMEO • MAINTENANCE ENGINE")
                     .font(.system(size: 9, weight: .bold, design: .monospaced))
                     .foregroundStyle(.secondary.opacity(0.6))
                     .padding(.bottom, 20)
