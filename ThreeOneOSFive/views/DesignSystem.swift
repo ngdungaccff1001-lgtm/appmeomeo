@@ -392,21 +392,29 @@ final class BrandConfigStore: ObservableObject {
 
     @AppStorage("seller_brand_token") var sellerToken: String = ""
     @AppStorage("seller_token_unlocked") var isTokenUnlocked: Bool = false
+    @AppStorage("brand_app_name") var appName: String = ""
+    @AppStorage("brand_welcome_title") var welcomeTitle: String = ""
+    @AppStorage("brand_welcome_subtitle") var welcomeSubtitle: String = ""
+    @AppStorage("brand_welcome_color") var welcomeColorHex: String = "#FF2A42"
+    @AppStorage("brand_telegram_url") var telegramURL: String = "https://t.me/ioscrackvn"
+    @AppStorage("brand_telegram_title") var telegramTitle: String = "LIÊN HỆ TELEGRAM"
+    @AppStorage("brand_show_get_key") var showGetKey: Bool = true
+    @AppStorage("brand_get_key_title") var getKeyTitle: String = "LẤY KEY 12H"
+    @AppStorage("brand_get_key_url") var getKeyURL: String = ""
 
-    @Published var appName: String = "MeoMeoPath"
-    @Published var welcomeTitle: String = "CHÀO MỪNG ĐẾN APIMEOMEO"
-    @Published var welcomeSubtitle: String = "Hệ thống Mod & Patch Tối Ưu Game Free Fire Chuyên Nghiệp"
-    @Published var welcomeColorHex: String = "#FF2A42"
-    @Published var telegramURL: String = "https://t.me/ioscrackvn"
-    @Published var telegramTitle: String = "LIÊN HỆ TELEGRAM"
-    @Published var showGetKey: Bool = true
-    @Published var getKeyTitle: String = "LẤY KEY 12H"
-    @Published var getKeyURL: String = ""
     @Published var isLoading: Bool = false
     @Published var errorMessage: String?
 
     var welcomeColor: Color {
-        Color(hex: welcomeColorHex)
+        Color(hex: welcomeColorHex.isEmpty ? "#FF2A42" : welcomeColorHex)
+    }
+
+    var displayAppName: String {
+        appName.isEmpty ? (sellerToken.isEmpty ? "VIP CHEAT" : sellerToken) : appName
+    }
+
+    var displayWelcomeTitle: String {
+        welcomeTitle.isEmpty ? "CHÀO BẠN ĐẾN VỚI \(displayAppName.uppercased())" : welcomeTitle
     }
 
     init() {
@@ -496,9 +504,9 @@ final class BrandConfigStore: ObservableObject {
             if success {
                 self.sellerToken = clean
                 self.isTokenUnlocked = true
-                self.appName = json["app_name"] as? String ?? "MeoMeoPath"
-                self.welcomeTitle = json["welcome_title"] as? String ?? "CHÀO MỪNG ĐẾN APIMEOMEO"
-                self.welcomeSubtitle = json["welcome_subtitle"] as? String ?? "Hệ thống Mod & Patch Tối Ưu Game Free Fire Chuyên Nghiệp"
+                self.appName = json["app_name"] as? String ?? clean
+                self.welcomeTitle = json["welcome_title"] as? String ?? "CHÀO BẠN ĐẾN VỚI \(clean)"
+                self.welcomeSubtitle = json["welcome_subtitle"] as? String ?? ""
                 self.welcomeColorHex = json["welcome_color"] as? String ?? "#FF2A42"
                 self.telegramURL = json["telegram_url"] as? String ?? "https://t.me/ioscrackvn"
                 self.telegramTitle = json["telegram_title"] as? String ?? "LIÊN HỆ TELEGRAM"
@@ -547,9 +555,9 @@ final class BrandConfigStore: ObservableObject {
 
                 let success = json["success"] as? Bool ?? false
                 if success {
-                    self.appName = json["app_name"] as? String ?? "MeoMeoPath"
-                    self.welcomeTitle = json["welcome_title"] as? String ?? "CHÀO MỪNG ĐẾN APIMEOMEO"
-                    self.welcomeSubtitle = json["welcome_subtitle"] as? String ?? "Hệ thống Mod & Patch Tối Ưu Game Free Fire Chuyên Nghiệp"
+                    self.appName = json["app_name"] as? String ?? activeToken
+                    self.welcomeTitle = json["welcome_title"] as? String ?? "CHÀO BẠN ĐẾN VỚI \(activeToken)"
+                    self.welcomeSubtitle = json["welcome_subtitle"] as? String ?? ""
                     self.welcomeColorHex = json["welcome_color"] as? String ?? "#FF2A42"
                     self.telegramURL = json["telegram_url"] as? String ?? "https://t.me/ioscrackvn"
                     self.telegramTitle = json["telegram_title"] as? String ?? "LIÊN HỆ TELEGRAM"
@@ -567,9 +575,9 @@ final class BrandConfigStore: ObservableObject {
     func logoutToken() {
         self.sellerToken = ""
         self.isTokenUnlocked = false
-        self.appName = "MeoMeoPath"
-        self.welcomeTitle = "CHÀO MỪNG ĐẾN APIMEOMEO"
-        self.welcomeSubtitle = "Hệ thống Mod & Patch Tối Ưu Game Free Fire Chuyên Nghiệp"
+        self.appName = ""
+        self.welcomeTitle = ""
+        self.welcomeSubtitle = ""
         self.welcomeColorHex = "#FF2A42"
         self.telegramURL = "https://t.me/ioscrackvn"
         self.telegramTitle = "LIÊN HỆ TELEGRAM"

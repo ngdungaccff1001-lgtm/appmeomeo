@@ -452,7 +452,7 @@ struct MainBrandScreen: View {
 
             VStack(alignment: .leading, spacing: 1) {
                 HStack(spacing: 6) {
-                    Text(brandStore.appName.uppercased())
+                    Text(brandStore.displayAppName.uppercased())
                         .font(.system(size: 13, weight: .black, design: .monospaced))
                         .foregroundStyle(.white)
 
@@ -516,7 +516,7 @@ struct MainBrandScreen: View {
 
                 // Tiêu Đề Chào Mừng
                 VStack(spacing: 6) {
-                    Text(brandStore.welcomeTitle)
+                    Text(brandStore.displayWelcomeTitle)
                         .font(.system(size: 18, weight: .black, design: .monospaced))
                         .foregroundStyle(brandStore.welcomeColor)
                         .multilineTextAlignment(.center)
@@ -1120,7 +1120,7 @@ struct UserProfileSheetView: View {
                                 .font(.system(size: 15, weight: .black, design: .monospaced))
                                 .foregroundStyle(.white)
 
-                            Text(brandStore.appName)
+                            Text(brandStore.displayAppName)
                                 .font(.system(size: 11, weight: .bold, design: .monospaced))
                                 .foregroundStyle(brandStore.welcomeColor)
                         }
