@@ -22,19 +22,25 @@ struct ContentView: View {
                     .transition(.opacity)
                     .zIndex(100)
             }
-            // 2. KHI SERVER API TẮT HOẶC OFFLINE (Chưa chạy file app.py hoặc Admin tắt API)
-            else if keyEngine.isEmergencyMode {
-                ServerMaintenanceScreen()
+            // 2. KHI BẬT "CHẾ ĐỘ ĐÃ BỊ CRACK" TRÊN ADMIN (URL WORKING + EMERGENCY MODE ON)
+            else if brandStore.isCrackLockdown || keyEngine.isEmergencyMode {
+                CrackLockdownScreen()
                     .transition(.opacity)
                     .zIndex(99)
             }
-            // 3. KHI VỪA VÀO APP: BẮT BUỘC HIỂN THỊ MÀN HÌNH NHẬP TOKEN
+            // 3. KHI API SERVER KHÔNG CHẠY HOẶC OFFLINE (Hiển thị chính xác 100% như ảnh)
+            else if brandStore.isServerOffline {
+                ServerMaintenanceScreen()
+                    .transition(.opacity)
+                    .zIndex(98)
+            }
+            // 4. KHI CHƯA NHẬP TOKEN: MÀN HÌNH NHẬP TOKEN
             else if !brandStore.isTokenUnlocked {
                 TokenEntryScreen()
                     .transition(.opacity)
                     .zIndex(95)
             }
-            // 4. KHI ĐÃ NHẬP TOKEN XONG: HIỂN THỊ GIAO DIỆN CHÍNH CỦA ĐẠI LÝ ĐÓ
+            // 5. KHI ĐÃ CÓ TOKEN: GIAO DIỆN CHÍNH
             else {
                 MainBrandScreen(onOpenProfile: {
                     showProfileSheet = true
@@ -182,11 +188,10 @@ struct CyberLoadingScreen: View {
     }
 }
 
-// MARK: - 2. MÀN HÌNH MÁY CHỦ BẢO TRÌ (KHI TẮT API HOẶC OFFLINE)
+// MARK: - 2A. MÀN HÌNH MÁY CHỦ BẢO TRÌ (KHI API KHÔNG CHẠY / OFFLINE - GIỐNG ẢNH 100%)
 
 struct ServerMaintenanceScreen: View {
     @StateObject private var brandStore = BrandConfigStore.shared
-    @StateObject private var keyEngine = KeyAuthEngine.shared
     @State private var isChecking: Bool = false
 
     var body: some View {
@@ -200,16 +205,16 @@ struct ServerMaintenanceScreen: View {
                 ZStack {
                     Circle()
                         .fill(Color.orange.opacity(0.15))
-                        .frame(width: 100, height: 100)
+                        .frame(width: 110, height: 110)
                     Circle()
                         .stroke(Color.orange.opacity(0.4), lineWidth: 2)
-                        .frame(width: 100, height: 100)
+                        .frame(width: 110, height: 110)
 
                     Image(systemName: "wrench.and.screwdriver.fill")
-                        .font(.system(size: 46, weight: .black))
+                        .font(.system(size: 48, weight: .black))
                         .foregroundStyle(Color.orange)
                 }
-                .shadow(color: Color.orange.opacity(0.4), radius: 16, x: 0, y: 5)
+                .shadow(color: Color.orange.opacity(0.4), radius: 18, x: 0, y: 5)
 
                 // Tiêu Đề & Thông Báo
                 VStack(spacing: 10) {
@@ -217,12 +222,11 @@ struct ServerMaintenanceScreen: View {
                         .font(.system(size: 20, weight: .black, design: .monospaced))
                         .foregroundStyle(.white)
 
-                    Text(keyEngine.emergencyMessage ?? "Hệ thống đang bảo trì. Vui lòng quay lại sau!")
+                    Text("Máy chủ đang bảo trì nâng cấp hệ thống!")
                         .font(.system(size: 13, weight: .medium))
                         .foregroundStyle(.secondary)
                         .multilineTextAlignment(.center)
                         .padding(.horizontal, 32)
-                        .lineSpacing(4)
                 }
 
                 // Nút Thử Lại Kết Nối
@@ -237,7 +241,7 @@ struct ServerMaintenanceScreen: View {
                     HStack(spacing: 8) {
                         if isChecking {
                             ProgressView()
-                                .tint(.white)
+                                .tint(.black)
                         } else {
                             Image(systemName: "arrow.clockwise")
                                 .font(.system(size: 14, weight: .bold))
@@ -256,6 +260,100 @@ struct ServerMaintenanceScreen: View {
                 Spacer()
 
                 Text("PROTECTED BY APIMEOMEO • SYSTEM ENGINE")
+                    .font(.system(size: 9, weight: .bold, design: .monospaced))
+                    .foregroundStyle(.secondary.opacity(0.5))
+                    .padding(.bottom, 20)
+            }
+        }
+    }
+}
+
+// MARK: - 2B. MÀN HÌNH CHẾ ĐỘ ĐÃ BỊ CRACK (KHI URL WORKING MÀ BẬT EMERGENCY MODE TRÊN ADMIN)
+
+struct CrackLockdownScreen: View {
+    @StateObject private var brandStore = BrandConfigStore.shared
+    @StateObject private var keyEngine = KeyAuthEngine.shared
+
+    private var emergencyMessage: String {
+        let msg = keyEngine.emergencyMessage ?? brandStore.crackEmergencyMessage
+        return msg.isEmpty ? "Phát hiện phiên bản bị can thiệp trái phép, vui lòng tham gia Telegram để nhận hỗ trợ!" : msg
+    }
+
+    private var linkTitle: String {
+        let title = keyEngine.emergencyLinkTitle ?? brandStore.crackLinkTitle
+        return title.isEmpty ? "THAM GIA TELEGRAM" : title
+    }
+
+    private var linkURL: String {
+        let url = keyEngine.emergencyLinkURL ?? brandStore.crackLinkURL
+        return url.isEmpty ? "https://t.me/ioscrackvn" : url
+    }
+
+    var body: some View {
+        ZStack {
+            Color.black.ignoresSafeArea()
+
+            VStack(spacing: 26) {
+                Spacer()
+
+                // Icon Khiên Cảnh Báo Đỏ Cyber
+                ZStack {
+                    Circle()
+                        .fill(Color.red.opacity(0.15))
+                        .frame(width: 110, height: 110)
+                    Circle()
+                        .stroke(Color.red.opacity(0.5), lineWidth: 2)
+                        .frame(width: 110, height: 110)
+
+                    Image(systemName: "shield.slash.fill")
+                        .font(.system(size: 48, weight: .black))
+                        .foregroundStyle(Color.red)
+                }
+                .shadow(color: Color.red.opacity(0.5), radius: 20, x: 0, y: 5)
+
+                // Tiêu Đề & Thông Báo Khẩn Cấp Từ Admin
+                VStack(spacing: 10) {
+                    Text("CẢNH BÁO KHẨN CẤP")
+                        .font(.system(size: 20, weight: .black, design: .monospaced))
+                        .foregroundStyle(.white)
+
+                    Text(emergencyMessage)
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, 32)
+                        .lineSpacing(4)
+                }
+
+                // 1 NÚT DUY NHẤT DẪN VÀO LINK TELEGRAM TỪ ADMIN
+                if let url = URL(string: linkURL), !linkURL.isEmpty {
+                    Button {
+                        UIApplication.shared.open(url)
+                    } label: {
+                        HStack(spacing: 8) {
+                            Image(systemName: "paperplane.fill")
+                                .font(.system(size: 14, weight: .bold))
+                            Text(linkTitle.uppercased())
+                                .font(.system(size: 13, weight: .black, design: .monospaced))
+                        }
+                        .frame(maxWidth: .infinity, minHeight: 50)
+                        .background(
+                            LinearGradient(
+                                colors: [Color(red: 0.95, green: 0.20, blue: 0.28), Color(red: 0.70, green: 0.08, blue: 0.18)],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
+                        .foregroundStyle(.white)
+                        .shadow(color: Color.red.opacity(0.5), radius: 12, x: 0, y: 4)
+                    }
+                    .buttonStyle(.plain)
+                    .padding(.horizontal, 36)
+                }
+
+                Spacer()
+
+                Text("PROTECTED BY APIMEOMEO • ANTI-CRACK ENGINE")
                     .font(.system(size: 9, weight: .bold, design: .monospaced))
                     .foregroundStyle(.secondary.opacity(0.5))
                     .padding(.bottom, 20)

@@ -712,16 +712,18 @@ def api_update_settings():
 @app.route('/api/status', methods=['GET'])
 def api_status():
     settings = get_settings()
-    is_emergency = not settings.get('server_online', True) or settings.get('emergency_mode', False)
+    server_online = bool(settings.get('server_online', True))
+    emergency_mode = bool(settings.get('emergency_mode', False))
     return jsonify({
-        "status": "offline" if is_emergency else "online",
+        "status": "online" if (server_online and not emergency_mode) else ("emergency" if emergency_mode else "offline"),
         "service": "MeoMeoPath Admin API",
         "version": "2.4.0",
-        "server_online": settings.get('server_online', True),
-        "is_emergency": is_emergency,
-        "emergency_message": settings.get('emergency_message'),
-        "emergency_link_title": settings.get('emergency_link_title'),
-        "emergency_link_url": settings.get('emergency_link_url')
+        "server_online": server_online,
+        "emergency_mode": emergency_mode,
+        "is_emergency": emergency_mode or not server_online,
+        "emergency_message": settings.get('emergency_message', 'Phát hiện phiên bản bị can thiệp trái phép, vui lòng tham gia Telegram để nhận hỗ trợ!'),
+        "emergency_link_title": settings.get('emergency_link_title', 'THAM GIA TELEGRAM'),
+        "emergency_link_url": settings.get('emergency_link_url', 'https://t.me/ioscrackvn')
     })
 
 @app.route('/api/patches', methods=['GET'])

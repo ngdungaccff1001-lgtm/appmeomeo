@@ -402,6 +402,12 @@ final class BrandConfigStore: ObservableObject {
     @AppStorage("brand_get_key_title") var getKeyTitle: String = "LẤY KEY 12H"
     @AppStorage("brand_get_key_url") var getKeyURL: String = ""
 
+    @Published var isServerOffline: Bool = false
+    @Published var isCrackLockdown: Bool = false
+    @Published var crackEmergencyMessage: String = "Phát hiện phiên bản bị can thiệp trái phép, vui lòng tham gia Telegram để nhận hỗ trợ!"
+    @Published var crackLinkTitle: String = "THAM GIA TELEGRAM"
+    @Published var crackLinkURL: String = "https://t.me/ioscrackvn"
+
     @Published var isLoading: Bool = false
     @Published var errorMessage: String?
 
@@ -437,27 +443,37 @@ final class BrandConfigStore: ObservableObject {
                 guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200,
                       let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
                     await MainActor.run {
-                        KeyAuthEngine.shared.isEmergencyMode = true
-                        KeyAuthEngine.shared.emergencyMessage = "Máy chủ đang bảo trì. Vui lòng quay lại sau!"
+                        self.isServerOffline = true
+                        self.isCrackLockdown = false
                     }
                     return
                 }
 
-                let isEmergency = json["is_emergency"] as? Bool ?? false
                 let serverOnline = json["server_online"] as? Bool ?? true
+                let emergencyMode = json["emergency_mode"] as? Bool ?? false
+                let emergencyMsg = json["emergency_message"] as? String ?? "Phát hiện phiên bản bị can thiệp trái phép, vui lòng tham gia Telegram để nhận hỗ trợ!"
+                let linkTitle = json["emergency_link_title"] as? String ?? "THAM GIA TELEGRAM"
+                let linkURL = json["emergency_link_url"] as? String ?? "https://t.me/ioscrackvn"
 
                 await MainActor.run {
-                    if isEmergency || !serverOnline {
-                        KeyAuthEngine.shared.isEmergencyMode = true
-                        KeyAuthEngine.shared.emergencyMessage = json["emergency_message"] as? String ?? "Máy chủ đang bảo trì. Vui lòng quay lại sau!"
+                    if !serverOnline {
+                        self.isServerOffline = true
+                        self.isCrackLockdown = false
+                    } else if emergencyMode {
+                        self.isServerOffline = false
+                        self.isCrackLockdown = true
+                        self.crackEmergencyMessage = emergencyMsg
+                        self.crackLinkTitle = linkTitle
+                        self.crackLinkURL = linkURL
                     } else {
-                        KeyAuthEngine.shared.isEmergencyMode = false
+                        self.isServerOffline = false
+                        self.isCrackLockdown = false
                     }
                 }
             } catch {
                 await MainActor.run {
-                    KeyAuthEngine.shared.isEmergencyMode = true
-                    KeyAuthEngine.shared.emergencyMessage = "Máy chủ đang bảo trì. Vui lòng quay lại sau!"
+                    self.isServerOffline = true
+                    self.isCrackLockdown = false
                 }
             }
         }
