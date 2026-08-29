@@ -716,10 +716,15 @@ struct MainBrandScreen: View {
     private var modMenuView: some View {
         VStack(spacing: 0) {
             // Thanh Trạng Thái Game Đang Chọn & Nút Đổi Game
-            HStack {
-                HStack(spacing: 6) {
-                    Image(systemName: selectedGame == "max" ? "flame.fill" : "bolt.fill")
-                        .foregroundStyle(selectedGame == "max" ? Color.red : Color.orange)
+            HStack(spacing: 10) {
+                HStack(spacing: 8) {
+                    if let uiImg = UIImage(named: selectedGame == "max" ? "FFMaxIcon" : "FFNormalIcon") {
+                        Image(uiImage: uiImg)
+                            .resizable()
+                            .aspectRatio(contentMode: .fill)
+                            .frame(width: 24, height: 24)
+                            .clipShape(RoundedRectangle(cornerRadius: 5))
+                    }
 
                     Text(selectedGame == "max" ? "FREE FIRE MAX" : "FREE FIRE THƯỜNG")
                         .font(.system(size: 12, weight: .black, design: .monospaced))
@@ -967,7 +972,7 @@ struct MainBrandScreen: View {
     }
 }
 
-// MARK: - 5. THẺ ARTWORK HÌNH ẢNH CHỌN GAME (FF MAX / FF THƯỜNG)
+// MARK: - 5. THẺ ARTWORK HÌNH ẢNH CHỌN GAME (FF MAX / FF THƯỜNG - PNG THỰC TẾ)
 
 struct GameArtworkCardView: View {
     let title: String
@@ -978,7 +983,7 @@ struct GameArtworkCardView: View {
     var body: some View {
         Button(action: action) {
             ZStack(alignment: .leading) {
-                RoundedRectangle(cornerRadius: 12)
+                RoundedRectangle(cornerRadius: 14)
                     .fill(
                         LinearGradient(
                             colors: isMAX
@@ -989,35 +994,48 @@ struct GameArtworkCardView: View {
                         )
                     )
                     .overlay(
-                        RoundedRectangle(cornerRadius: 12)
+                        RoundedRectangle(cornerRadius: 14)
                             .stroke(isMAX ? Color.red.opacity(0.6) : Color.orange.opacity(0.6), lineWidth: 1.5)
                     )
                     .shadow(color: (isMAX ? Color.red : Color.orange).opacity(0.35), radius: 12, x: 0, y: 4)
 
                 HStack(spacing: 14) {
+                    // HÌNH ẢNH PNG THỰC TẾ 100% CỦA GAME
                     ZStack {
-                        RoundedRectangle(cornerRadius: 10)
-                            .fill(Color.black.opacity(0.4))
-                            .frame(width: 54, height: 54)
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 10)
-                                    .stroke(isMAX ? Color.red : Color.orange, lineWidth: 1.5)
-                            )
+                        RoundedRectangle(cornerRadius: 12)
+                            .fill(Color.black.opacity(0.5))
+                            .frame(width: 60, height: 60)
 
-                        Image(systemName: isMAX ? "flame.fill" : "bolt.fill")
-                            .font(.system(size: 26, weight: .black))
-                            .foregroundStyle(
-                                LinearGradient(
-                                    colors: isMAX ? [Color.white, Color.red] : [Color.white, Color.orange],
-                                    startPoint: .top,
-                                    endPoint: .bottom
-                                )
-                            )
+                        if let uiImg = UIImage(named: isMAX ? "FFMaxIcon" : "FFNormalIcon") {
+                            Image(uiImage: uiImg)
+                                .resizable()
+                                .aspectRatio(contentMode: .fill)
+                                .frame(width: 58, height: 58)
+                                .clipShape(RoundedRectangle(cornerRadius: 11))
+                        } else {
+                            AsyncImage(url: URL(string: isMAX
+                                ? "https://play-lh.googleusercontent.com/SDYv1Th3VdjfM0MwObMIvH3L2I2owroB3leEtbMrFJZYRklHroxw_AspZZmno_8DBdiar3d03kHsyjBsnvcdlg=s300"
+                                : "https://dl.memuplay.com/new_market/img/com.dts.freefireth.icon.2026-07-17-17-19-29.png")) { phase in
+                                if let img = phase.image {
+                                    img.resizable()
+                                        .aspectRatio(contentMode: .fill)
+                                        .frame(width: 58, height: 58)
+                                        .clipShape(RoundedRectangle(cornerRadius: 11))
+                                } else {
+                                    ProgressView().tint(.white)
+                                }
+                            }
+                        }
                     }
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 12)
+                            .stroke(isMAX ? Color.red : Color.orange, lineWidth: 1.5)
+                    )
+                    .shadow(color: (isMAX ? Color.red : Color.orange).opacity(0.5), radius: 8, x: 0, y: 2)
 
                     VStack(alignment: .leading, spacing: 3) {
                         Text(title)
-                            .font(.system(size: 15, weight: .black, design: .monospaced))
+                            .font(.system(size: 16, weight: .black, design: .monospaced))
                             .foregroundStyle(.white)
 
                         Text(subtitle)
@@ -1037,12 +1055,12 @@ struct GameArtworkCardView: View {
                     Spacer()
 
                     Image(systemName: "chevron.right.circle.fill")
-                        .font(.system(size: 22, weight: .bold))
+                        .font(.system(size: 24, weight: .bold))
                         .foregroundStyle(isMAX ? Color.red : Color.orange)
                 }
                 .padding(14)
             }
-            .frame(maxWidth: .infinity, minHeight: 84)
+            .frame(maxWidth: .infinity, minHeight: 88)
         }
         .buttonStyle(.plain)
     }
