@@ -735,10 +735,10 @@ struct MainBrandScreen: View {
 
                     // Nút Đăng Nhập Key
                     Button {
-                        keyEngine.verifyKey(inputKey, sellerToken: brandStore.sellerToken)
+                        keyEngine.verifyKey(inputKey)
                     } label: {
                         HStack(spacing: 8) {
-                            if keyEngine.isLoading {
+                            if keyEngine.isVerifying {
                                 ProgressView().tint(.white)
                             } else {
                                 Image(systemName: "checkmark.shield.fill")
@@ -753,7 +753,7 @@ struct MainBrandScreen: View {
                         .shadow(color: brandStore.welcomeColor.opacity(0.4), radius: 8, x: 0, y: 3)
                     }
                     .buttonStyle(.plain)
-                    .disabled(keyEngine.isLoading)
+                    .disabled(keyEngine.isVerifying)
 
                     // Nút Lấy Key 12H (CHỈ HIỆN KHI TOKEN ĐƯỢC BẬT ON)
                     if brandStore.showGetKey {
