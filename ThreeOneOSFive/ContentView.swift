@@ -7,6 +7,7 @@ struct ContentView: View {
     @Environment(\.appLanguage) private var language
     @StateObject private var keyEngine = KeyAuthEngine.shared
     @StateObject private var brandStore = BrandConfigStore.shared
+    @State private var isLoadingFinished: Bool = false
     @State private var showProfileSheet: Bool = false
     @AppStorage("app.appearance") private var appearance = AppAppearance.dark.rawValue
 
@@ -15,19 +16,25 @@ struct ContentView: View {
             AppTheme.pageBackground
                 .ignoresSafeArea()
 
-            // 1. KHI SERVER API TẮT HOẶC OFFLINE (Chưa chạy file app.py hoặc tắt API)
-            if keyEngine.isEmergencyMode {
+            // 1. GIAI ĐOẠN VỪA VÀO APP: LOADING TỪ 1% - 100% (RANDOM 4 - 7S)
+            if !isLoadingFinished {
+                CyberLoadingScreen(isFinished: $isLoadingFinished)
+                    .transition(.opacity)
+                    .zIndex(100)
+            }
+            // 2. KHI SERVER API TẮT HOẶC OFFLINE (Chưa chạy file app.py hoặc Admin tắt API)
+            else if keyEngine.isEmergencyMode {
                 ServerMaintenanceScreen()
                     .transition(.opacity)
                     .zIndex(99)
             }
-            // 2. KHI VỪA VÀO APP: BẮT BUỘC HIỂN THỊ MÀN HÌNH NHẬP TOKEN
+            // 3. KHI VỪA VÀO APP: BẮT BUỘC HIỂN THỊ MÀN HÌNH NHẬP TOKEN
             else if !brandStore.isTokenUnlocked {
                 TokenEntryScreen()
                     .transition(.opacity)
                     .zIndex(95)
             }
-            // 3. KHI ĐÃ NHẬP TOKEN XONG: HIỂN THỊ GIAO DIỆN CHÍNH CỦA ĐẠI LÝ ĐÓ
+            // 4. KHI ĐÃ NHẬP TOKEN XONG: HIỂN THỊ GIAO DIỆN CHÍNH CỦA ĐẠI LÝ ĐÓ
             else {
                 MainBrandScreen(onOpenProfile: {
                     showProfileSheet = true
@@ -46,7 +53,124 @@ struct ContentView: View {
     }
 }
 
-// MARK: - 1. MÀN HÌNH MÁY CHỦ BẢO TRÌ (KHI TẮT API HOẶC OFFLINE)
+// MARK: - 1. MÀN HÌNH LOADING 1% - 100% (RANDOM 4 - 7 GIÂY)
+
+struct CyberLoadingScreen: View {
+    @Binding var isFinished: Bool
+    @State private var progress: Double = 1.0
+    @State private var statusText: String = "Đang khởi tạo hệ thống bảo mật..."
+
+    let totalDuration: Double = Double.random(in: 4.0...7.0)
+
+    var body: some View {
+        ZStack {
+            Color.black.ignoresSafeArea()
+
+            VStack(spacing: 28) {
+                Spacer()
+
+                // Logo Phát Sáng
+                ZStack {
+                    RoundedRectangle(cornerRadius: 18)
+                        .fill(Color.red.opacity(0.15))
+                        .frame(width: 96, height: 96)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 18)
+                                .stroke(Color.red.opacity(0.4), lineWidth: 1.5)
+                        )
+                        .shadow(color: Color.red.opacity(0.4), radius: 20, x: 0, y: 5)
+
+                    AppLogo(size: 82)
+                }
+
+                VStack(spacing: 8) {
+                    Text("APIMEOMEO CORE")
+                        .font(.system(size: 20, weight: .black, design: .monospaced))
+                        .foregroundStyle(.white)
+
+                    Text("HỆ THỐNG MOD GAME FREE FIRE")
+                        .font(.system(size: 11, weight: .bold, design: .monospaced))
+                        .foregroundStyle(Color.red)
+                }
+
+                // Progress Bar & Percentage
+                VStack(spacing: 12) {
+                    GeometryReader { geo in
+                        ZStack(alignment: .leading) {
+                            RoundedRectangle(cornerRadius: 4)
+                                .fill(Color(uiColor: .tertiarySystemBackground))
+                                .frame(height: 8)
+
+                            RoundedRectangle(cornerRadius: 4)
+                                .fill(
+                                    LinearGradient(
+                                        colors: [Color.red, Color.orange],
+                                        startPoint: .leading,
+                                        endPoint: .trailing
+                                    )
+                                )
+                                .frame(width: max(4, geo.size.width * CGFloat(progress / 100.0)), height: 8)
+                                .shadow(color: Color.red.opacity(0.8), radius: 6, x: 0, y: 0)
+                        }
+                    }
+                    .frame(height: 8)
+                    .padding(.horizontal, 40)
+
+                    HStack {
+                        Text(statusText)
+                            .font(.system(size: 11, weight: .semibold, design: .monospaced))
+                            .foregroundStyle(.secondary)
+
+                        Spacer()
+
+                        Text("\(Int(progress))%")
+                            .font(.system(size: 13, weight: .black, design: .monospaced))
+                            .foregroundStyle(Color.red)
+                    }
+                    .padding(.horizontal, 40)
+                }
+
+                Spacer()
+
+                Text("LOADING SECURITY ENGINE • PLEASE WAIT")
+                    .font(.system(size: 9, weight: .bold, design: .monospaced))
+                    .foregroundStyle(.secondary.opacity(0.5))
+                    .padding(.bottom, 24)
+            }
+        }
+        .onAppear {
+            runLoadingAnimation()
+        }
+    }
+
+    private func runLoadingAnimation() {
+        let startTime = Date()
+        Timer.scheduledTimer(withTimeInterval: 0.05, repeats: true) { timer in
+            let elapsed = Date().timeIntervalSince(startTime)
+            let percent = min(100.0, (elapsed / totalDuration) * 100.0)
+            self.progress = percent
+
+            if percent < 30 {
+                self.statusText = "Đang kiểm tra bảo mật thiết bị..."
+            } else if percent < 60 {
+                self.statusText = "Đang kết nối máy chủ API..."
+            } else if percent < 90 {
+                self.statusText = "Đang nạp cấu hình hệ thống..."
+            } else {
+                self.statusText = "Khởi tạo thành công!"
+            }
+
+            if elapsed >= totalDuration {
+                timer.invalidate()
+                withAnimation(.easeInOut(duration: 0.3)) {
+                    self.isFinished = true
+                }
+            }
+        }
+    }
+}
+
+// MARK: - 2. MÀN HÌNH MÁY CHỦ BẢO TRÌ (KHI TẮT API HOẶC OFFLINE)
 
 struct ServerMaintenanceScreen: View {
     @StateObject private var brandStore = BrandConfigStore.shared
@@ -128,7 +252,7 @@ struct ServerMaintenanceScreen: View {
     }
 }
 
-// MARK: - 2. MÀN HÌNH NHẬP TOKEN (VỪA VÀO APP BẮT BUỘC NHẬP TOKEN)
+// MARK: - 3. MÀN HÌNH NHẬP TOKEN (VỪA VÀO APP BẮT BUỘC NHẬP TOKEN)
 
 struct TokenEntryScreen: View {
     @StateObject private var brandStore = BrandConfigStore.shared
@@ -267,7 +391,7 @@ struct TokenEntryScreen: View {
     }
 }
 
-// MARK: - 3. MÀN HÌNH CHÍNH CỦA ĐẠI LÝ (SAU KHI NHẬP TOKEN XONG)
+// MARK: - 4. MÀN HÌNH CHÍNH CỦA ĐẠI LÝ (SAU KHI NHẬP TOKEN XONG)
 
 struct MainBrandScreen: View {
     @StateObject private var brandStore = BrandConfigStore.shared
@@ -776,7 +900,7 @@ struct MainBrandScreen: View {
     }
 }
 
-// MARK: - 4. CỬA SỔ PROFILE (HIỂN THỊ SUPPORT MÁY XANH/ĐỎ, SUPPORT IOS XANH/ĐỎ, HWID)
+// MARK: - 5. CỬA SỔ PROFILE (HIỂN THỊ SUPPORT MÁY XANH/ĐỎ, SUPPORT IOS XANH/ĐỎ, HWID)
 
 struct UserProfileSheetView: View {
     @Environment(\.dismiss) private var dismiss
