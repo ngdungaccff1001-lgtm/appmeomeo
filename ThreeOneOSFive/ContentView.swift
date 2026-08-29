@@ -252,16 +252,18 @@ struct ServerMaintenanceScreen: View {
     }
 }
 
-// MARK: - 3. MÀN HÌNH NHẬP TOKEN (VỪA VÀO APP BẮT BUỘC NHẬP TOKEN)
+// MARK: - 3. MÀN HÌNH NHẬP TOKEN (CHỈ CÓ INPUT VÀ NÚT NHẬP TOKEN)
 
 struct TokenEntryScreen: View {
     @StateObject private var brandStore = BrandConfigStore.shared
     @State private var inputToken: String = ""
 
     var body: some View {
-        ScrollView(showsIndicators: false) {
+        ZStack {
+            Color.black.ignoresSafeArea()
+
             VStack(spacing: 24) {
-                Spacer(minLength: 50)
+                Spacer()
 
                 // Logo App
                 ZStack {
@@ -277,20 +279,11 @@ struct TokenEntryScreen: View {
                     AppLogo(size: 76)
                 }
 
-                // Tiêu Đề
-                VStack(spacing: 6) {
-                    Text("NHẬP TOKEN ĐẠI LÝ")
-                        .font(.system(size: 18, weight: .black, design: .monospaced))
-                        .foregroundStyle(.white)
+                Text("NHẬP TOKEN")
+                    .font(.system(size: 18, weight: .black, design: .monospaced))
+                    .foregroundStyle(.white)
 
-                    Text("Vui lòng nhập Token để kích hoạt bản quyền và tải giao diện.")
-                        .font(.system(size: 12))
-                        .foregroundStyle(.secondary)
-                        .multilineTextAlignment(.center)
-                        .padding(.horizontal, 20)
-                }
-
-                // Card Nhập Token
+                // Khối Nhập Token Tinh Gọn
                 VStack(spacing: 14) {
                     if let err = brandStore.errorMessage {
                         Text(err)
@@ -305,12 +298,12 @@ struct TokenEntryScreen: View {
 
                     // Ô Nhập Token
                     HStack(spacing: 8) {
-                        Image(systemName: "shield.fill")
+                        Image(systemName: "key.fill")
                             .font(.system(size: 14, weight: .bold))
                             .foregroundStyle(Color(red: 0.95, green: 0.75, blue: 0.10))
 
-                        TextField("Nhập Token Đại Lý (VD: HOAIOS)...", text: $inputToken)
-                            .font(.system(size: 13, weight: .semibold, design: .monospaced))
+                        TextField("Nhập Token...", text: $inputToken)
+                            .font(.system(size: 14, weight: .semibold, design: .monospaced))
                             .textInputAutocapitalization(.characters)
                             .autocorrectionDisabled()
 
@@ -330,10 +323,10 @@ struct TokenEntryScreen: View {
                         }
                     }
                     .padding(12)
-                    .background(Color(uiColor: .tertiarySystemBackground))
+                    .background(Color(uiColor: .secondarySystemBackground))
                     .border(AppTheme.cardBorder, width: 1)
 
-                    // Nút Đăng Nhập Token
+                    // Nút Nhập Token
                     Button {
                         Task {
                             _ = await brandStore.verifyToken(inputToken)
@@ -346,7 +339,7 @@ struct TokenEntryScreen: View {
                             } else {
                                 Image(systemName: "checkmark.shield.fill")
                                     .font(.system(size: 14, weight: .bold))
-                                Text("⚡ ĐĂNG NHẬP TOKEN")
+                                Text("NHẬP TOKEN")
                                     .font(.system(size: 13, weight: .black, design: .monospaced))
                             }
                         }
@@ -368,45 +361,29 @@ struct TokenEntryScreen: View {
                 .background(Color(uiColor: .secondarySystemBackground))
                 .border(Color.red.opacity(0.3), width: 1)
 
-                Spacer(minLength: 40)
-
-                Text("PROTECTED BY APIMEOMEO CORE SECURITY")
-                    .font(.system(size: 9, weight: .black, design: .monospaced))
-                    .foregroundStyle(.secondary.opacity(0.5))
-                    .padding(.bottom, 20)
+                Spacer()
             }
-            .padding(.horizontal, 20)
+            .padding(.horizontal, 22)
         }
-        .background(
-            ZStack {
-                Color.black.ignoresSafeArea()
-                LinearGradient(
-                    colors: [Color.red.opacity(0.08), Color.black],
-                    startPoint: .top,
-                    endPoint: .bottom
-                )
-                .ignoresSafeArea()
-            }
-        )
     }
 }
 
-// MARK: - 4. MÀN HÌNH CHÍNH CỦA ĐẠI LÝ (SAU KHI NHẬP TOKEN XONG)
+// MARK: - 4. MÀN HÌNH CHÍNH CỦA ĐẠI LÝ (CHỌN GAME VÀ NẠP CHỨC NĂNG)
 
 struct MainBrandScreen: View {
     @StateObject private var brandStore = BrandConfigStore.shared
     @StateObject private var keyEngine = KeyAuthEngine.shared
     @StateObject private var patchEngine = FreeFirePatchEngine.shared
-    @AppStorage("selected_game_bundle_id") private var selectedBundleID: String = "com.dts.freefiremax"
     @AppStorage("admin_api_server_url") private var adminServerUrl = FreeFirePatchEngine.defaultApiServerUrl
+    @State private var selectedGame: String? = nil // nil = Màn hình chọn game, "max" hoặc "th"
     @State private var inputKey: String = ""
     @State private var selectedCategory: String = "ALL"
     @State private var showCleanAlert: Bool = false
 
     let onOpenProfile: () -> Void
 
-    private var isFFM: Bool {
-        selectedBundleID.contains("max")
+    private var activeBundleID: String {
+        selectedGame == "max" ? "com.dts.freefiremax" : "com.dts.freefireth"
     }
 
     private var filteredPatches: [FFPatchItem] {
@@ -418,20 +395,21 @@ struct MainBrandScreen: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            // Header: Avatar (Avt) + Tên Đại Lý
+            // Header Bar Có Nút Avatar (Avt)
             headerBar
 
-            // NẾU CHƯA NHẬP KEY VIP: HIỆN FORM ĐĂNG NHẬP KEY VIP
+            // NẾU CHƯA NHẬP KEY VIP ➔ HIỆN FORM NHẬP KEY VIP
             if !keyEngine.isAuthenticated {
                 keyLoginView
             }
-            // NẾU ĐÃ ĐĂNG NHẬP KEY VIP: HIỆN MENU CHỨC NĂNG MOD
+            // NẾU ĐÃ NHẬP KEY NHƯNG CHƯA CHỌN GAME ➔ HIỆN MÀN HÌNH CHỌN GAME (FF MAX HAY FF THƯỜNG)
+            else if selectedGame == nil {
+                gameSelectorScreen
+            }
+            // NẾU ĐÃ CHỌN GAME ➔ HIỆN MENU CHỨC NĂNG CỦA GAME ĐÓ
             else {
                 modMenuView
             }
-        }
-        .onAppear {
-            patchEngine.fetchPatchesFromAdmin(serverUrl: adminServerUrl, bundleID: selectedBundleID)
         }
         .alert("Đã Tắt Toàn Bộ Chức Năng", isPresented: $showCleanAlert) {
             Button("OK", role: .cancel) {}
@@ -440,7 +418,7 @@ struct MainBrandScreen: View {
         }
     }
 
-    // MARK: - Header Bar (Avatar Button)
+    // MARK: - Header Bar
     private var headerBar: some View {
         HStack(spacing: 10) {
             // Nút Avatar (Bấm vào xem Profile)
@@ -484,18 +462,19 @@ struct MainBrandScreen: View {
 
             Spacer()
 
-            // Nút Tải Lại
-            Button {
-                patchEngine.fetchPatchesFromAdmin(serverUrl: adminServerUrl, bundleID: selectedBundleID)
-            } label: {
-                Image(systemName: "arrow.clockwise")
-                    .font(.system(size: 12, weight: .bold))
-                    .foregroundStyle(.white)
-                    .frame(width: 30, height: 30)
-                    .background(Color(uiColor: .tertiarySystemBackground))
-                    .border(AppTheme.cardBorder, width: 1)
+            if selectedGame != nil {
+                Button {
+                    patchEngine.fetchPatchesFromAdmin(serverUrl: adminServerUrl, bundleID: activeBundleID)
+                } label: {
+                    Image(systemName: "arrow.clockwise")
+                        .font(.system(size: 12, weight: .bold))
+                        .foregroundStyle(.white)
+                        .frame(width: 30, height: 30)
+                        .background(Color(uiColor: .tertiarySystemBackground))
+                        .border(AppTheme.cardBorder, width: 1)
+                }
+                .buttonStyle(.plain)
             }
-            .buttonStyle(.plain)
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 10)
@@ -682,51 +661,95 @@ struct MainBrandScreen: View {
         )
     }
 
-    // MARK: - Mod Menu View (Khi đã đăng nhập Key)
+    // MARK: - Game Selector Screen (Chọn Free Fire hay Free Fire MAX)
+    private var gameSelectorScreen: some View {
+        VStack(spacing: 20) {
+            Spacer()
+
+            VStack(spacing: 6) {
+                Text("CHỌN PHIÊN BẢN GAME")
+                    .font(.system(size: 18, weight: .black, design: .monospaced))
+                    .foregroundStyle(.white)
+
+                Text("Chọn phiên bản Free Fire bạn muốn nạp chức năng:")
+                    .font(.system(size: 12))
+                    .foregroundStyle(.secondary)
+            }
+
+            VStack(spacing: 16) {
+                // Card Free Fire MAX
+                GameArtworkCardView(
+                    title: "FREE FIRE MAX",
+                    subtitle: "Gói Mod Tối Ưu Cho Bản MAX (FFM)",
+                    isMAX: true
+                ) {
+                    withAnimation(.easeInOut(duration: 0.2)) {
+                        selectedGame = "max"
+                        patchEngine.fetchPatchesFromAdmin(serverUrl: adminServerUrl, bundleID: "com.dts.freefiremax")
+                    }
+                }
+
+                // Card Free Fire Thường
+                GameArtworkCardView(
+                    title: "FREE FIRE THƯỜNG",
+                    subtitle: "Gói Mod Tối Ưu Cho Bản Thường (FFT)",
+                    isMAX: false
+                ) {
+                    withAnimation(.easeInOut(duration: 0.2)) {
+                        selectedGame = "th"
+                        patchEngine.fetchPatchesFromAdmin(serverUrl: adminServerUrl, bundleID: "com.dts.freefireth")
+                    }
+                }
+            }
+            .padding(.horizontal, 20)
+
+            Spacer()
+
+            Text("SELECT GAME TO LOAD MOD FUNCTION")
+                .font(.system(size: 9, weight: .bold, design: .monospaced))
+                .foregroundStyle(.secondary.opacity(0.5))
+                .padding(.bottom, 20)
+        }
+    }
+
+    // MARK: - Mod Menu View (Khi đã chọn Game)
     private var modMenuView: some View {
         VStack(spacing: 0) {
-            // Nút Chọn Game: FF MAX | FF THƯỜNG
-            HStack(spacing: 8) {
-                Button {
-                    withAnimation(.easeInOut(duration: 0.15)) {
-                        selectedBundleID = "com.dts.freefiremax"
-                        patchEngine.fetchPatchesFromAdmin(serverUrl: adminServerUrl, bundleID: selectedBundleID)
-                    }
-                } label: {
-                    HStack(spacing: 6) {
-                        Image(systemName: "flame.fill")
-                            .font(.system(size: 12, weight: .bold))
-                        Text("FREE FIRE MAX")
-                            .font(.system(size: 11, weight: .black, design: .monospaced))
-                    }
-                    .frame(maxWidth: .infinity, minHeight: 36)
-                    .background(isFFM ? brandStore.welcomeColor : Color(uiColor: .secondarySystemBackground))
-                    .foregroundStyle(isFFM ? Color.white : Color.secondary)
-                    .border(isFFM ? brandStore.welcomeColor : AppTheme.cardBorder, width: 1)
+            // Thanh Trạng Thái Game Đang Chọn & Nút Đổi Game
+            HStack {
+                HStack(spacing: 6) {
+                    Image(systemName: selectedGame == "max" ? "flame.fill" : "bolt.fill")
+                        .foregroundStyle(selectedGame == "max" ? Color.red : Color.orange)
+
+                    Text(selectedGame == "max" ? "FREE FIRE MAX" : "FREE FIRE THƯỜNG")
+                        .font(.system(size: 12, weight: .black, design: .monospaced))
+                        .foregroundStyle(.white)
                 }
-                .buttonStyle(.plain)
+
+                Spacer()
 
                 Button {
                     withAnimation(.easeInOut(duration: 0.15)) {
-                        selectedBundleID = "com.dts.freefireth"
-                        patchEngine.fetchPatchesFromAdmin(serverUrl: adminServerUrl, bundleID: selectedBundleID)
+                        selectedGame = nil // Quay lại màn hình chọn game
                     }
                 } label: {
-                    HStack(spacing: 6) {
-                        Image(systemName: "bolt.fill")
-                            .font(.system(size: 12, weight: .bold))
-                        Text("FF THƯỜNG")
-                            .font(.system(size: 11, weight: .black, design: .monospaced))
+                    HStack(spacing: 4) {
+                        Image(systemName: "arrow.triangle.2.circlepath")
+                            .font(.system(size: 10, weight: .bold))
+                        Text("ĐỔI GAME")
+                            .font(.system(size: 10, weight: .black, design: .monospaced))
                     }
-                    .frame(maxWidth: .infinity, minHeight: 36)
-                    .background(!isFFM ? Color.orange : Color(uiColor: .secondarySystemBackground))
-                    .foregroundStyle(!isFFM ? Color.white : Color.secondary)
-                    .border(!isFFM ? Color.orange : AppTheme.cardBorder, width: 1)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(Color(uiColor: .tertiarySystemBackground))
+                    .foregroundStyle(Color(red: 0.95, green: 0.75, blue: 0.10))
+                    .border(Color(red: 0.95, green: 0.75, blue: 0.10).opacity(0.4), width: 1)
                 }
                 .buttonStyle(.plain)
             }
             .padding(.horizontal, 14)
             .padding(.vertical, 8)
+            .background(Color.black.opacity(0.3))
 
             // Bộ Lọc Mục
             ScrollView(.horizontal, showsIndicators: false) {
@@ -776,25 +799,52 @@ struct MainBrandScreen: View {
                 }
             }
 
-            // Thanh Tiện Ích Dưới Cùng
+            // Thanh Tiện Ích Dưới Cùng: NÚT MỞ GAME + DỌN SẠCH + TELEGRAM
             VStack(spacing: 6) {
+                // NÚT MỞ GAME (OPEN GAME) NỔI BẬT
+                Button {
+                    openSelectedGame()
+                } label: {
+                    HStack(spacing: 8) {
+                        Image(systemName: "play.fill")
+                            .font(.system(size: 14, weight: .black))
+                        Text("🚀 MỞ GAME (OPEN GAME)")
+                            .font(.system(size: 13, weight: .black, design: .monospaced))
+                    }
+                    .frame(maxWidth: .infinity, minHeight: 44)
+                    .background(
+                        LinearGradient(
+                            colors: selectedGame == "max"
+                                ? [Color(red: 0.95, green: 0.20, blue: 0.28), Color(red: 0.70, green: 0.08, blue: 0.18)]
+                                : [Color(red: 0.95, green: 0.55, blue: 0.10), Color(red: 0.80, green: 0.35, blue: 0.05)],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                    .foregroundStyle(.white)
+                    .shadow(color: (selectedGame == "max" ? Color.red : Color.orange).opacity(0.5), radius: 10, x: 0, y: 3)
+                }
+                .buttonStyle(.plain)
+
+                // Nút Dọn Sạch Game
                 Button {
                     patchEngine.cleanAllPatches()
                     showCleanAlert = true
                 } label: {
                     HStack(spacing: 6) {
                         Image(systemName: "xmark.shield.fill")
-                            .font(.system(size: 12, weight: .bold))
+                            .font(.system(size: 11, weight: .bold))
                         Text("🧹 TẮT TOÀN BỘ CHỨC NĂNG (GAME GỐC)")
                             .font(.system(size: 11, weight: .black, design: .monospaced))
                     }
-                    .frame(maxWidth: .infinity, minHeight: 38)
+                    .frame(maxWidth: .infinity, minHeight: 36)
                     .background(Color.red.opacity(0.15))
                     .foregroundStyle(.red)
                     .border(Color.red.opacity(0.35), width: 1)
                 }
                 .buttonStyle(.plain)
 
+                // Nút Telegram & Đăng Xuất
                 HStack(spacing: 8) {
                     Button {
                         if let url = URL(string: brandStore.telegramURL) {
@@ -835,6 +885,23 @@ struct MainBrandScreen: View {
             .padding(.vertical, 8)
             .background(Color(uiColor: .secondarySystemBackground))
             .border(AppTheme.cardBorder, width: 1)
+        }
+    }
+
+    private func openSelectedGame() {
+        let isMax = selectedGame == "max"
+        let schemes = isMax ? ["freefiremax://", "com.dts.freefiremax://"] : ["freefire://", "freefireth://", "com.dts.freefireth://"]
+
+        for s in schemes {
+            if let url = URL(string: s), UIApplication.shared.canOpenURL(url) {
+                UIApplication.shared.open(url)
+                return
+            }
+        }
+
+        // Fallback open
+        if let fallback = URL(string: isMax ? "freefiremax://" : "freefire://") {
+            UIApplication.shared.open(fallback)
         }
     }
 
@@ -882,7 +949,7 @@ struct MainBrandScreen: View {
             Toggle("", isOn: Binding(
                 get: { patch.isEnabled },
                 set: { _ in
-                    patchEngine.togglePatch(id: patch.id, bundleID: selectedBundleID, serverUrl: adminServerUrl)
+                    patchEngine.togglePatch(id: patch.id, bundleID: activeBundleID, serverUrl: adminServerUrl)
                 }
             ))
             .labelsHidden()
@@ -900,7 +967,88 @@ struct MainBrandScreen: View {
     }
 }
 
-// MARK: - 5. CỬA SỔ PROFILE (HIỂN THỊ SUPPORT MÁY XANH/ĐỎ, SUPPORT IOS XANH/ĐỎ, HWID)
+// MARK: - 5. THẺ ARTWORK HÌNH ẢNH CHỌN GAME (FF MAX / FF THƯỜNG)
+
+struct GameArtworkCardView: View {
+    let title: String
+    let subtitle: String
+    let isMAX: Bool
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            ZStack(alignment: .leading) {
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(
+                        LinearGradient(
+                            colors: isMAX
+                                ? [Color(red: 0.70, green: 0.08, blue: 0.18), Color(red: 0.20, green: 0.02, blue: 0.05), Color.black]
+                                : [Color(red: 0.85, green: 0.40, blue: 0.05), Color(red: 0.25, green: 0.08, blue: 0.02), Color.black],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 12)
+                            .stroke(isMAX ? Color.red.opacity(0.6) : Color.orange.opacity(0.6), lineWidth: 1.5)
+                    )
+                    .shadow(color: (isMAX ? Color.red : Color.orange).opacity(0.35), radius: 12, x: 0, y: 4)
+
+                HStack(spacing: 14) {
+                    ZStack {
+                        RoundedRectangle(cornerRadius: 10)
+                            .fill(Color.black.opacity(0.4))
+                            .frame(width: 54, height: 54)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 10)
+                                    .stroke(isMAX ? Color.red : Color.orange, lineWidth: 1.5)
+                            )
+
+                        Image(systemName: isMAX ? "flame.fill" : "bolt.fill")
+                            .font(.system(size: 26, weight: .black))
+                            .foregroundStyle(
+                                LinearGradient(
+                                    colors: isMAX ? [Color.white, Color.red] : [Color.white, Color.orange],
+                                    startPoint: .top,
+                                    endPoint: .bottom
+                                )
+                            )
+                    }
+
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text(title)
+                            .font(.system(size: 15, weight: .black, design: .monospaced))
+                            .foregroundStyle(.white)
+
+                        Text(subtitle)
+                            .font(.system(size: 11, weight: .medium))
+                            .foregroundStyle(.white.opacity(0.8))
+
+                        HStack(spacing: 4) {
+                            Circle()
+                                .fill(Color.green)
+                                .frame(width: 6, height: 6)
+                            Text("SẴN SÀNG NẠP CHỨC NĂNG")
+                                .font(.system(size: 9, weight: .bold, design: .monospaced))
+                                .foregroundStyle(Color.green)
+                        }
+                    }
+
+                    Spacer()
+
+                    Image(systemName: "chevron.right.circle.fill")
+                        .font(.system(size: 22, weight: .bold))
+                        .foregroundStyle(isMAX ? Color.red : Color.orange)
+                }
+                .padding(14)
+            }
+            .frame(maxWidth: .infinity, minHeight: 84)
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+// MARK: - 6. CỬA SỔ PROFILE (HIỂN THỊ SUPPORT MÁY XANH/ĐỎ, SUPPORT IOS XANH/ĐỎ, HWID)
 
 struct UserProfileSheetView: View {
     @Environment(\.dismiss) private var dismiss
