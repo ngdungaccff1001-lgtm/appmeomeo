@@ -45,7 +45,7 @@
       }
     ],
     "note": "Get Key 12H Vượt Link (Ontops + Layma x2)",
-    "last_active": "2026-08-31 18:58:46"
+    "last_active": "2026-08-31 19:03:46"
   },
   {
     "key": "VHIEUCHE-9QFA-F3MJ-F9ZR",
@@ -142,11 +142,18 @@
     "device_limit": 1,
     "status": "active",
     "created_at": 1788174768.112104,
-    "first_activated_at": null,
-    "expires_at": null,
-    "bound_hwids": [],
+    "first_activated_at": 1788177809.5276685,
+    "expires_at": 1790769809.5276685,
+    "bound_hwids": [
+      {
+        "hwid": "09A15A62-B40B-409D-9D2D-57558AFA8D38",
+        "device_name": "iPhone13,4 (26.5.2)",
+        "registered_at": "2026-08-31 19:03:29"
+      }
+    ],
     "note": "[Seller: VHIEU]",
-    "seller_token": "VHIEU"
+    "seller_token": "VHIEU",
+    "last_active": "2026-08-31 19:03:58"
   },
   {
     "key": "KEY12H-JXLU-ZH40-0Q5U",
@@ -752,7 +759,7 @@
       }
     ],
     "note": "Get Key 12H Vượt Link (Ontops + Layma x2)",
-    "last_active": "2026-08-31 12:59:01"
+    "last_active": "2026-08-31 19:03:55"
   },
   {
     "key": "KEY12H-A82H-LRRV-40PA",

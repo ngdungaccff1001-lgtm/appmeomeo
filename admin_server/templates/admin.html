@@ -504,7 +504,7 @@
                                 <td>
                                     <div style="display: flex; gap: 4px; flex-wrap: wrap;">
                                         <a href="/seller/{{ t.token }}" target="_blank" class="btn-sm btn-reset" style="text-decoration: none; display: inline-flex; align-items: center;">WEB KEY</a>
-                                        <button class="btn-sm btn-active" onclick='openEditTokenModal({{ t|tojson|safe }})'>SỬA</button>
+                                        <button class="btn-sm btn-active" onclick="editTokenByKey('{{ t.token }}')">SỬA</button>
                                         <button class="btn-sm btn-ban" onclick="toggleToken('{{ t.token }}')">{% if t.is_active %}TẮT{% else %}BẬT{% endif %}</button>
                                         <button class="btn-sm btn-del" onclick="deleteToken('{{ t.token }}')">XÓA</button>
                                     </div>
@@ -512,7 +512,7 @@
                             </tr>
                             {% else %}
                             <tr>
-                                <td colspan="5" style="text-align: center; color: var(--text-dim); padding: 30px;">
+                                <td colspan="7" style="text-align: center; color: var(--text-dim); padding: 30px;">
                                     Chưa có Token Seller nào. Hãy tạo token ở bảng bên trái để phân phối cho đại lý!
                                 </td>
                             </tr>
@@ -603,7 +603,7 @@
                                 <input type="checkbox" {% if p.enabled %}checked{% endif %} onchange="togglePatch('{{ p.id }}')">
                                 <span class="slider"></span>
                             </label>
-                            <button class="btn-sm btn-active" onclick='openEditPatchModal({{ p|tojson|safe }})'>SỬA</button>
+                            <button class="btn-sm btn-active" onclick="editPatchById('{{ p.id }}')">SỬA</button>
                             <button class="btn-sm btn-del" onclick="deletePatch('{{ p.id }}')">XÓA</button>
                         </div>
                     </div>
@@ -677,6 +677,19 @@
 </div>
 
 <script>
+    const serverTokens = {{ tokens|tojson|safe }};
+    const serverPatches = {{ patches|tojson|safe }};
+
+    function editTokenByKey(tok) {
+        const t = serverTokens.find(item => item.token === tok);
+        if (t) openEditTokenModal(t);
+    }
+
+    function editPatchById(id) {
+        const p = serverPatches.find(item => item.id === id);
+        if (p) openEditPatchModal(p);
+    }
+
     function switchTab(tabId, btn) {
         document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
         document.querySelectorAll('.nav-tab').forEach(el => el.classList.remove('active'));
