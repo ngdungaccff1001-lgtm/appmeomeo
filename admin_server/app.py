@@ -158,7 +158,7 @@ def before_request_hook():
 
 @app.route('/')
 def index():
-    return render_template('403.html'), 403
+    return redirect('/nxt2007')
 
 @app.route('/nxt2007')
 def admin_panel():
